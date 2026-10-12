@@ -21,11 +21,15 @@ const _q = new THREE.Quaternion();
 const _s = new THREE.Vector3();
 const _c = new THREE.Color();
 const Z = new THREE.Vector3(0, 0, 1);
+const WHITE3 = new THREE.Color(3, 3, 3);
 const hit = makeRayHit();
 
 /** Instanced laser bolts. Hit tests sweep each bolt's per-step segment. */
 export class BoltSystem {
   readonly mesh: THREE.InstancedMesh;
+  /** Wider additive halo drawn around each bolt's hot core. */
+  private readonly halo: THREE.InstancedMesh;
+  private readonly haloColor = new THREE.Color();
   private readonly max = 1200;
   private n = 0;
   private readonly pos: Float32Array;
@@ -47,13 +51,30 @@ export class BoltSystem {
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.count = 0;
     this.mesh.frustumCulled = false;
+    this.halo = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1.1, 1.1, 1),
+      new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0.32,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+      this.max,
+    );
+    this.halo.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.halo.count = 0;
+    this.halo.frustumCulled = false;
+    this.halo.renderOrder = 3;
     for (let i = 0; i < this.max; i++) {
       this.color.push(new THREE.Color());
       this.owner.push(null);
       this.faction.push('player');
       this.mesh.setColorAt(i, _c.set('#ffffff'));
+      this.halo.setColorAt(i, _c.set('#ffffff'));
     }
     scene.add(this.mesh);
+    scene.add(this.halo);
   }
 
   spawn(p: THREE.Vector3, v: THREE.Vector3, damage: number, owner: Ship, color: string, range: number): void {
@@ -108,10 +129,13 @@ export class BoltSystem {
       let bestShip: Ship | null = null;
       for (const s of ctx.ships) {
         if (!s.alive || s === this.owner[i] || !hostile(this.faction[i], s.faction)) continue;
-        const t = raySphere(_p, _d, s.pos, s.radius * 1.15, bestT);
-        if (t >= 0 && t <= bestT) {
-          bestT = t;
-          bestShip = s;
+        const pad = s.spheres.length > 1 ? 1 : 1.15;
+        for (const sph of s.spheres) {
+          const t = raySphere(_p, _d, sph.c, sph.r * pad, bestT);
+          if (t >= 0 && t <= bestT) {
+            bestT = t;
+            bestShip = s;
+          }
         }
       }
       const worldHit = ctx.world.raycast(_p, _d, bestT, 0, hit);
@@ -139,19 +163,28 @@ export class BoltSystem {
       _d.set(this.vel[j * 3], this.vel[j * 3 + 1], this.vel[j * 3 + 2]).normalize();
       _q.setFromUnitVectors(Z, _d);
       const near = _p.distanceToSquared(this.eye) < 100;
-      _s.set(near ? 0 : 1, near ? 0 : 1, 11);
+      _s.set(near ? 0 : 0.7, near ? 0 : 0.7, 11);
       _m.compose(_p, _q, _s);
       this.mesh.setMatrixAt(j, _m);
-      this.mesh.setColorAt(j, this.color[j]);
+      // core runs hot towards white; the halo carries the faction colour
+      this.mesh.setColorAt(j, _c.copy(this.color[j]).lerp(WHITE3, 0.35));
+      _s.set(near ? 0 : 1, near ? 0 : 1, 13);
+      _m.compose(_p, _q, _s);
+      this.halo.setMatrixAt(j, _m);
+      this.halo.setColorAt(j, this.haloColor.copy(this.color[j]).multiplyScalar(0.5));
     }
     this.mesh.count = this.n;
+    this.halo.count = this.n;
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.halo.instanceMatrix.needsUpdate = true;
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    if (this.halo.instanceColor) this.halo.instanceColor.needsUpdate = true;
   }
 
   clear(): void {
     this.n = 0;
     this.mesh.count = 0;
+    this.halo.count = 0;
   }
 }
 

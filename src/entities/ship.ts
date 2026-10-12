@@ -32,24 +32,43 @@ export const emptyControls = (): ShipControls => ({
   missile: false,
 });
 
+// Shield bubble: faint fresnel plus a hex lattice and a shockwave ring that spreads from the
+// exact impact point.
 const shieldVertex = /* glsl */ `
   varying vec3 vN;
   varying vec3 vV;
+  varying vec3 vP;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     vN = normalize(normalMatrix * normal);
     vV = normalize(-mv.xyz);
+    vP = normalize(position);
     gl_Position = projectionMatrix * mv;
   }
 `;
 const shieldFragment = /* glsl */ `
   varying vec3 vN;
   varying vec3 vV;
+  varying vec3 vP;
   uniform vec3 uColor;
   uniform float uOpacity;
+  uniform vec3 uImpact;
+  uniform float uAge;
+  float hexEdge(vec2 p) {
+    p *= vec2(1.0, 1.1547);
+    p.x += mod(floor(p.y), 2.0) * 0.5;
+    vec2 f = abs(fract(p) - 0.5);
+    return max(f.x * 1.5 + f.y, f.y * 2.0);
+  }
   void main() {
-    float f = pow(1.0 - abs(dot(vN, vV)), 2.0);
-    gl_FragColor = vec4(uColor * (f * 2.2 + 0.08) * uOpacity, 1.0);
+    float fres = pow(1.0 - abs(dot(vN, vV)), 2.5);
+    float d = acos(clamp(dot(vP, uImpact), -1.0, 1.0));
+    float ring = exp(-pow((d - uAge * 3.2) * 7.0, 2.0)) * (1.0 - uAge);
+    float spot = exp(-d * 5.0) * (1.0 - uAge);
+    vec2 uv = vec2(atan(vP.z, vP.x) * 3.0, vP.y * 6.0);
+    float hex = smoothstep(0.86, 0.98, hexEdge(uv));
+    float body = fres * 0.6 + hex * (spot * 1.5 + ring * 0.8) + ring * 1.4 + spot * 1.2;
+    gl_FragColor = vec4(uColor * body * uOpacity, 1.0);
   }
 `;
 const shieldGeometry = new THREE.SphereGeometry(1, 24, 16);
@@ -130,6 +149,8 @@ export class Ship {
       uniforms: {
         uColor: { value: new THREE.Color(palette.accent).lerp(new THREE.Color('#7fd8ff'), 0.5) },
         uOpacity: { value: 0 },
+        uImpact: { value: new THREE.Vector3(0, 0, -1) },
+        uAge: { value: 1 },
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -149,6 +170,25 @@ export class Ship {
 
   get radius(): number {
     return this.cls.radius;
+  }
+
+  /** Radius used against station geometry (the core sphere for compound hulls). */
+  get collisionRadius(): number {
+    return this.cls.hitSpheres ? Math.max(...this.cls.hitSpheres.map((h) => h[3])) : this.cls.radius;
+  }
+
+  /** World-space hit spheres: one for fighters, a chain along the hull for long ships. */
+  readonly spheres: { c: THREE.Vector3; r: number }[] = [];
+
+  updateSpheres(): void {
+    const hs = this.cls.hitSpheres;
+    if (!hs) {
+      if (!this.spheres.length) this.spheres.push({ c: new THREE.Vector3(), r: this.cls.radius });
+      this.spheres[0].c.copy(this.pos);
+      return;
+    }
+    if (!this.spheres.length) for (const h of hs) this.spheres.push({ c: new THREE.Vector3(), r: h[3] });
+    for (let i = 0; i < hs.length; i++) this.toWorld(_v.set(hs[i][0], hs[i][1], hs[i][2]), this.spheres[i].c);
   }
 
   get speed(): number {
@@ -184,6 +224,7 @@ export class Ship {
   syncTransform(): void {
     this.root.position.copy(this.pos);
     this.root.quaternion.copy(this.quat);
+    this.updateSpheres();
   }
 
   /**
@@ -276,10 +317,16 @@ export class Ship {
     const lenScale = (this.isPlayer ? 0.5 : 1) * (this.cls.radius > 8 ? 2.5 : 1);
     const len = (0.9 + this.thrust * 1.9 + (this.boosting ? 2.4 : 0)) * flicker * lenScale;
     const width = this.model.engineRadius * (this.boosting ? 1.2 : 1);
-    for (const f of this.flames) f.scale.set(width, width, len);
+    const glow = 0.25 + this.thrust * 0.55 + (this.boosting ? 0.2 : 0);
+    for (const f of this.flames) {
+      f.scale.set(width, width, len);
+      (f.material as THREE.MeshBasicMaterial).opacity = glow;
+      ((f.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = glow;
+    }
 
     // trails
-    this.trailTimer -= dt;
+    // trails are emitted per metre travelled, so a hovering ship does not pile sprites on one spot
+    this.trailTimer -= dt * Math.min(1, this.speed / 40);
     if (this.trailTimer <= 0) {
       this.trailTimer = this.isPlayer ? 0.02 : 0.03;
       for (const e of this.model.engines) {
@@ -291,6 +338,7 @@ export class Ship {
           this.engineColor,
           this.model.engineRadius * (this.boosting ? 2.6 : 1.7) * (this.isPlayer ? 0.6 : 1),
           this.boosting ? 0.5 : 0.3,
+          this.isPlayer ? 0.55 : 1,
         );
       }
     }
@@ -305,12 +353,20 @@ export class Ship {
       }
     }
 
-    // shield shimmer
+    // shield ripple
     if (this.shieldFlash > 0) {
-      this.shieldFlash = Math.max(0, this.shieldFlash - dt * 3);
+      this.shieldFlash = Math.max(0, this.shieldFlash - dt * 1.8);
       this.shieldMesh.visible = true;
-      this.shieldMat.uniforms.uOpacity.value = this.shieldFlash;
+      this.shieldMat.uniforms.uOpacity.value = Math.min(1, this.shieldFlash * 1.5);
+      this.shieldMat.uniforms.uAge.value = 1 - this.shieldFlash;
     } else this.shieldMesh.visible = false;
+  }
+
+  /** Points the shield ripple at a world-space impact position. */
+  shieldImpact(worldPoint: THREE.Vector3): void {
+    this.root.updateMatrixWorld();
+    const local = this.shieldMesh.worldToLocal(worldPoint.clone());
+    (this.shieldMat.uniforms.uImpact.value as THREE.Vector3).copy(local).normalize();
   }
 
   dispose(scene: THREE.Scene): void {

@@ -2,17 +2,19 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { BoxCollider, CapsuleCollider, Collider, SphereCollider } from './colliders';
+import { createHullMaterial } from './hullMaterial';
 
 /**
  * Shared materials. Everything procedural is vertex-coloured so a whole station or ship
  * merges into two draw calls: lit hull plus unlit glow (glow colours exceed 1.0 to feed bloom).
+ * Hull materials add procedural plating, grime and windows (see hullMaterial.ts).
  */
-export const hullMaterial = new THREE.MeshStandardMaterial({
-  vertexColors: true,
-  flatShading: true,
-  roughness: 0.5,
-  metalness: 0.25,
-});
+export const hullMaterials = {
+  ship: createHullMaterial({ panel: 1.1, grime: 0.35, metalness: 0.45, roughness: 0.42 }),
+  structure: createHullMaterial({ panel: 6, windows: 0.09, grime: 0.5 }),
+  rock: createHullMaterial({ panel: 10, rock: true, grime: 0.9, metalness: 0.05, roughness: 0.85 }),
+};
+export type HullKind = keyof typeof hullMaterials;
 
 export const glowMaterial = new THREE.MeshBasicMaterial({
   vertexColors: true,
@@ -25,7 +27,6 @@ export interface PartOptions {
   glow?: number; // 0 = lit hull, >0 = emissive intensity multiplier
 }
 
-const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -56,7 +57,8 @@ export class StructureBuilder {
       if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
     }
     if (!g.getAttribute('normal')) g.computeVertexNormals();
-    g.applyMatrix4(_m.multiplyMatrices(this.base, local));
+    // geometry stays in the structure's local frame so surface detail lines up with its hull
+    g.applyMatrix4(local);
     const c = new THREE.Color(color);
     const k = glow > 0 ? glow : 1;
     const count = g.getAttribute('position').count;
@@ -187,12 +189,14 @@ export class StructureBuilder {
     this.colliders.push(c);
   }
 
-  build(name = 'structure'): THREE.Group {
+  build(name = 'structure', kind: HullKind = 'structure'): THREE.Group {
     const group = new THREE.Group();
     group.name = name;
     if (this.solids.length) {
-      const mesh = new THREE.Mesh(mergeGeometries(this.solids), hullMaterial);
+      const mesh = new THREE.Mesh(mergeGeometries(this.solids), hullMaterials[kind]);
       mesh.geometry.computeBoundingSphere();
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
       group.add(mesh);
     }
     if (this.glows.length) {
@@ -200,6 +204,7 @@ export class StructureBuilder {
       mesh.geometry.computeBoundingSphere();
       group.add(mesh);
     }
+    group.applyMatrix4(this.base);
     for (const g of this.solids) g.dispose();
     for (const g of this.glows) g.dispose();
     this.solids.length = 0;

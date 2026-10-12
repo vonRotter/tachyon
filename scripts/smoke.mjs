@@ -41,7 +41,7 @@ page.on('console', (m) => {
   if (m.type() === 'error' || m.type() === 'warning') errors.push(`${m.type()}: ${m.text()}`);
 });
 
-await page.goto(`http://localhost:${PORT}/`);
+await page.goto(`http://localhost:${PORT}/?quality=${process.env.QUALITY ?? "high"}&dynres=0`);
 await page.waitForTimeout(2500);
 await page.screenshot({ path: `${OUT}01-title.png` });
 

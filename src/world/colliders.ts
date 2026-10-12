@@ -255,9 +255,27 @@ export class BoxCollider extends Collider {
   }
 }
 
-/** Uniform hash grid over static colliders. */
+interface Attached {
+  world: CollisionWorld;
+  object: THREE.Object3D;
+  inv: THREE.Matrix4;
+  rot: THREE.Quaternion;
+  invRot: THREE.Quaternion;
+}
+
+const _lo = new THREE.Vector3();
+const _ld = new THREE.Vector3();
+const _ln = new THREE.Vector3();
+const subHit: RayHit = { t: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), collider: null };
+
+/**
+ * Uniform hash grid over static colliders, plus attached sub-worlds that move rigidly with an
+ * Object3D (the rotating habitat ring, the radar arm). Queries against a sub-world are
+ * transformed into its local frame, so moving structures stay exact without rebuilding colliders.
+ */
 export class CollisionWorld {
   readonly colliders: Collider[] = [];
+  private readonly attached: Attached[] = [];
   private readonly cells = new Map<number, Collider[]>();
   private stamp = 1;
   private readonly scratch: Collider[] = [];
@@ -326,7 +344,7 @@ export class CollisionWorld {
   }
 
   /** Sphere sweep (or plain ray when inflate is 0) through the grid, nearest hit first. */
-  raycast(o: THREE.Vector3, d: THREE.Vector3, maxT: number, inflate: number, hit: RayHit): boolean {
+  private raycastLocal(o: THREE.Vector3, d: THREE.Vector3, maxT: number, inflate: number, hit: RayHit): boolean {
     const cs = this.cellSize;
     let ix = Math.floor(o.x / cs);
     let iy = Math.floor(o.y / cs);
@@ -389,8 +407,7 @@ export class CollisionWorld {
     return !this.raycast(a, _dir, len, 0, hit);
   }
 
-  /** Distance from `p` to the nearest surface within `range`, or Infinity. */
-  nearestSurface(p: THREE.Vector3, range: number, outNormal: THREE.Vector3): number {
+  private nearestLocal(p: THREE.Vector3, range: number, outNormal: THREE.Vector3): number {
     const list = this.gatherSphere(p, range);
     let best = Infinity;
     for (const c of list) {
@@ -403,11 +420,7 @@ export class CollisionWorld {
     return best <= range ? best : Infinity;
   }
 
-  /**
-   * Push a sphere out of any geometry it overlaps. Returns the deepest penetration found
-   * (0 when clear) and writes the averaged contact normal.
-   */
-  resolveSphere(p: THREE.Vector3, r: number, outNormal: THREE.Vector3): number {
+  private resolveLocal(p: THREE.Vector3, r: number, outNormal: THREE.Vector3): number {
     let deepest = 0;
     outNormal.set(0, 0, 0);
     for (let iter = 0; iter < 3; iter++) {
@@ -424,6 +437,74 @@ export class CollisionWorld {
         }
       }
       if (!moved) break;
+    }
+    if (deepest > 0) outNormal.normalize();
+    return deepest;
+  }
+
+  /** Attaches a sub-world whose colliders are defined in `object`'s local frame. */
+  attach(world: CollisionWorld, object: THREE.Object3D): void {
+    this.attached.push({ world, object, inv: new THREE.Matrix4(), rot: new THREE.Quaternion(), invRot: new THREE.Quaternion() });
+    this.sync();
+  }
+
+  /** Refreshes attached transforms; call after moving attached objects. */
+  sync(): void {
+    for (const a of this.attached) {
+      a.object.updateWorldMatrix(true, false);
+      a.inv.copy(a.object.matrixWorld).invert();
+      a.object.getWorldQuaternion(a.rot);
+      a.invRot.copy(a.rot).invert();
+    }
+  }
+
+  /** Sphere sweep (or plain ray when inflate is 0), nearest hit across static and attached geometry. */
+  raycast(o: THREE.Vector3, d: THREE.Vector3, maxT: number, inflate: number, hit: RayHit): boolean {
+    let found = this.raycastLocal(o, d, maxT, inflate, hit);
+    let best = found ? hit.t : maxT;
+    for (const a of this.attached) {
+      _lo.copy(o).applyMatrix4(a.inv);
+      _ld.copy(d).applyQuaternion(a.invRot);
+      if (a.world.raycastLocal(_lo, _ld, best, inflate, subHit)) {
+        best = subHit.t;
+        found = true;
+        hit.t = best;
+        hit.normal.copy(subHit.normal).applyQuaternion(a.rot);
+        hit.point.copy(o).addScaledVector(d, best);
+        hit.collider = subHit.collider;
+      }
+    }
+    return found;
+  }
+
+  /** Distance from `p` to the nearest surface within `range`, or Infinity. */
+  nearestSurface(p: THREE.Vector3, range: number, outNormal: THREE.Vector3): number {
+    let best = this.nearestLocal(p, range, outNormal);
+    for (const a of this.attached) {
+      _lo.copy(p).applyMatrix4(a.inv);
+      const dist = a.world.nearestLocal(_lo, range, _ln);
+      if (dist < best) {
+        best = dist;
+        outNormal.copy(_ln).applyQuaternion(a.rot);
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Push a sphere out of any geometry it overlaps. Returns the deepest penetration found
+   * (0 when clear) and writes the averaged contact normal.
+   */
+  resolveSphere(p: THREE.Vector3, r: number, outNormal: THREE.Vector3): number {
+    let deepest = this.resolveLocal(p, r, outNormal);
+    for (const a of this.attached) {
+      _lo.copy(p).applyMatrix4(a.inv);
+      const depth = a.world.resolveLocal(_lo, r, _ln);
+      if (depth > 0) {
+        p.copy(_lo).applyMatrix4(a.object.matrixWorld);
+        outNormal.add(_ln.applyQuaternion(a.rot));
+        deepest = Math.max(deepest, depth);
+      }
     }
     if (deepest > 0) outNormal.normalize();
     return deepest;

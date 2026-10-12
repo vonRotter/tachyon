@@ -234,16 +234,170 @@ export class Sky {
   }
 }
 
-export function createLights(scene: THREE.Scene): void {
-  const sun = new THREE.DirectionalLight('#ffe6c7', 2.6);
-  sun.position.copy(SUN_DIRECTION).multiplyScalar(1000);
-  scene.add(sun);
-  scene.add(sun.target);
-  const fill = new THREE.HemisphereLight('#6d7dff', '#ff4f8a', 0.85);
-  scene.add(fill);
-  const rim = new THREE.DirectionalLight('#55e0ff', 0.6);
-  rim.position.copy(SUN_DIRECTION).multiplyScalar(-1000);
-  scene.add(rim);
+/**
+ * Sun, fill and rim lights, plus a shadow map that follows the player. The shadow box is
+ * snapped to whole texels in light space so shadow edges do not crawl as the ship moves.
+ */
+export class Lighting {
+  readonly sun = new THREE.DirectionalLight('#ffe6c7', 3.4);
+  readonly fill = new THREE.HemisphereLight('#6d7dff', '#ff4f8a', 0.32);
+  readonly rim = new THREE.DirectionalLight('#55e0ff', 0.45);
+  private range = 450;
+  private mapSize = 2048;
+  private readonly lx = new THREE.Vector3();
+  private readonly ly = new THREE.Vector3();
+  private readonly lz = SUN_DIRECTION.clone();
+
+  constructor(scene: THREE.Scene) {
+    this.sun.position.copy(SUN_DIRECTION).multiplyScalar(1000);
+    scene.add(this.sun, this.sun.target, this.fill, this.rim);
+    this.rim.position.copy(SUN_DIRECTION).multiplyScalar(-1000);
+    this.lx.crossVectors(new THREE.Vector3(0, 1, 0), this.lz).normalize();
+    this.ly.crossVectors(this.lz, this.lx);
+  }
+
+  configureShadows(enabled: boolean, mapSize: number, range: number): void {
+    this.sun.castShadow = enabled;
+    this.range = range;
+    this.mapSize = mapSize;
+    const sh = this.sun.shadow;
+    if (sh.mapSize.x !== mapSize) {
+      sh.mapSize.set(mapSize, mapSize);
+      sh.map?.dispose();
+      sh.map = null;
+    }
+    const cam = sh.camera;
+    cam.left = -range;
+    cam.right = range;
+    cam.top = range;
+    cam.bottom = -range;
+    cam.near = 1;
+    cam.far = 4000;
+    cam.updateProjectionMatrix();
+    const texel = (2 * range) / mapSize;
+    sh.bias = -0.0003;
+    sh.normalBias = texel * 1.2;
+  }
+
+  update(focus: THREE.Vector3): void {
+    if (!this.sun.castShadow) return;
+    const texel = (2 * this.range) / this.mapSize;
+    const fx = Math.round(focus.dot(this.lx) / texel) * texel;
+    const fy = Math.round(focus.dot(this.ly) / texel) * texel;
+    const fz = focus.dot(this.lz);
+    const snapped = this.sun.target.position.set(0, 0, 0);
+    snapped.addScaledVector(this.lx, fx).addScaledVector(this.ly, fy).addScaledVector(this.lz, fz);
+    this.sun.position.copy(snapped).addScaledVector(this.lz, 2000);
+  }
+}
+
+/** Prefiltered environment map built from the procedural sky, for metallic reflections. */
+export function buildEnvironment(renderer: THREE.WebGLRenderer, sky: Sky): THREE.Texture {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const rt = pmrem.fromScene(sky.scene, 0.02, 1, 3000);
+  pmrem.dispose();
+  return rt.texture;
+}
+
+function cloudTexture(seed: number): THREE.CanvasTexture {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const g = canvas.getContext('2d') as CanvasRenderingContext2D;
+  const img = g.createImageData(size, size);
+  const rng = new SeededRandom(seed);
+  const grid = 8;
+  const lattice: number[] = [];
+  for (let i = 0; i < (grid + 1) * (grid + 1) * 4; i++) lattice.push(rng.next());
+  const noise = (x: number, y: number, oct: number) => {
+    const n = grid * oct;
+    const gx = x * n;
+    const gy = y * n;
+    const ix = Math.floor(gx) % grid;
+    const iy = Math.floor(gy) % grid;
+    const fx = gx - Math.floor(gx);
+    const fy = gy - Math.floor(gy);
+    const sx = fx * fx * (3 - 2 * fx);
+    const sy = fy * fy * (3 - 2 * fy);
+    const at = (a: number, b: number) => lattice[((b % grid) * (grid + 1) + (a % grid)) * 4 + (oct % 4)];
+    const top = at(ix, iy) * (1 - sx) + at(ix + 1, iy) * sx;
+    const bot = at(ix, iy + 1) * (1 - sx) + at(ix + 1, iy + 1) * sx;
+    return top * (1 - sy) + bot * sy;
+  };
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const v = y / size;
+      const r = Math.hypot(u - 0.5, v - 0.5) * 2;
+      const f = noise(u, v, 1) * 0.55 + noise(u, v, 2) * 0.3 + noise(u, v, 4) * 0.15;
+      const a = Math.max(0, 1 - r) ** 1.6 * Math.max(0, f * 1.6 - 0.35);
+      const i = (y * size + x) * 4;
+      img.data[i] = 255;
+      img.data[i + 1] = 255;
+      img.data[i + 2] = 255;
+      img.data[i + 3] = Math.min(255, a * 255);
+    }
+  g.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Local gas clouds: large soft billboards scattered through the play area. Unlike the backdrop
+ * they have parallax, so flying past them sells distance and speed. They fade out as the camera
+ * gets close, so you never see a flat card edge-on.
+ */
+export class GasClouds {
+  readonly group = new THREE.Group();
+  private readonly items: { sprite: THREE.Sprite; base: number; size: number }[] = [];
+
+  constructor() {
+    const textures = [cloudTexture(11), cloudTexture(29), cloudTexture(47)];
+    const rng = new SeededRandom(77);
+    const clusters: [THREE.Vector3, number, string[]][] = [
+      [new THREE.Vector3(-1200, -100, 650), 600, ['#7a3cff', '#ff4fa0', '#3fc8ff']],
+      [new THREE.Vector3(600, 300, 900), 700, ['#ff7a35', '#ff4fa0']],
+      [new THREE.Vector3(-400, 500, -1400), 800, ['#3fe0c0', '#3f8cff']],
+      [new THREE.Vector3(1600, -300, -200), 700, ['#b04fff', '#ff6a8a']],
+      [new THREE.Vector3(0, -700, 300), 900, ['#3fc8ff', '#7a3cff']],
+    ];
+    for (const [center, spread, colors] of clusters) {
+      for (let i = 0; i < 14; i++) {
+        const mat = new THREE.SpriteMaterial({
+          map: rng.pick(textures),
+          color: new THREE.Color(rng.pick(colors)),
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          rotation: rng.range(0, Math.PI * 2),
+          fog: false,
+        });
+        const sprite = new THREE.Sprite(mat);
+        const size = rng.range(180, 520);
+        sprite.scale.set(size, size, 1);
+        sprite.position
+          .set(rng.range(-1, 1), rng.range(-0.6, 0.6), rng.range(-1, 1))
+          .multiplyScalar(spread)
+          .add(center);
+        sprite.renderOrder = 2;
+        const base = rng.range(0.1, 0.22);
+        mat.opacity = base;
+        this.group.add(sprite);
+        this.items.push({ sprite, base, size });
+      }
+    }
+  }
+
+  update(cameraPos: THREE.Vector3): void {
+    for (const it of this.items) {
+      const d = it.sprite.position.distanceTo(cameraPos);
+      const near = THREE.MathUtils.smoothstep(d, it.size * 0.25, it.size * 0.9);
+      (it.sprite.material as THREE.SpriteMaterial).opacity = it.base * near;
+      it.sprite.visible = near > 0.01;
+    }
+  }
 }
 
 /**

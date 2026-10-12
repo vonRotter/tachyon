@@ -30,6 +30,32 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   model as you, and missiles explode on structures. Dragging either through a tower works.
 - **Procedural everything.** Ship models, station, nebula sky, ringed gas giant, every sound
   effect and the synthwave score are generated in code. No asset files.
+- **Moving structures and traffic.** The habitat ring (with its spokes and docking arms) turns
+  slowly for spin gravity, the sensor dish sweeps a radar boom, and two bulk haulers fly loops
+  through the area. All of it collides.
+
+## Graphics
+
+Pick Auto, Low, Medium or High on the title screen. Auto guesses from the GPU name (integrated
+GPUs get Medium, dedicated ones High), and dynamic resolution lowers the render scale when frame
+times run long.
+
+| Feature | Low | Medium | High |
+|---|---|---|---|
+| MSAA (on the post-processing target) | off | 4x | 4x |
+| Sun shadows (box follows the player) | off | 2048, 450 m | 4096, 700 m |
+| Procedural hull detail (plates, seams, grime, windows) | off | on | on |
+| Lens flare | off | on | on |
+| Resolution cap (device pixel ratio) | 1.0 | 1.25 | 1.5 |
+
+Always on: reflections from a prefiltered environment map built from the procedural sky, bloom,
+gas clouds, a lens pass (vignette, grain, chromatic aberration and radial blur while boosting),
+shield ripples at the impact point, fireballs with burning debris, hologram signs.
+
+For testing, `?quality=high&dynres=0` forces a preset and disables dynamic resolution.
+
+Hull detail is generated in a shader (`src/world/hullMaterial.ts`), projected from three sides in
+object space so it stays attached to moving ships. No texture files are involved.
 - **Controls:** mouse and keyboard, plus Xbox and PlayStation gamepads (standard mapping).
   Optional spoken radio uses the browser's built-in text-to-speech. It is off by default and the
   voice quality depends on the operating system.
@@ -91,3 +117,4 @@ is enough game to ship.
 - Countermeasures, more weapon types, energy routing between shields, guns and engines
 - More locations: derelicts, a mining rig, a Combine shipyard
 - Floating origin, needed once maps grow beyond about 10 km
+- Optional CC0 photo textures (Poly Haven, ambientCG) as a detail layer on the hull shader

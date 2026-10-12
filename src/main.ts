@@ -1,6 +1,7 @@
 import './style.css';
 import { Game } from './game/game';
 import { runKestrelMission } from './game/mission';
+import { detectQuality, type QualityLevel } from './core/quality';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -10,6 +11,7 @@ interface Settings {
   invertMouse: boolean;
   invertPad: boolean;
   sensitivity: number;
+  quality: 'auto' | QualityLevel;
 }
 
 interface Campaign {
@@ -39,6 +41,7 @@ const settings = load<Settings>('veil.settings', {
   invertMouse: false,
   invertPad: false,
   sensitivity: 1,
+  quality: 'auto',
 });
 const campaign = load<Campaign>('veil.campaign', { credits: 0, allegiance: null });
 
@@ -68,6 +71,23 @@ bindCheck('opt-voice', 'voice');
 bindCheck('opt-music', 'music');
 bindCheck('opt-invert-mouse', 'invertMouse');
 bindCheck('opt-invert-pad', 'invertPad');
+// URL overrides for testing: ?quality=high&dynres=0
+const params = new URLSearchParams(location.search);
+const urlQuality = params.get('quality') as QualityLevel | null;
+if (params.get('dynres') === '0') game.dynamicResolution.enabled = false;
+const applyQuality = () => {
+  const level = urlQuality ?? (settings.quality === 'auto' ? detectQuality(game.renderer) : settings.quality);
+  game.applyQuality(level);
+};
+const qualitySelect = $<HTMLSelectElement>('opt-quality');
+qualitySelect.value = settings.quality;
+qualitySelect.addEventListener('change', () => {
+  settings.quality = qualitySelect.value as Settings['quality'];
+  save('veil.settings', settings);
+  applyQuality();
+});
+applyQuality();
+
 const sens = $<HTMLInputElement>('opt-sens');
 sens.value = String(settings.sensitivity);
 sens.addEventListener('input', () => {

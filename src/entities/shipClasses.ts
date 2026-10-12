@@ -1,4 +1,4 @@
-export type ModelId = 'kite' | 'lancer' | 'raider' | 'warden' | 'brute';
+export type ModelId = 'kite' | 'lancer' | 'raider' | 'warden' | 'brute' | 'freighter';
 
 export interface GunSpec {
   damage: number;
@@ -33,6 +33,10 @@ export interface ShipClass {
   gun: GunSpec;
   missiles: number;
   price: number;
+  /** Compound collision for long hulls: local [x, y, z, radius] spheres. */
+  hitSpheres?: [number, number, number, number][];
+  /** Civilian traffic: never targeted, never shoots. */
+  civilian?: boolean;
 }
 
 /**
@@ -158,5 +162,38 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     gun: { damage: 8, cooldown: 0.12, boltSpeed: 600, energyCost: 1, range: 900, turretArc: 1.4 },
     missiles: 10,
     price: 0,
+  },
+  freighter: {
+    id: 'freighter',
+    name: 'Drift Bulk Hauler',
+    model: 'freighter',
+    radius: 30,
+    hull: 5000,
+    shields: 100000,
+    shieldRegen: 1000,
+    shieldDelay: 1,
+    maxSpeed: 42,
+    boostSpeed: 42,
+    strafeSpeed: 0,
+    accel: 0.5,
+    pitchRate: 0.32,
+    yawRate: 0.28,
+    rollRate: 0.45,
+    turnResponse: 1.5,
+    energy: 100,
+    energyRegen: 10,
+    boostDrain: 0,
+    gun: { damage: 0, cooldown: 99, boltSpeed: 1, energyCost: 0, range: 0 },
+    missiles: 0,
+    price: 0,
+    hitSpheres: [
+      [0, 0, -38, 9],
+      [0, 0, -21, 11],
+      [0, 0, -4, 11],
+      [0, 0, 13, 11],
+      [0, 0, 30, 11],
+      [0, 0, 42, 9],
+    ],
+    civilian: true,
   },
 };

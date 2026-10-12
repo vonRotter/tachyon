@@ -54,7 +54,7 @@ export class AIPilot {
     let best: Ship | null = null;
     let bestScore = Infinity;
     for (const s of this.ctx.ships) {
-      if (!s.alive || !hostile(ship.faction, s.faction)) continue;
+      if (!s.alive || s.cls.civilian || !hostile(ship.faction, s.faction)) continue;
       let score = s.pos.distanceTo(ship.pos);
       if (s.isPlayer) score *= 1 - this.playerBias * 0.6;
       if (s === ship.lastAttacker) score *= 0.6;
@@ -243,24 +243,57 @@ export class AIPilot {
   }
 
   private steer(ship: Ship, desired: THREE.Vector3): void {
+    steerTowards(ship, desired, this.skill);
+  }
+
+}
+
+/** PD steering from a desired world direction to pitch/yaw/roll controls, with bank-to-turn. */
+export function steerTowards(ship: Ship, desired: THREE.Vector3, skill: number): void {
+  const c = ship.controls;
+  _inv.copy(ship.quat).invert();
+  const local = _tmp.copy(desired).applyQuaternion(_inv);
+  const pitchErr = Math.atan2(local.y, -local.z);
+  const yawErr = Math.atan2(local.x, -local.z);
+  const gain = 2.2 + skill * 1.6;
+  // the rate term stops the nose overshooting the aim point
+  const damping = 0.25 + skill * 0.2;
+  c.pitch = clamp(pitchErr * gain - (ship.angVel.x / ship.cls.pitchRate) * damping, -1, 1);
+  c.yaw = clamp(yawErr * gain + (ship.angVel.y / ship.cls.yawRate) * damping, -1, 1);
+  const off = Math.atan2(Math.hypot(local.x, local.y), -local.z);
+  if (off > 0.2) {
+    const rollErr = Math.atan2(local.x, Math.abs(local.y) + 1e-3);
+    c.roll = clamp(rollErr * 1.6, -1, 1) * clamp((off - 0.2) * 2.5, 0, 1);
+  } else {
+    // drift back towards level flight so formations look intentional
+    ship.right(_tmp2);
+    c.roll = clamp(_tmp2.y * 1.5, -0.4, 0.4);
+  }
+}
+
+/** Civilian traffic: loops through waypoints at a steady cruise and never fights. */
+export class WaypointPilot {
+  private index = 0;
+
+  constructor(
+    private readonly points: THREE.Vector3[],
+    private readonly cruise = 0.85,
+  ) {}
+
+  update(ship: Ship, dt: number): void {
+    void dt;
     const c = ship.controls;
-    _inv.copy(ship.quat).invert();
-    const local = _tmp.copy(desired).applyQuaternion(_inv);
-    const pitchErr = Math.atan2(local.y, -local.z);
-    const yawErr = Math.atan2(local.x, -local.z);
-    const gain = 2.2 + this.skill * 1.6;
-    // PD steering: the rate term stops the nose overshooting the aim point
-    const damping = 0.25 + this.skill * 0.2;
-    c.pitch = clamp(pitchErr * gain - (ship.angVel.x / ship.cls.pitchRate) * damping, -1, 1);
-    c.yaw = clamp(yawErr * gain + (ship.angVel.y / ship.cls.yawRate) * damping, -1, 1);
-    const off = Math.atan2(Math.hypot(local.x, local.y), -local.z);
-    if (off > 0.2) {
-      const rollErr = Math.atan2(local.x, Math.abs(local.y) + 1e-3);
-      c.roll = clamp(rollErr * 1.6, -1, 1) * clamp((off - 0.2) * 2.5, 0, 1);
-    } else {
-      // drift back towards level flight so formations look intentional
-      ship.right(_tmp2);
-      c.roll = clamp(_tmp2.y * 1.5, -0.4, 0.4);
+    c.fire = false;
+    c.missile = false;
+    c.boost = false;
+    c.slide = false;
+    let target = this.points[this.index];
+    if (ship.pos.distanceTo(target) < 160) {
+      this.index = (this.index + 1) % this.points.length;
+      target = this.points[this.index];
     }
+    _desired.subVectors(target, ship.pos).normalize();
+    c.throttle = this.cruise;
+    steerTowards(ship, _desired, 0.4);
   }
 }

@@ -2,15 +2,26 @@ import * as THREE from 'three';
 import { StructureBuilder, v3 } from './builder';
 import { CapsuleCollider, CollisionWorld, SphereCollider } from './colliders';
 import { SeededRandom } from '../core/math';
+import { createHologram, placeHologram } from './holograms';
 
 const Y = new THREE.Vector3(0, 1, 0);
 const quatY = (angle: number): THREE.Quaternion => new THREE.Quaternion().setFromAxisAngle(Y, angle);
 const quatX90 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
 
 export interface Beacon {
+  /** World position, or local to `parent` when set. */
   position: THREE.Vector3;
   color: THREE.Color;
   phase: number;
+  parent?: THREE.Object3D;
+  /** 'chase' lights run in sequence along docking arms. */
+  kind?: 'blink' | 'chase';
+}
+
+export interface Spinner {
+  object: THREE.Object3D;
+  /** Radians per second about the object's local Y axis. */
+  speed: number;
 }
 
 export interface StructureResult {
@@ -18,6 +29,7 @@ export interface StructureResult {
   beacons: Beacon[];
   /** Named waypoints (world space) used by AI and missions. */
   points: Record<string, THREE.Vector3>;
+  spinners?: Spinner[];
 }
 
 /**
@@ -43,13 +55,13 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
   b.sphere(v3(0, -75, 0), 40, teal, { detail: 2, collide: false });
   b.addCollider(new CapsuleCollider(v3(0, -75, 0), v3(0, 75, 0), 40));
   for (const y of [-52, -18, 18, 52]) {
-    b.torus(v3(0, y, 0), 41, 1.4, '#5ff2ff', { quat: quatX90, glow: 2.2, tubular: 40 });
+    b.torus(v3(0, y, 0), 41, 1.4, '#5ff2ff', { quat: quatX90, glow: 1.6, tubular: 40 });
   }
   for (let i = 0; i < 24; i++) {
     const a = (i / 24) * Math.PI * 2;
     for (const y of [-35, 0, 35]) {
       const p = v3(Math.cos(a) * 40.2, y, Math.sin(a) * 40.2);
-      b.box(p, v3(0.6, 5, 6), '#ffe08a', { quat: quatY(-a), glow: 2.4, collide: false });
+      b.box(p, v3(0.6, 5, 6), '#ffe08a', { quat: quatY(-a), glow: 1.6, collide: false });
     }
   }
   for (let i = 0; i < 40; i++) {
@@ -62,6 +74,11 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
     });
   }
 
+  // Everything from here to the towers rotates slowly for spin gravity, so it is built separately
+  // and attached to the collision world as a moving sub-world.
+  const rb = new StructureBuilder();
+  const ringBeacons: Beacon[] = [];
+
   // --- Habitat ring --------------------------------------------------------------------------
   const R = 260;
   const segs = 28;
@@ -70,22 +87,22 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
     const a = (i / segs) * Math.PI * 2;
     const c = v3(Math.cos(a) * R, 0, Math.sin(a) * R);
     const q = quatY(-a);
-    b.box(c, v3(30, 22, segLen), i % 2 === 0 ? cream : orange, { quat: q });
+    rb.box(c, v3(30, 22, segLen), i % 2 === 0 ? cream : orange, { quat: q });
     // windows on the outer and inner faces
     for (const side of [1, -1]) {
       const wp = v3(Math.cos(a) * (R + side * 15.3), 4, Math.sin(a) * (R + side * 15.3));
-      b.box(wp, v3(0.4, 3, segLen * 0.75), '#ffd27a', { quat: q, glow: 2.6, collide: false });
+      rb.box(wp, v3(0.4, 3, segLen * 0.75), '#ffd27a', { quat: q, glow: 1.5, collide: false });
       const wp2 = v3(Math.cos(a) * (R + side * 15.3), -4, Math.sin(a) * (R + side * 15.3));
-      b.box(wp2, v3(0.4, 1.5, segLen * 0.6), '#7ff6ff', { quat: q, glow: 2.0, collide: false });
+      rb.box(wp2, v3(0.4, 1.5, segLen * 0.6), '#7ff6ff', { quat: q, glow: 1.3, collide: false });
     }
     // roof greebles
-    b.box(v3(Math.cos(a) * R, 12, Math.sin(a) * R), v3(18, 2, segLen * 0.5), '#2b2f45', { quat: q, collide: false });
+    rb.box(v3(Math.cos(a) * R, 12, Math.sin(a) * R), v3(18, 2, segLen * 0.5), '#2b2f45', { quat: q, collide: false });
     if (i % 4 === 0) {
-      b.sphere(v3(Math.cos(a) * R, 20, Math.sin(a) * R), 11, i % 8 === 0 ? magenta : '#3fd0ff', { detail: 1 });
+      rb.sphere(v3(Math.cos(a) * R, 20, Math.sin(a) * R), 11, i % 8 === 0 ? magenta : '#3fd0ff', { detail: 1 });
     }
     if (i % 2 === 1) {
       const bp = v3(Math.cos(a) * (R + 16), 12, Math.sin(a) * (R + 16));
-      beacons.push({ position: bp, color: new THREE.Color(i % 4 === 1 ? '#ff2040' : '#30ff70'), phase: i * 0.37 });
+      ringBeacons.push({ position: bp, color: new THREE.Color(i % 4 === 1 ? '#ff2040' : '#30ff70'), phase: i * 0.37 });
     }
   }
 
@@ -95,16 +112,16 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
     const dir = v3(Math.cos(a), 0, Math.sin(a));
     const inner = dir.clone().multiplyScalar(38);
     const outer = dir.clone().multiplyScalar(R - 14);
-    b.strut(inner, outer, 6, white, { sides: 10 });
+    rb.strut(inner, outer, 6, white, { sides: 10 });
     const up = v3(0, 16, 0);
-    b.strut(inner.clone().add(up), outer.clone().add(up), 1.8, magenta);
-    b.strut(inner.clone().sub(up), outer.clone().sub(up), 1.8, magenta);
+    rb.strut(inner.clone().add(up), outer.clone().add(up), 1.8, magenta);
+    rb.strut(inner.clone().sub(up), outer.clone().sub(up), 1.8, magenta);
     for (let k = 1; k < 5; k++) {
       const t0 = 38 + ((R - 52) * k) / 5;
       const p = dir.clone().multiplyScalar(t0);
       const p2 = dir.clone().multiplyScalar(t0 + (R - 52) / 10);
-      b.strut(p.clone().add(up), p2, 1.2, yellow);
-      b.strut(p.clone().sub(up), p2, 1.2, yellow);
+      rb.strut(p.clone().add(up), p2, 1.2, yellow);
+      rb.strut(p.clone().sub(up), p2, 1.2, yellow);
     }
   }
 
@@ -113,23 +130,36 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
     const dir = v3(Math.cos(a), 0, Math.sin(a));
     const start = dir.clone().multiplyScalar(R + 15);
     const end = dir.clone().multiplyScalar(R + 120);
-    b.strut(start, end, 4, '#c7cde0', { sides: 8 });
+    rb.strut(start, end, 4, '#c7cde0', { sides: 8 });
     const side = v3(-dir.z, 0, dir.x);
     const cradle = end.clone();
-    b.box(cradle, v3(30, 6, 30), '#2b2f45', { quat: quatY(-a) });
+    rb.box(cradle, v3(30, 6, 30), '#2b2f45', { quat: quatY(-a) });
     for (const s of [1, -1]) {
       const wall = cradle.clone().addScaledVector(side, s * 14).add(v3(0, 12, 0));
-      b.box(wall, v3(26, 20, 3), orange, { quat: quatY(-a) });
-      beacons.push({
+      rb.box(wall, v3(26, 20, 3), orange, { quat: quatY(-a) });
+      ringBeacons.push({
         position: wall.clone().add(v3(0, 11, 0)),
         color: new THREE.Color('#ffb020'),
         phase: a + s,
       });
     }
-    b.box(cradle.clone().add(v3(0, 3.5, 0)), v3(20, 0.6, 20), '#5fe8ff', { quat: quatY(-a), glow: 1.6, collide: false });
+    rb.box(cradle.clone().add(v3(0, 3.5, 0)), v3(20, 0.6, 20), '#5fe8ff', { quat: quatY(-a), glow: 1.6, collide: false });
+    // approach lights that run outwards in sequence along the arm
+    for (let k = 0; k < 9; k++) {
+      const lp = dir.clone().multiplyScalar(R + 22 + k * 11).add(v3(0, 5, 0));
+      for (const s of [1, -1]) {
+        ringBeacons.push({
+          position: lp.clone().addScaledVector(side, s * 5),
+          color: new THREE.Color('#5fe8ff'),
+          phase: k,
+          kind: 'chase',
+        });
+      }
+    }
   }
 
   // --- Lattice towers (fly inside them) -------------------------------------------------------
+  const db = new StructureBuilder();
   const h = 18;
   const step = 30;
   for (const sign of [1, -1]) {
@@ -195,8 +225,13 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
     const tip = yAt(levels);
     if (sign > 0) {
       for (const c of corners) b.strut(v3(c.x, tip, c.z), v3(0, tip + 44, 0), 1.6, white);
-      b.cylinder(v3(0, tip + 46, 0), 46, 4, cream, { sides: 24, radiusTop: 34 });
-      b.sphere(v3(0, tip + 54, 0), 4, '#ff2050', { glow: 3, collide: false });
+      // rotating sensor dish with a sweeping radar boom
+      db.cylinder(v3(0, tip + 46, 0), 46, 4, cream, { sides: 24, radiusTop: 34 });
+      db.sphere(v3(0, tip + 54, 0), 4, '#ff2050', { glow: 3, collide: false });
+      db.box(v3(38, tip + 51, 0), v3(66, 3, 4), '#2b2f45');
+      db.box(v3(72, tip + 54, 0), v3(6, 9, 10), orange);
+      db.sphere(v3(75.5, tip + 54, 0), 1.6, '#ff2050', { glow: 3, collide: false });
+      db.box(v3(-30, tip + 50, 0), v3(10, 6, 10), magenta);
     } else {
       b.sphere(v3(0, tip - 56, 0), 20, '#ff9a2a', { detail: 2, glow: 2.2 });
       for (let i = 0; i < 6; i++) {
@@ -219,9 +254,38 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
 
   world.addAll(b.colliders);
   const group = b.build('kestrel-station');
+
+  const ring = rb.build('habitat-ring');
+  group.add(ring);
+  const ringWorld = new CollisionWorld();
+  ringWorld.addAll(rb.colliders);
+  world.attach(ringWorld, ring);
+  for (const bc of ringBeacons) bc.parent = ring;
+  const ringSigns: [string[], string, number][] = [
+    [['KESTREL STATION', 'FUEL · REPAIRS · NO QUESTIONS'], '#5ff2ff', 1.35],
+    [['HELIOS FIZZ', 'TASTES LIKE A SOLAR FLARE'], '#ff4fd8', 3.15],
+    [['DOCKING LANE 4', 'SPEED LIMIT 40 M/S'], '#ffd84d', 5.83],
+  ];
+  ringSigns.forEach(([lines, color, a], i) => {
+    const dir = v3(Math.cos(a), 0, Math.sin(a));
+    ring.add(placeHologram(createHologram(lines, color, 72, i), dir.clone().multiplyScalar(R).setY(34), dir));
+  });
+  const hubDir = v3(0.24, 0, 0.97).normalize();
+  group.add(placeHologram(createHologram(['WELCOME TO THE VEIL REACH'], '#4dfcd2', 64, 7), hubDir.clone().multiplyScalar(47), hubDir));
+
+  const dish = db.build('sensor-dish');
+  group.add(dish);
+  const dishWorld = new CollisionWorld();
+  dishWorld.addAll(db.colliders);
+  world.attach(dishWorld, dish);
+
   return {
     group,
-    beacons,
+    spinners: [
+      { object: ring, speed: 0.045 },
+      { object: dish, speed: 0.35 },
+    ],
+    beacons: [...beacons, ...ringBeacons],
     points: {
       hub: v3(0, 0, 0),
       towerTop: v3(0, 400, 0),
@@ -340,6 +404,10 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
 
   world.addAll(b.colliders);
   const group = b.build('carrier');
+  for (const s of [1, -1]) {
+    const sign = createHologram(['HELION COMBINE', 'A BRIGHTER TOMORROW, ON SCHEDULE'], '#ffe7a8', 110, 3 + s);
+    group.add(placeHologram(sign, v3(s * 77, 22, 315), v3(s, 0, 0)));
+  }
   const worldBeacons = beacons.map((bc) => ({ ...bc, position: bc.position.clone().applyMatrix4(transform) }));
   return {
     group,
@@ -397,6 +465,6 @@ export function buildAsteroids(world: CollisionWorld, center: THREE.Vector3, spr
     }
   }
   world.addAll(b.colliders);
-  return { group: b.build('asteroids'), beacons: [], points: { center: center.clone() } };
+  return { group: b.build('asteroids', 'rock'), beacons: [], points: { center: center.clone() } };
 }
 

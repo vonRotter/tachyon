@@ -5,15 +5,20 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { AudioEngine, type LaserKind } from '../core/audio';
 import { Input } from '../core/input';
-import { clamp, dampFactor, interceptTime, rand } from '../core/math';
+import { clamp, dampFactor, interceptTime, rand, raySphere } from '../core/math';
 import { CollisionWorld, makeRayHit } from '../world/colliders';
-import { Sky, SpaceDust, createLights } from '../world/environment';
-import { buildAsteroids, buildCarrier, buildKestrelStation, type Beacon } from '../world/structures';
+import { GasClouds, Lighting, SUN_DIRECTION, Sky, SpaceDust, buildEnvironment } from '../world/environment';
+import { hullMaterials } from '../world/builder';
+import { setHullDetail } from '../world/hullMaterial';
+import { DynamicResolution, QUALITY_PROFILES, detectQuality, type QualityLevel, type QualityProfile } from '../core/quality';
+import { LensPass } from '../fx/postfx';
+import { updateHolograms } from '../world/holograms';
+import { buildAsteroids, buildCarrier, buildKestrelStation, type Beacon, type Spinner } from '../world/structures';
 import { Effects } from '../fx/effects';
 import { Ship } from '../entities/ship';
 import { SHIP_CLASSES } from '../entities/shipClasses';
 import { FACTIONS, hostile, type FactionId } from '../entities/factions';
-import { AIPilot } from '../entities/ai';
+import { AIPilot, WaypointPilot } from '../entities/ai';
 import { BoltSystem, MissileSystem, type CombatContext } from '../entities/weapons';
 import { Hud } from '../ui/hud';
 import { Comms } from '../ui/comms';
@@ -55,8 +60,15 @@ export class Game implements CombatContext {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(72, 1, 0.5, 20000);
-  private readonly composer: EffectComposer;
-  private readonly bloom: UnrealBloomPass;
+  private composer!: EffectComposer;
+  private bloom!: UnrealBloomPass;
+  private lens!: LensPass;
+  private readonly lighting: Lighting;
+  private readonly clouds = new GasClouds();
+  quality: QualityProfile = QUALITY_PROFILES.medium;
+  readonly dynamicResolution = new DynamicResolution();
+  private sunVis = 0;
+  private readonly sunScreen = new THREE.Vector2();
   private readonly sky = new Sky();
   private readonly dust = new SpaceDust();
   readonly world = new CollisionWorld();
@@ -69,6 +81,7 @@ export class Game implements CombatContext {
   readonly missiles: MissileSystem;
   readonly points: Record<string, THREE.Vector3> = {};
   private readonly beacons: Beacon[] = [];
+  private readonly spinners: Spinner[] = [];
   private readonly beaconMesh: THREE.InstancedMesh;
 
   ships: Ship[] = [];
@@ -105,10 +118,10 @@ export class Game implements CombatContext {
     private readonly container: HTMLElement,
     hudCanvas: HTMLCanvasElement,
   ) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    // antialiasing happens on the post-processing target (MSAA), not the default framebuffer
+    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 0.95;
     container.appendChild(this.renderer.domElement);
     this.input = new Input(this.renderer.domElement);
     this.hud = new Hud(hudCanvas);
@@ -116,19 +129,11 @@ export class Game implements CombatContext {
     this.bolts = new BoltSystem(this.scene);
     this.missiles = new MissileSystem(this.scene);
 
-    this.composer = new EffectComposer(this.renderer);
-    const skyPass = new RenderPass(this.sky.scene, this.sky.camera);
-    const mainPass = new RenderPass(this.scene, this.camera);
-    mainPass.clear = false;
-    mainPass.clearDepth = true;
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.7, 0.5, 0.92);
-    this.composer.addPass(skyPass);
-    this.composer.addPass(mainPass);
-    this.composer.addPass(this.bloom);
-    this.composer.addPass(new OutputPass());
-
-    createLights(this.scene);
+    this.lighting = new Lighting(this.scene);
+    this.scene.environment = buildEnvironment(this.renderer, this.sky);
+    this.scene.environmentIntensity = 0.75;
     this.scene.add(this.dust.mesh);
+    this.scene.add(this.clouds.group);
 
     // world
     const station = buildKestrelStation(this.world);
@@ -143,6 +148,7 @@ export class Game implements CombatContext {
     const rocks = buildAsteroids(this.world, new THREE.Vector3(-1200, -120, 650), 420, 46);
     this.scene.add(rocks.group);
     this.beacons.push(...station.beacons, ...carrier.beacons);
+    this.spinners.push(...(station.spinners ?? []));
     for (const [k, v] of Object.entries(station.points)) this.points[`station.${k}`] = v;
     for (const [k, v] of Object.entries(carrier.points)) this.points[`carrier.${k}`] = v;
     this.points['rocks.center'] = rocks.points.center;
@@ -161,7 +167,48 @@ export class Game implements CombatContext {
 
     this.comms.onChirp = () => this.audio.commsChirp();
     window.addEventListener('resize', () => this.resize());
+    this.applyQuality(detectQuality(this.renderer));
+  }
+
+  /** Switches graphics preset: shadows, AO, MSAA, surface detail, resolution cap. */
+  applyQuality(level: QualityLevel): void {
+    const q = QUALITY_PROFILES[level];
+    const shadowsChanged = this.renderer.shadowMap.enabled !== q.shadows;
+    this.quality = q;
+    this.renderer.shadowMap.enabled = q.shadows;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.lighting.configureShadows(q.shadows, q.shadowMapSize, q.shadowRange);
+    if (shadowsChanged) {
+      this.scene.traverse((o) => {
+        const m = (o as THREE.Mesh).material;
+        if (m) for (const mm of Array.isArray(m) ? m : [m]) mm.needsUpdate = true;
+      });
+    }
+    setHullDetail(Object.values(hullMaterials), q.surfaceDetail);
+    this.dynamicResolution.scale = 1;
+    this.buildComposer();
     this.resize();
+  }
+
+  private buildComposer(): void {
+    this.composer?.dispose();
+    const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.quality.msaa });
+    this.composer = new EffectComposer(this.renderer, target);
+    const skyPass = new RenderPass(this.sky.scene, this.sky.camera);
+    const mainPass = new RenderPass(this.scene, this.camera);
+    mainPass.clear = false;
+    mainPass.clearDepth = true;
+    this.composer.addPass(skyPass);
+    this.composer.addPass(mainPass);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.5, 0.95);
+    this.composer.addPass(this.bloom);
+    this.lens = new LensPass();
+    this.composer.addPass(this.lens);
+    this.composer.addPass(new OutputPass());
+  }
+
+  private get pixelRatio(): number {
+    return Math.min(window.devicePixelRatio || 1, this.quality.pixelRatioCap) * this.dynamicResolution.scale;
   }
 
   resize(): void {
@@ -169,7 +216,9 @@ export class Game implements CombatContext {
     const h = window.innerHeight;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(w, h);
+    this.composer.setPixelRatio(this.pixelRatio);
     this.composer.setSize(w, h);
     this.bloom.resolution.set(w / 2, h / 2);
     this.hud.resize();
@@ -240,6 +289,21 @@ export class Game implements CombatContext {
     return ship;
   }
 
+  /** Civilian haulers on slow loops through the area: moving cover and something to dodge. */
+  private spawnTraffic(): void {
+    const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+    const routes: [THREE.Vector3[], string][] = [
+      [[v(800, -120, 0), v(560, -60, 560), v(0, -20, 800), v(-560, -60, 560), v(-800, -120, 0), v(-560, -180, -560), v(0, -220, -800), v(560, -180, -560)], 'Bulk Hauler Ostrava'],
+      [[v(-1400, 300, -400), v(-600, 260, -1000), v(500, 200, -1150), v(1050, 120, -250), v(500, 150, 750), v(-300, 250, 1000)], 'Bulk Hauler Tamsin'],
+    ];
+    for (const [points, name] of routes) {
+      const start = points[0];
+      const ship = this.spawnShip('freighter', 'drift', name, start.clone(), points[1], { speed: 35 });
+      ship.ai = new WaypointPilot(points, 0.85);
+      ship.invulnerable = true;
+    }
+  }
+
   /** Spawns a ship with a jump-in flash. */
   jumpIn(classId: string, faction: FactionId, name: string, pos: THREE.Vector3, lookAt: THREE.Vector3, opts: SpawnOptions = {}): Ship {
     const s = this.spawnShip(classId, faction, name, pos, lookAt, { speed: SHIP_CLASSES[classId].boostSpeed, ...opts });
@@ -297,6 +361,7 @@ export class Game implements CombatContext {
     player.isPlayer = true;
     player.controls.throttle = 0.4;
     this.player = player;
+    this.spawnTraffic();
     this.camQuat.copy(player.quat);
     this.input.centerCursor();
     this.state = 'playing';
@@ -325,6 +390,7 @@ export class Game implements CombatContext {
 
   onShipHit(ship: Ship, damage: number, source: Ship | null, point: THREE.Vector3, kind: 'bolt' | 'missile'): void {
     const hadShields = ship.shields > 0;
+    if (hadShields) ship.shieldImpact(point);
     const killed = ship.damage(damage, source);
     _n.subVectors(point, ship.pos).normalize();
     this.fx.impact(point, _n, hadShields ? '#7fd8ff' : '#ffb347');
@@ -393,7 +459,7 @@ export class Game implements CombatContext {
   private cycleTarget(nearest: boolean): void {
     const p = this.player;
     if (!p) return;
-    const enemies = this.ships.filter((s) => s.alive && s !== p && hostile(p.faction, s.faction));
+    const enemies = this.ships.filter((s) => s.alive && s !== p && !s.cls.civilian && hostile(p.faction, s.faction));
     if (!enemies.length) {
       p.target = null;
       return;
@@ -506,7 +572,7 @@ export class Game implements CombatContext {
     let collided = false;
     if (len > 1e-5) {
       _v3.copy(ship.vel).normalize();
-      if (this.world.raycast(ship.pos, _v3, len, ship.radius, hit)) {
+      if (this.world.raycast(ship.pos, _v3, len, ship.collisionRadius, hit)) {
         ship.pos.addScaledVector(_v3, Math.max(0, hit.t - 0.05));
         const remaining = len - hit.t;
         this.collide(ship, hit.normal);
@@ -515,7 +581,7 @@ export class Game implements CombatContext {
         collided = true;
       } else ship.pos.addScaledVector(ship.vel, dt);
     }
-    if (this.world.resolveSphere(ship.pos, ship.radius, _n) > 0 && !collided) this.collide(ship, _n);
+    if (this.world.resolveSphere(ship.pos, ship.collisionRadius, _n) > 0 && !collided) this.collide(ship, _n);
   }
 
   private shipVsShip(): void {
@@ -526,34 +592,51 @@ export class Game implements CombatContext {
       for (let j = i + 1; j < list.length; j++) {
         const b = list[j];
         if (!b.alive) continue;
-        const r = a.radius + b.radius;
-        const d2 = a.pos.distanceToSquared(b.pos);
-        if (d2 >= r * r) continue;
-        const d = Math.sqrt(d2) || 0.01;
-        _n.subVectors(a.pos, b.pos).divideScalar(d);
-        const push = (r - d) / 2;
-        a.pos.addScaledVector(_n, push);
-        b.pos.addScaledVector(_n, -push);
-        const rel = _v.subVectors(a.vel, b.vel).dot(_n);
-        if (rel < 0) {
-          const ma = a.radius * a.radius;
-          const mb = b.radius * b.radius;
-          a.vel.addScaledVector(_n, (-rel * mb) / (ma + mb) * 1.3);
-          b.vel.addScaledVector(_n, (rel * ma) / (ma + mb) * 1.3);
-          const dmg = Math.max(0, -rel - 10) * 0.6;
-          this.fx.sparks(_v2.copy(b.pos).addScaledVector(_n, b.radius), _n, '#ffd080', 12);
-          if (a.isPlayer || b.isPlayer) {
-            this.audio.scrape(-rel / 80);
-            this.shake += 0.6;
+        // broad phase on bounding radii, then the hit-sphere chains
+        const reach = a.radius + b.radius + 60;
+        if (a.pos.distanceToSquared(b.pos) > reach * reach) continue;
+        let contact = false;
+        for (const sa of a.spheres) {
+          for (const sb of b.spheres) {
+            const r = sa.r + sb.r;
+            const d2 = sa.c.distanceToSquared(sb.c);
+            if (d2 >= r * r) continue;
+            const d = Math.sqrt(d2) || 0.01;
+            _n.subVectors(sa.c, sb.c).divideScalar(d);
+            this.resolveShipContact(a, b, r - d);
+            contact = true;
+            break;
           }
-          if (dmg > 0) {
-            if (a.damage(dmg * (mb / (ma + mb)) * 2, b)) this.destroyShip(a, b);
-            if (b.damage(dmg * (ma / (ma + mb)) * 2, a)) this.destroyShip(b, a);
-          }
+          if (contact) break;
         }
       }
     }
   }
+
+  /** Separates two ships along `_n` (pointing from b to a) and applies bounce and damage. */
+  private resolveShipContact(a: Ship, b: Ship, overlap: number): void {
+    const ma = a.radius * a.radius;
+    const mb = b.radius * b.radius;
+    a.pos.addScaledVector(_n, (overlap * mb) / (ma + mb));
+    b.pos.addScaledVector(_n, (-overlap * ma) / (ma + mb));
+    a.updateSpheres();
+    b.updateSpheres();
+    const rel = _v.subVectors(a.vel, b.vel).dot(_n);
+    if (rel >= 0) return;
+    a.vel.addScaledVector(_n, ((-rel * mb) / (ma + mb)) * 1.3);
+    b.vel.addScaledVector(_n, ((rel * ma) / (ma + mb)) * 1.3);
+    const dmg = Math.max(0, -rel - 10) * 0.6;
+    this.fx.sparks(_v2.copy(a.pos).addScaledVector(_n, -a.radius * 0.5), _n, '#ffd080', 12);
+    if (a.isPlayer || b.isPlayer) {
+      this.audio.scrape(-rel / 80);
+      this.shake += 0.6;
+    }
+    if (dmg > 0) {
+      if (a.damage(dmg * (mb / (ma + mb)) * 2, b)) this.destroyShip(a, b);
+      if (b.damage(dmg * (ma / (ma + mb)) * 2, a)) this.destroyShip(b, a);
+    }
+  }
+
 
   private step(dt: number): void {
     this.missionTime += dt;
@@ -562,6 +645,7 @@ export class Game implements CombatContext {
       if (s.ai) s.ai.update(s, dt);
       s.updateFlight(dt);
       this.moveShip(s, dt);
+      s.updateSpheres();
       if (!s.alive) continue;
       if (s.controls.fire) this.fireGuns(s);
       if (s.controls.missile) this.fireMissile(s);
@@ -675,16 +759,36 @@ export class Game implements CombatContext {
 
   private updateBeacons(): void {
     const c = new THREE.Color();
+    const m = new THREE.Matrix4();
+    let moved = false;
     for (let i = 0; i < this.beacons.length; i++) {
       const b = this.beacons[i];
-      const k = Math.sin(this.time * 3 + b.phase * 7) > 0.6 ? 3.2 : 0.25;
+      let k: number;
+      if (b.kind === 'chase') {
+        const t = (((this.time * 1.4 - b.phase * 0.09) % 1) + 1) % 1;
+        k = t < 0.1 ? 3.6 : 0.12;
+      } else k = Math.sin(this.time * 3 + b.phase * 7) > 0.6 ? 3.2 : 0.25;
       this.beaconMesh.setColorAt(i, c.copy(b.color).multiplyScalar(k));
+      if (b.parent) {
+        _v.copy(b.position).applyMatrix4(b.parent.matrixWorld);
+        this.beaconMesh.setMatrixAt(i, m.makeTranslation(_v.x, _v.y, _v.z));
+        moved = true;
+      }
     }
     if (this.beaconMesh.instanceColor) this.beaconMesh.instanceColor.needsUpdate = true;
+    if (moved) this.beaconMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  /** Spins the habitat ring and sensor dish, then refreshes their collision transforms. */
+  private updateSpinners(dt: number): void {
+    updateHolograms(this.time);
+    for (const s of this.spinners) s.object.rotation.y += s.speed * dt;
+    this.world.sync();
   }
 
   /** One rendered frame. */
   frame(rawDt: number): void {
+    if (this.state === 'playing' && this.dynamicResolution.update(rawDt)) this.resize();
     this.update(rawDt);
     this.render();
     this.input.endFrame();
@@ -709,6 +813,7 @@ export class Game implements CombatContext {
 
   private update(rawDt: number): void {
     const dt = Math.min(rawDt, 1 / 20);
+    if (this.state !== 'paused') this.updateSpinners(dt);
     this.time += dt;
     this.fpsAccum += rawDt;
     this.fpsFrames++;
@@ -791,6 +896,17 @@ export class Game implements CombatContext {
 
   private render(): void {
     const p = this.player;
+    this.lighting.update(p && p.alive && this.state !== 'title' ? p.pos : this.camera.position);
+    this.clouds.update(this.camera.position);
+    this.updateSunFlare();
+    this.lens.set({
+      time: this.time,
+      boost: p && p.alive && p.boosting && this.state === 'playing' ? 1 : 0,
+      damage: this.damageFlash,
+      sun: this.sunScreen,
+      sunVis: this.quality.lensFlare ? this.sunVis : 0,
+      aspect: this.camera.aspect,
+    });
     this.composer.render();
 
     // HUD
@@ -812,6 +928,27 @@ export class Game implements CombatContext {
         gamepad: this.input.device === 'gamepad',
       });
     } else this.hud.clear();
+  }
+
+  /** Sun position on screen and how visible it is (structures and ships occlude it). */
+  private updateSunFlare(): void {
+    const target = _v.copy(SUN_DIRECTION).multiplyScalar(5000).add(this.camera.position);
+    _v2.copy(target).project(this.camera);
+    let vis = 0;
+    if (_v2.z < 1 && Math.abs(_v2.x) < 1.3 && Math.abs(_v2.y) < 1.3) {
+      vis = 1 - THREE.MathUtils.smoothstep(Math.max(Math.abs(_v2.x), Math.abs(_v2.y)), 0.9, 1.3);
+      if (this.world.raycast(this.camera.position, SUN_DIRECTION, 4000, 0, hit)) vis = 0;
+      else {
+        for (const s of this.ships) {
+          if (s.alive && raySphere(this.camera.position, SUN_DIRECTION, s.pos, s.radius * 0.8, 4000) >= 0) {
+            vis = 0;
+            break;
+          }
+        }
+      }
+    }
+    this.sunScreen.set(_v2.x * 0.5 + 0.5, _v2.y * 0.5 + 0.5);
+    this.sunVis += (vis - this.sunVis) * 0.25;
   }
 
   pause(): void {
