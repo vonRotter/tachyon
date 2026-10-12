@@ -4,6 +4,11 @@ A fast, colourful space-combat game in the spirit of *Tachyon: The Fringe*, buil
 and TypeScript. This is the first vertical slice: one mission, one flyable ship, a station and a
 carrier to dodge through, AI pursuers and the slide mechanic.
 
+## Play it
+
+Live build: **https://vonrotter.github.io/tachyon/** (deployed by GitHub Actions on every push;
+see `.github/workflows/deploy-pages.yml`).
+
 ## Run it
 
 ```bash
