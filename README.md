@@ -9,6 +9,10 @@ carrier to dodge through, AI pursuers and the slide mechanic.
 Live build: **https://vonrotter.github.io/tachyon/** (deployed by GitHub Actions on every push;
 see `.github/workflows/deploy-pages.yml`).
 
+Pages must use **Settings → Pages → Source: GitHub Actions**. "Deploy from a branch" publishes
+the raw TypeScript source, which browsers cannot run, and shows a blank page. No custom domain,
+Jekyll or static-HTML template is needed.
+
 ## Run it
 
 ```bash
