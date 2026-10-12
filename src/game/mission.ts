@@ -46,6 +46,7 @@ function raiderWave(
 export async function runKestrelMission(g: Game, checkpoint: number): Promise<void> {
   const hub = g.points['station.hub'];
   const pad = () => g.input.device === 'gamepad';
+  const key = (a: Parameters<typeof g.input.label>[0]) => g.input.label(a);
   const allies = [
     g.spawnShip('warden', 'kestrel', 'Juno', v(-140, 90, 380), hub, { skill: 0.7, playerBias: 0, damageScale: 0.45 }),
     g.spawnShip('warden', 'kestrel', 'Pike', v(-190, 50, 430), hub, { skill: 0.6, playerBias: 0, damageScale: 0.5 }),
@@ -68,13 +69,15 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
     g.hint(
       pad()
         ? 'Right stick: steer · Left stick: roll & throttle · A: boost · RT: fire'
-        : 'Mouse: steer · W/S: throttle · Q/E: roll · A/D: strafe · Shift: boost · Click: fire',
+        : `Mouse: steer · ${key('throttleUp')}/${key('throttleDown')}: throttle · ${key('rollLeft')}/${key('rollRight')}: roll · ${key('boost')}: boost · ${key('fire')}: fire · Esc: options`,
       9,
     );
     await g.say('varga', 'Rook, Kestrel Control. Your docking slot got bumped. A Combine carrier came in unannounced and took the whole east cradle.');
     await g.say('varga', "Hold near the hub. And please don't scratch my paint.");
     g.hint(
-      pad() ? 'Hold LT to SLIDE: keep your momentum and turn to aim anywhere' : 'Hold SPACE to SLIDE: keep your momentum and turn to aim anywhere',
+      pad()
+        ? 'Hold LT to SLIDE: keep your momentum and turn to aim anywhere'
+        : `Hold ${key('slide').toUpperCase()} to SLIDE: keep your momentum and turn to aim anywhere`,
       8,
     );
     await g.wait(4);
@@ -91,7 +94,7 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
     g.hint(
       pad()
         ? 'Y: target nearest · LB: next target · Aim at the yellow diamond to lead your shots'
-        : 'T: target nearest · Tab: next target · Aim at the yellow diamond to lead your shots',
+        : `${key('targetNearest')}: target nearest · ${key('targetNext')}: next target · Aim at the yellow diamond to lead your shots`,
       8,
     );
     await g.say('tessaine', 'Kestrel, Sovereign Dawn. We are observing. Do carry on.');
@@ -110,7 +113,7 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
     g.hint(
       pad()
         ? 'Hold on a target to lock missiles · RB: fire missile'
-        : 'Keep a target in your sights to lock · Right-click: fire missile',
+        : `Keep a target in your sights to lock · ${key('missile')}: fire missile`,
       7,
     );
     await g.say('varga', 'Sovereign Dawn, Kestrel. We could use those guns of yours right now.');

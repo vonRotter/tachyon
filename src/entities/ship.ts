@@ -236,8 +236,8 @@ export class Ship {
     const cls = this.cls;
     this.age += dt;
 
-    // rotation
-    const k = dampFactor(cls.turnResponse, dt);
+    // rotation: rates build up and bleed off rather than snapping
+    const k = dampFactor(cls.turnResponse * 0.6, dt);
     const slideBonus = c.slide ? 1.25 : 1;
     this.angVel.x += (c.pitch * cls.pitchRate * slideBonus - this.angVel.x) * k;
     this.angVel.y += (-c.yaw * cls.yawRate * slideBonus - this.angVel.y) * k;
@@ -261,15 +261,18 @@ export class Ship {
     this.sliding = c.slide;
 
     if (!c.slide) {
+      // Forward speed is driven by a thrust-limited motor; sideways velocity is bled off by the
+      // flight computer at a finite rate ("grip"), so hard turns carve with some slip.
       const targetSpeed = wantsBoost ? cls.boostSpeed : clamp(c.throttle, 0, 1) * cls.maxSpeed;
-      _desired
-        .copy(_fwd)
-        .multiplyScalar(targetSpeed)
-        .addScaledVector(_right, c.strafeX * cls.strafeSpeed)
-        .addScaledVector(_up, c.strafeY * cls.strafeSpeed);
-      const accel = wantsBoost ? cls.accel * 1.6 : cls.accel;
-      this.vel.lerp(_desired, dampFactor(accel, dt));
-      this.thrust = wantsBoost ? 1 : clamp(c.throttle, 0.05, 1);
+      const along = this.vel.dot(_fwd);
+      const thrustAccel = wantsBoost ? cls.boostSpeed * 0.55 : cls.maxSpeed * 0.6;
+      const brakeAccel = cls.maxSpeed * 0.75;
+      const dv = clamp(targetSpeed - along, -brakeAccel * dt, thrustAccel * dt);
+      this.vel.addScaledVector(_fwd, dv);
+      _desired.copy(this.vel).addScaledVector(_fwd, -this.vel.dot(_fwd));
+      _v2.copy(_right).multiplyScalar(c.strafeX * cls.strafeSpeed).addScaledVector(_up, c.strafeY * cls.strafeSpeed);
+      this.vel.addScaledVector(_v2.sub(_desired), dampFactor(cls.accel * 0.85, dt));
+      this.thrust = wantsBoost ? 1 : clamp(0.15 + Math.max(0, dv / (thrustAccel * dt + 1e-6)) * 0.6 + c.throttle * 0.4, 0.05, 1);
     } else {
       // momentum preserved; thrusters nudge, boost pushes along the nose
       this.vel.addScaledVector(_right, c.strafeX * cls.strafeSpeed * 1.2 * dt);
@@ -311,6 +314,13 @@ export class Ship {
 
   updateVisuals(dt: number, fx: Effects, time: number): void {
     this.syncTransform();
+    // The hull banks into yaw and leans with pitch like an aircraft. Purely visual: physics and
+    // the camera use the unbanked orientation.
+    const g = this.model.group;
+    const bankTarget = clamp(this.angVel.y * 0.4, -0.55, 0.55);
+    const leanTarget = clamp(-this.angVel.x * 0.06, -0.12, 0.12);
+    g.rotation.z += (bankTarget - g.rotation.z) * dampFactor(5, dt);
+    g.rotation.x += (leanTarget - g.rotation.x) * dampFactor(5, dt);
     // engine flames
     const flicker = 0.85 + Math.sin(time * 60 + this.id) * 0.08 + Math.random() * 0.07;
     // the chase camera sits right behind the player's nozzles, where long cones turn into beams

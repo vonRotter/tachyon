@@ -29,56 +29,79 @@
       <div class="panel">
         <h1>VEIL REACH</h1>
         <p class="tag">Cold Guns: a vertical slice</p>
-        <button id="launch" class="primary">Launch</button>
-        <div class="settings">
-          <label><input type="checkbox" id="opt-voice" /> Spoken radio (browser text-to-speech)</label>
-          <label><input type="checkbox" id="opt-music" checked /> Music</label>
-          <label><input type="checkbox" id="opt-invert-mouse" /> Invert mouse Y</label>
-          <label><input type="checkbox" id="opt-invert-pad" /> Invert gamepad Y</label>
-          <label>Mouse sensitivity <input type="range" id="opt-sens" min="0.4" max="2" step="0.1" value="1" /></label>
-          <label
-            >Graphics
-            <select id="opt-quality">
-              <option value="auto">Auto</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </label>
+        <div class="menu">
+          <button id="launch" class="primary">Launch</button>
+          <button data-open="options">Options</button>
+          <button data-open="controls">Controls</button>
         </div>
-        <div class="controls">
-          <div>
-            <h3>Mouse &amp; keyboard</h3>
-            <ul>
-              <li><b>Mouse</b> steer (virtual stick) · <b>X</b> recentre</li>
-              <li><b>W / S</b> throttle · <b>Z</b> match target speed</li>
-              <li><b>A / D</b> strafe · <b>R / F</b> up / down · <b>Q / E</b> roll</li>
-              <li><b>Shift</b> boost · <b>Space</b> slide</li>
-              <li><b>Left click</b> guns · <b>Right click / G</b> missile</li>
-              <li><b>T</b> nearest target · <b>Tab</b> next · <b>C</b> camera · <b>Esc</b> pause</li>
-            </ul>
-          </div>
-          <div>
-            <h3>Gamepad (Xbox / PlayStation)</h3>
-            <ul>
-              <li><b>Right stick</b> pitch &amp; yaw</li>
-              <li><b>Left stick</b> roll (X) · throttle (Y)</li>
-              <li><b>RT / R2</b> guns · <b>RB / R1</b> missile</li>
-              <li><b>LT / L2</b> slide · <b>A / ✕</b> boost</li>
-              <li><b>Y / △</b> nearest target · <b>LB / L1</b> next</li>
-              <li><b>D-pad</b> strafe · <b>L3</b> match speed · <b>View / Share</b> camera</li>
-            </ul>
-          </div>
-        </div>
-        <p class="fineprint">Tip: hold slide, swing the nose round and shoot whatever is chasing you. Lure pursuers and missiles through the lattice towers.</p>
+        <p class="fineprint">
+          Tip: hold slide, swing the nose round and shoot whatever is chasing you. Lure pursuers and missiles
+          through the lattice towers. Press Esc in flight for options.
+        </p>
       </div>
     </div>
 
     <div id="pause" class="overlay">
       <div class="panel small">
         <h2>Paused</h2>
-        <button id="resume" class="primary">Resume</button>
-        <button id="restart">Restart mission</button>
+        <div class="menu vertical">
+          <button id="resume" class="primary">Resume</button>
+          <button data-open="options">Options</button>
+          <button data-open="controls">Controls</button>
+          <button id="restart">Restart mission</button>
+          <button id="quit">Quit to title</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="options" class="overlay">
+      <div class="panel">
+        <h2>Options</h2>
+        <div class="form">
+          <label for="opt-quality">Graphics</label>
+          <select id="opt-quality">
+            <option value="auto">Auto</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+          <label for="opt-glow">Glow and glare</label>
+          <input type="range" id="opt-glow" min="0" max="1.5" step="0.05" />
+          <label for="opt-music-vol">Music volume</label>
+          <input type="range" id="opt-music-vol" min="0" max="1" step="0.05" />
+          <label for="opt-sfx-vol">Effects volume</label>
+          <input type="range" id="opt-sfx-vol" min="0" max="1" step="0.05" />
+          <label for="opt-sens">Mouse sensitivity</label>
+          <input type="range" id="opt-sens" min="0.4" max="2" step="0.1" />
+          <label for="opt-invert-mouse">Invert mouse Y</label>
+          <input type="checkbox" id="opt-invert-mouse" />
+          <label for="opt-invert-pad">Invert gamepad Y</label>
+          <input type="checkbox" id="opt-invert-pad" />
+          <label for="opt-voice">Spoken radio (browser text-to-speech)</label>
+          <input type="checkbox" id="opt-voice" />
+        </div>
+        <div class="menu"><button class="primary" data-back>Back</button></div>
+      </div>
+    </div>
+
+    <div id="controls" class="overlay">
+      <div class="panel">
+        <h2>Controls</h2>
+        <p class="fineprint" id="bind-help">
+          Click a slot, then press a key or mouse button. Delete or Backspace clears it, Esc cancels.
+        </p>
+        <div id="bindings" class="bindings"></div>
+        <h3>Gamepad (Xbox / PlayStation)</h3>
+        <ul class="padlist">
+          <li><b>Right stick</b> pitch &amp; yaw · <b>Left stick</b> roll (X) and throttle (Y)</li>
+          <li><b>RT / R2</b> guns · <b>RB / R1</b> missile · <b>LT / L2</b> slide · <b>A / ✕</b> boost</li>
+          <li><b>Y / △</b> nearest target · <b>LB / L1</b> next · <b>D-pad</b> strafe</li>
+          <li><b>L3</b> match speed · <b>View / Share</b> camera · <b>Start / Options</b> pause</li>
+        </ul>
+        <div class="menu">
+          <button class="primary" data-back>Back</button>
+          <button id="bind-reset">Reset to defaults</button>
+        </div>
       </div>
     </div>
 

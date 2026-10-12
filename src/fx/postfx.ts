@@ -107,3 +107,31 @@ export class LensPass extends ShaderPass {
     u.uAspect.value = params.aspect;
   }
 }
+
+/**
+ * Replaces NaN/Inf pixels and clamps extreme HDR values before bloom. A single bad pixel would
+ * otherwise be blurred across the whole frame by the bloom mip chain and show as a black flash.
+ */
+export class SanitizePass extends ShaderPass {
+  constructor() {
+    super({
+      uniforms: { tDiffuse: { value: null } },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D tDiffuse;
+        varying vec2 vUv;
+        void main() {
+          vec4 c = texture2D(tDiffuse, vUv);
+          bool bad = any(isnan(c)) || any(isinf(c)) || !(c.r < 1e4 && c.g < 1e4 && c.b < 1e4 && c.r > -1.0 && c.g > -1.0 && c.b > -1.0);
+          gl_FragColor = bad ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(min(c.rgb, vec3(48.0)), c.a);
+        }
+      `,
+    });
+  }
+}

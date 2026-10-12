@@ -79,10 +79,7 @@ export class DynamicResolution {
   private cooldown = 0;
   enabled = true;
 
-  constructor(
-    private readonly min = 0.6,
-    private readonly target = 1 / 58,
-  ) {}
+  constructor(private readonly min = 0.6) {}
 
   /** Returns true when the scale changed. */
   update(frameSeconds: number): boolean {
@@ -95,11 +92,12 @@ export class DynamicResolution {
     this.accum = 0;
     this.frames = 0;
     let next = this.scale;
-    if (avg > this.target * 1.12) next = Math.max(this.min, this.scale - 0.1);
-    else if (avg < this.target * 0.8) next = Math.min(1, this.scale + 0.05);
+    // wide dead band (45..57 fps) so the render size is not resized back and forth
+    if (avg > 1 / 45) next = Math.max(this.min, this.scale - 0.1);
+    else if (avg < 1 / 57 && this.scale < 1) next = Math.min(1, this.scale + 0.05);
     if (next !== this.scale) {
       this.scale = next;
-      this.cooldown = 1.5;
+      this.cooldown = 4;
       return true;
     }
     return false;

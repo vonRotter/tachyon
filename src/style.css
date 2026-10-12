@@ -294,3 +294,102 @@ button.primary {
   display: flex;
   flex-wrap: wrap;
 }
+
+.menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.menu.vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.menu.vertical button {
+  margin: 0;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1.4fr);
+  gap: 12px 18px;
+  align-items: center;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.form label {
+  color: var(--muted);
+}
+
+.form input[type='checkbox'] {
+  justify-self: start;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+.form input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.form select {
+  font: inherit;
+  color: var(--fg);
+  background: #120e24;
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+}
+
+.bindings {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(120px, 1fr) minmax(120px, 1fr);
+  gap: 6px 10px;
+  align-items: center;
+  margin: 10px 0 18px;
+  font-size: 15px;
+}
+
+.bindings .name {
+  color: #cfd6f0;
+}
+
+.bindings button {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  min-height: 32px;
+}
+
+.bindings button.capturing {
+  border-color: var(--accent2);
+  background: rgba(255, 138, 31, 0.2);
+}
+
+.bindings button.empty {
+  color: var(--muted);
+}
+
+.padlist {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #cfd6f0;
+}
+
+@media (max-width: 560px) {
+  .form {
+    grid-template-columns: 1fr;
+  }
+  .bindings {
+    grid-template-columns: 1fr 1fr;
+  }
+  .bindings .name {
+    grid-column: 1 / -1;
+  }
+}

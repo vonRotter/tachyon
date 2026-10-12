@@ -66,7 +66,7 @@ function kite(p: Palette): ShipModel {
   b.hullMirrored(plate([v3(0.9, 0.6, 2.4), v3(0.9, 0.6, 4.6), v3(1.7, 2.1, 4.5), v3(1.6, 2.1, 3.7)], SIDEN, 0.14), p.accent);
   for (const s of [1, -1]) {
     b.cylinder(v3(s * 1.7, 0.1, 3.2), 0.65, 3.4, p.secondary, { ...NO, quat: X90, sides: 8 });
-    b.cylinder(v3(s * 1.7, 0.1, 4.92), 0.5, 0.1, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.4 });
+    b.cylinder(v3(s * 1.7, 0.1, 4.92), 0.5, 0.1, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.0 });
     b.cylinder(v3(s * 2.4, -0.15, -2.2), 0.12, 3.2, '#2b2f45', { ...NO, quat: X90, sides: 6 });
     b.box(v3(s * 6.55, -0.1, -0.7), v3(0.3, 0.3, 1.8), p.primary, NO);
     b.sphere(v3(s * 6.7, -0.1, -0.7), 0.16, s > 0 ? '#30ff70' : '#ff2040', { ...NO, glow: 3, detail: 0 });
@@ -100,7 +100,7 @@ function lancer(p: Palette): ShipModel {
   b.hullMirrored(plate([v3(1.2, 0, -1.5), v3(1.2, 0, 3.5), v3(7.5, -0.2, 3.8), v3(7.0, -0.2, 2.2)], UPN, 0.3), p.secondary);
   for (const s of [1, -1]) {
     b.cylinder(v3(s * 3.2, 0, 1), 0.9, 8.5, p.primary, { ...NO, quat: X90, sides: 8 });
-    b.cylinder(v3(s * 3.2, 0, 5.3), 0.75, 0.12, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.4 });
+    b.cylinder(v3(s * 3.2, 0, 5.3), 0.75, 0.12, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.0 });
     b.box(v3(s * 3.2, 1.0, 1.0), v3(0.25, 1.2, 4), p.accent, NO);
     b.cylinder(v3(s * 3.2, -0.6, -4), 0.16, 4, '#2b2f45', { ...NO, quat: X90, sides: 6 });
     b.sphere(v3(s * 7.5, -0.2, 3.4), 0.18, s > 0 ? '#30ff70' : '#ff2040', { ...NO, glow: 3, detail: 0 });
@@ -152,7 +152,7 @@ function raider(p: Palette): ShipModel {
     b.box(v3(s * 5.4, -1.8, 2.5), v3(0.3, 0.3, 2.4), p.accent, NO);
   }
   b.cylinder(v3(0, 0, 3.6), 1.1, 2.4, '#3a3440', { ...NO, quat: X90, sides: 8 });
-  b.cylinder(v3(0, 0, 4.82), 0.95, 0.1, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.4 });
+  b.cylinder(v3(0, 0, 4.82), 0.95, 0.1, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.0 });
   return {
     group: b.build('raider', 'ship'),
     engines: [v3(0, 0, 4.9)],
@@ -190,7 +190,7 @@ function warden(p: Palette): ShipModel {
   }
   for (const s of [1, -1]) {
     b.cylinder(v3(s * 1.2, -0.2, 3.4), 0.6, 2.2, p.secondary, { ...NO, quat: X90, sides: 8 });
-    b.cylinder(v3(s * 1.2, -0.2, 4.52), 0.48, 0.1, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.4 });
+    b.cylinder(v3(s * 1.2, -0.2, 4.52), 0.48, 0.1, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.0 });
     b.cylinder(v3(s * 3.6, 0, 0.2), 0.12, 2.8, '#2b2f45', { ...NO, quat: X90, sides: 6 });
   }
   return {
@@ -234,7 +234,7 @@ function brute(p: Palette): ShipModel {
   b.box(v3(0, 3.9, 2), v3(2.5, 0.6, 14), p.accent, { ...NO, glow: 1.2 });
   for (const ex of [-3.2, 0, 3.2]) {
     b.cylinder(v3(ex, 0, 13), 1.5, 3, '#3a3440', { ...NO, quat: X90, sides: 10 });
-    b.cylinder(v3(ex, 0, 14.55), 1.3, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.4 });
+    b.cylinder(v3(ex, 0, 14.55), 1.3, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
   }
   return {
     group: b.build('brute', 'ship'),
@@ -262,7 +262,7 @@ function freighter(p: Palette): ShipModel {
   b.box(v3(0, 0, 41), v3(16, 11, 9), p.secondary, NO);
   for (const ex of [-4.5, 0, 4.5]) {
     b.cylinder(v3(ex, 0, 46.5), 2, 3, '#2b2f45', { ...NO, quat: X90, sides: 10 });
-    b.cylinder(v3(ex, 0, 48.05), 1.7, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.4 });
+    b.cylinder(v3(ex, 0, 48.05), 1.7, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
   }
   for (let z = -32; z <= 30; z += 10.5) {
     for (const [cx, cy] of [

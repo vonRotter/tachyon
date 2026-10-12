@@ -11,7 +11,7 @@ import { GasClouds, Lighting, SUN_DIRECTION, Sky, SpaceDust, buildEnvironment } 
 import { hullMaterials } from '../world/builder';
 import { setHullDetail } from '../world/hullMaterial';
 import { DynamicResolution, QUALITY_PROFILES, detectQuality, type QualityLevel, type QualityProfile } from '../core/quality';
-import { LensPass } from '../fx/postfx';
+import { LensPass, SanitizePass } from '../fx/postfx';
 import { updateHolograms } from '../world/holograms';
 import { buildAsteroids, buildCarrier, buildKestrelStation, type Beacon, type Spinner } from '../world/structures';
 import { Effects } from '../fx/effects';
@@ -66,6 +66,8 @@ export class Game implements CombatContext {
   private readonly lighting: Lighting;
   private readonly clouds = new GasClouds();
   quality: QualityProfile = QUALITY_PROFILES.medium;
+  /** Player-facing glow multiplier (bloom and lens flare), 0..1.5. */
+  private glow = 1;
   readonly dynamicResolution = new DynamicResolution();
   private sunVis = 0;
   private readonly sunScreen = new THREE.Vector2();
@@ -96,6 +98,9 @@ export class Game implements CombatContext {
   private waiters: Waiter[] = [];
   private missionToken = 0;
   private readonly camQuat = new THREE.Quaternion();
+  /** Camera offset driven by the ship's acceleration: it swings out in turns and on boost. */
+  private readonly camLag = new THREE.Vector3();
+  private readonly prevPlayerVel = new THREE.Vector3();
   private cockpit = false;
   private shake = 0;
   private damageFlash = 0;
@@ -121,7 +126,7 @@ export class Game implements CombatContext {
     // antialiasing happens on the post-processing target (MSAA), not the default framebuffer
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.95;
+    this.renderer.toneMappingExposure = 0.9;
     container.appendChild(this.renderer.domElement);
     this.input = new Input(this.renderer.domElement);
     this.hud = new Hud(hudCanvas);
@@ -190,6 +195,11 @@ export class Game implements CombatContext {
     this.resize();
   }
 
+  setGlow(v: number): void {
+    this.glow = v;
+    if (this.bloom) this.bloom.strength = 0.4 * v;
+  }
+
   private buildComposer(): void {
     this.composer?.dispose();
     const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.quality.msaa });
@@ -200,7 +210,8 @@ export class Game implements CombatContext {
     mainPass.clearDepth = true;
     this.composer.addPass(skyPass);
     this.composer.addPass(mainPass);
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.5, 0.95);
+    this.composer.addPass(new SanitizePass());
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.4 * this.glow, 0.4, 1.0);
     this.composer.addPass(this.bloom);
     this.lens = new LensPass();
     this.composer.addPass(this.lens);
@@ -391,6 +402,12 @@ export class Game implements CombatContext {
   onShipHit(ship: Ship, damage: number, source: Ship | null, point: THREE.Vector3, kind: 'bolt' | 'missile'): void {
     const hadShields = ship.shields > 0;
     if (hadShields) ship.shieldImpact(point);
+    // impacts shove the hull: light ships get knocked around, the gunship barely notices
+    const mass = Math.max(1, ship.radius * ship.radius * 0.1);
+    _v.subVectors(ship.pos, point).normalize();
+    ship.vel.addScaledVector(_v, (kind === 'missile' ? 24 : damage * 0.35) / mass);
+    ship.angVel.add(_v2.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar((kind === 'missile' ? 1.4 : 0.12) / mass));
+    if (ship.isPlayer) this.camLag.addScaledVector(_v, kind === 'missile' ? 1.5 : 0.25);
     const killed = ship.damage(damage, source);
     _n.subVectors(point, ship.pos).normalize();
     this.fx.impact(point, _n, hadShields ? '#7fd8ff' : '#ffb347');
@@ -512,6 +529,10 @@ export class Game implements CombatContext {
     }
     ship.gunTimer = gun.cooldown;
     ship.energy -= gun.energyCost;
+    if (ship.isPlayer) {
+      this.shake = Math.max(this.shake, 0.1);
+      this.camLag.addScaledVector(_v, -0.06);
+    }
     ship.shotsFired++;
     const vel = _n.copy(dir).multiplyScalar(gun.boltSpeed).add(ship.vel);
     const palette = FACTIONS[ship.faction].palette;
@@ -738,14 +759,24 @@ export class Game implements CombatContext {
         let dist = len;
         if (this.world.raycast(p.pos, _v2, len, 1.2, hit)) dist = Math.max(2, hit.t);
         this.camera.position.copy(p.pos).addScaledVector(_v2, dist);
+        // acceleration lag: the camera is pushed opposite the ship's acceleration, then springs back
+        _v3.subVectors(p.vel, this.prevPlayerVel).divideScalar(Math.max(dt, 1e-3));
+        this.prevPlayerVel.copy(p.vel);
+        _v3.multiplyScalar(-0.016);
+        if (_v3.length() > 4.5) _v3.setLength(4.5);
+        this.camLag.lerp(_v3, dampFactor(4, dt));
+        this.camera.position.add(this.camLag);
+        if (p.boosting) this.shake = Math.max(this.shake, 0.22);
       }
       p.model.group.visible = !this.cockpit;
     }
     this.camera.quaternion.copy(this.camQuat);
-    // lean the view a touch towards the target of a roll for feel
     if (this.shake > 0.001) {
-      const s = Math.min(this.shake, 2) * 0.35;
-      this.camera.position.add(_v.set(rand(-s, s), rand(-s, s), rand(-s, s)));
+      const s = Math.min(this.shake, 2);
+      this.camera.position.add(_v.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(s * 0.3));
+      // a little rotational jitter sells impacts far better than translation alone
+      _q.setFromEuler(new THREE.Euler(rand(-1, 1) * s * 0.006, rand(-1, 1) * s * 0.006, rand(-1, 1) * s * 0.01));
+      this.camera.quaternion.multiply(_q);
       this.shake = Math.max(0, this.shake - dt * 3);
     }
     const speedFrac = p.speed / p.cls.maxSpeed;
@@ -829,7 +860,7 @@ export class Game implements CombatContext {
     } else if (this.state === 'playing') {
       if (this.input.pressed('pause')) this.pause();
     } else if (this.state === 'paused') {
-      if (this.input.pressed('pause') || this.input.pressed('confirm')) this.resume();
+      if ((this.input.pressed('pause') || this.input.pressed('confirm')) && !this.menuOpen()) this.resume();
     }
 
     if (this.state === 'playing') {
@@ -904,7 +935,7 @@ export class Game implements CombatContext {
       boost: p && p.alive && p.boosting && this.state === 'playing' ? 1 : 0,
       damage: this.damageFlash,
       sun: this.sunScreen,
-      sunVis: this.quality.lensFlare ? this.sunVis : 0,
+      sunVis: this.quality.lensFlare ? this.sunVis * 0.55 * this.glow : 0,
       aspect: this.camera.aspect,
     });
     this.composer.render();
@@ -969,6 +1000,29 @@ export class Game implements CombatContext {
   }
 
   onPauseChange: ((paused: boolean) => void) | null = null;
+  /** Set by the UI: true while an options/controls menu is open. */
+  menuOpen: () => boolean = () => false;
+
+  /** Abandons the mission and returns to the orbiting title camera. */
+  quitToTitle(): void {
+    this.missionToken++;
+    for (const w of this.waiters) w.reject(new MissionAbort());
+    this.waiters = [];
+    this.comms.clear();
+    for (const s of this.ships) s.dispose(this.scene);
+    this.ships = [];
+    this.player = null;
+    this.bolts.clear();
+    this.missiles.clear();
+    this.objective = '';
+    this.hintText = null;
+    this.audio.silenceLoops();
+    this.audio.setLock('none');
+    this.audio.setMissileWarning(0);
+    this.input.exitPointerLock();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    this.state = 'title';
+  }
   onTitleConfirm: (() => void) | null = null;
 
   get containerElement(): HTMLElement {

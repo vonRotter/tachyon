@@ -48,7 +48,7 @@ const skyFragment = /* glsl */ `
     float dark = smoothstep(0.55, 0.75, fbm(d * 3.0 + 7.0));
     col *= 1.0 - dark * 0.6 * band;
     float s = max(dot(d, uSun), 0.0);
-    col += vec3(1.0, 0.85, 0.6) * (pow(s, 3000.0) * 6.0 + pow(s, 200.0) * 0.35 + pow(s, 8.0) * 0.05);
+    col += vec3(1.0, 0.85, 0.6) * (pow(s, 3000.0) * 4.0 + pow(s, 300.0) * 0.2 + pow(s, 8.0) * 0.035);
     gl_FragColor = vec4(col, 1.0);
   }
 `;
@@ -239,7 +239,7 @@ export class Sky {
  * snapped to whole texels in light space so shadow edges do not crawl as the ship moves.
  */
 export class Lighting {
-  readonly sun = new THREE.DirectionalLight('#ffe6c7', 3.4);
+  readonly sun = new THREE.DirectionalLight('#ffe6c7', 3.0);
   readonly fill = new THREE.HemisphereLight('#6d7dff', '#ff4f8a', 0.32);
   readonly rim = new THREE.DirectionalLight('#55e0ff', 0.45);
   private range = 450;

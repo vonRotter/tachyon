@@ -2,12 +2,15 @@ import './style.css';
 import { Game } from './game/game';
 import { runKestrelMission } from './game/mission';
 import { detectQuality, type QualityLevel } from './core/quality';
+import { BIND_LABELS, DEFAULT_BINDINGS, keyLabel, type BindAction, type Bindings } from './core/input';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
 interface Settings {
   voice: boolean;
-  music: boolean;
+  musicVolume: number;
+  sfxVolume: number;
+  glow: number;
   invertMouse: boolean;
   invertPad: boolean;
   sensitivity: number;
@@ -37,7 +40,9 @@ const save = (key: string, value: unknown): void => {
 
 const settings = load<Settings>('veil.settings', {
   voice: false,
-  music: true,
+  musicVolume: 0.6,
+  sfxVolume: 0.9,
+  glow: 1,
   invertMouse: false,
   invertPad: false,
   sensitivity: 1,
@@ -48,18 +53,21 @@ const campaign = load<Campaign>('veil.campaign', { credits: 0, allegiance: null 
 const game = new Game($('game'), $<HTMLCanvasElement>('hud'));
 game.missionRunner = runKestrelMission;
 (window as unknown as { __game: Game }).__game = game;
+game.input.setBindings({ ...DEFAULT_BINDINGS, ...load<Partial<Bindings>>('veil.bindings', {}) });
 
 function applySettings(): void {
   game.input.settings.invertMouseY = settings.invertMouse;
   game.input.settings.invertPadY = settings.invertPad;
   game.input.settings.mouseSensitivity = settings.sensitivity;
   game.comms.voiceEnabled = settings.voice;
-  game.audio.music.enabled = settings.music;
-  game.audio.setVolumes(0.9, settings.music ? 0.32 : 0);
+  game.audio.music.enabled = settings.musicVolume > 0;
+  game.audio.setVolumes(settings.sfxVolume, settings.musicVolume * 0.5);
+  game.setGlow(settings.glow);
   save('veil.settings', settings);
 }
 
-const bindCheck = (id: string, key: 'voice' | 'music' | 'invertMouse' | 'invertPad') => {
+// --- Options form ---------------------------------------------------------------------------
+const bindCheck = (id: string, key: 'voice' | 'invertMouse' | 'invertPad') => {
   const el = $<HTMLInputElement>(id);
   el.checked = settings[key];
   el.addEventListener('change', () => {
@@ -67,10 +75,22 @@ const bindCheck = (id: string, key: 'voice' | 'music' | 'invertMouse' | 'invertP
     applySettings();
   });
 };
+const bindRange = (id: string, key: 'musicVolume' | 'sfxVolume' | 'glow' | 'sensitivity') => {
+  const el = $<HTMLInputElement>(id);
+  el.value = String(settings[key]);
+  el.addEventListener('input', () => {
+    settings[key] = Number(el.value);
+    applySettings();
+  });
+};
 bindCheck('opt-voice', 'voice');
-bindCheck('opt-music', 'music');
 bindCheck('opt-invert-mouse', 'invertMouse');
 bindCheck('opt-invert-pad', 'invertPad');
+bindRange('opt-music-vol', 'musicVolume');
+bindRange('opt-sfx-vol', 'sfxVolume');
+bindRange('opt-glow', 'glow');
+bindRange('opt-sens', 'sensitivity');
+
 // URL overrides for testing: ?quality=high&dynres=0
 const params = new URLSearchParams(location.search);
 const urlQuality = params.get('quality') as QualityLevel | null;
@@ -87,21 +107,150 @@ qualitySelect.addEventListener('change', () => {
   applyQuality();
 });
 applyQuality();
-
-const sens = $<HTMLInputElement>('opt-sens');
-sens.value = String(settings.sensitivity);
-sens.addEventListener('input', () => {
-  settings.sensitivity = Number(sens.value);
-  applySettings();
-});
 applySettings();
 
+// --- Menu stack -----------------------------------------------------------------------------
 const show = (id: string, on: boolean) => $(id).classList.toggle('visible', on);
+/** Open sub-menus on top of the title or pause screen; Back / Esc pops them. */
+const menuStack: string[] = [];
 
+function openMenu(id: string): void {
+  const top = menuStack[menuStack.length - 1] ?? baseMenu();
+  if (top) show(top, false);
+  menuStack.push(id);
+  show(id, true);
+  if (id === 'controls') renderBindings();
+}
+
+function closeMenu(): void {
+  const id = menuStack.pop();
+  if (!id) return;
+  cancelCapture();
+  show(id, false);
+  const below = menuStack[menuStack.length - 1] ?? baseMenu();
+  if (below) show(below, true);
+}
+
+function baseMenu(): string | null {
+  if (game.state === 'title') return 'title';
+  if (game.state === 'paused') return 'pause';
+  return null;
+}
+
+function closeAllMenus(): void {
+  cancelCapture();
+  while (menuStack.length) show(menuStack.pop() as string, false);
+}
+
+for (const el of document.querySelectorAll<HTMLElement>('[data-open]')) {
+  el.addEventListener('click', () => openMenu(el.dataset.open as string));
+}
+for (const el of document.querySelectorAll<HTMLElement>('[data-back]')) {
+  el.addEventListener('click', () => closeMenu());
+}
+
+// --- Key bindings ---------------------------------------------------------------------------
+let capture: { action: BindAction; slot: number; button: HTMLButtonElement } | null = null;
+
+function renderBindings(): void {
+  const root = $('bindings');
+  root.innerHTML = '';
+  for (const [action, name] of BIND_LABELS) {
+    const label = document.createElement('div');
+    label.className = 'name';
+    label.textContent = name;
+    root.appendChild(label);
+    for (const slot of [0, 1]) {
+      const code = game.input.bindings[action][slot];
+      const b = document.createElement('button');
+      b.textContent = code ? keyLabel(code) : 'unbound';
+      b.classList.toggle('empty', !code);
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cancelCapture();
+        capture = { action, slot, button: b };
+        b.textContent = 'press a key…';
+        b.classList.add('capturing');
+        game.input.suspended = true;
+      });
+      root.appendChild(b);
+    }
+  }
+}
+
+function cancelCapture(): void {
+  if (!capture) return;
+  capture = null;
+  game.input.suspended = false;
+  renderBindings();
+}
+
+function assign(code: string | null): void {
+  if (!capture) return;
+  const { action, slot } = capture;
+  const b = game.input.bindings;
+  if (code) {
+    // a key drives one action only: remove it wherever else it was bound
+    for (const k of Object.keys(b) as BindAction[]) b[k] = b[k].filter((c) => c !== code);
+  }
+  const list = [...b[action]];
+  if (code) list[slot] = code;
+  else list.splice(slot, 1);
+  b[action] = list.filter(Boolean);
+  game.input.setBindings(b);
+  save('veil.bindings', game.input.bindings);
+  capture = null;
+  // keep gameplay input off until the key that was just bound is released
+  window.setTimeout(() => (game.input.suspended = false), 150);
+  renderBindings();
+}
+
+window.addEventListener(
+  'keydown',
+  (e) => {
+    if (!capture) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (e.code === 'Escape') cancelCapture();
+    else if (e.code === 'Backspace' || e.code === 'Delete') assign(null);
+    else assign(e.code);
+  },
+  true,
+);
+window.addEventListener(
+  'mousedown',
+  (e) => {
+    if (!capture) return;
+    // clicking another slot just moves the capture; any other click binds that button
+    if ((e.target as HTMLElement).closest('.bindings button')) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    assign(`Mouse${e.button}`);
+  },
+  true,
+);
+
+$('bind-reset').addEventListener('click', () => {
+  game.input.setBindings(DEFAULT_BINDINGS);
+  save('veil.bindings', game.input.bindings);
+  renderBindings();
+});
+
+// Esc steps back through menus before it resumes the game
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'Escape' || capture) return;
+  if (menuStack.length) {
+    closeMenu();
+    game.input.consume('pause');
+  }
+});
+
+// --- Session flow ---------------------------------------------------------------------------
 function begin(checkpoint: number): void {
   game.audio.init();
   game.audio.music.start();
   applySettings();
+  closeAllMenus();
   show('title', false);
   show('pause', false);
   show('debrief', false);
@@ -114,8 +263,18 @@ $('resume').addEventListener('click', () => game.resume());
 $('restart').addEventListener('click', () => begin(0));
 $('restart2').addEventListener('click', () => begin(0));
 $('retry').addEventListener('click', () => begin(game.checkpoint));
+$('quit').addEventListener('click', () => {
+  closeAllMenus();
+  show('pause', false);
+  game.quitToTitle();
+  show('title', true);
+});
 
-game.onPauseChange = (paused) => show('pause', paused);
+game.onPauseChange = (paused) => {
+  if (!paused) closeAllMenus();
+  show('pause', paused);
+};
+game.menuOpen = () => menuStack.length > 0;
 
 // clicking the game view re-captures the mouse
 game.renderer.domElement.addEventListener('click', () => {
@@ -185,4 +344,6 @@ function loop(now: number): void {
 requestAnimationFrame(loop);
 
 // gamepad (A / Cross) or Enter starts from the title screen
-game.onTitleConfirm = () => begin(0);
+game.onTitleConfirm = () => {
+  if (!menuStack.length) begin(0);
+};

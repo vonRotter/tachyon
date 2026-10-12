@@ -13,12 +13,125 @@ export interface FlightInput {
   missile: boolean;
 }
 
+/** Every rebindable keyboard/mouse action. */
+export type BindAction =
+  | 'throttleUp'
+  | 'throttleDown'
+  | 'pitchUp'
+  | 'pitchDown'
+  | 'yawLeft'
+  | 'yawRight'
+  | 'rollLeft'
+  | 'rollRight'
+  | 'strafeLeft'
+  | 'strafeRight'
+  | 'strafeUp'
+  | 'strafeDown'
+  | 'boost'
+  | 'slide'
+  | 'fire'
+  | 'missile'
+  | 'targetNearest'
+  | 'targetNext'
+  | 'matchSpeed'
+  | 'camera'
+  | 'centerMouse'
+  | 'pause';
+
+/** One-shot actions the game polls with `pressed()`. `confirm` is fixed (Enter / pad A). */
 export type Action = 'targetNext' | 'targetNearest' | 'camera' | 'pause' | 'centerMouse' | 'matchSpeed' | 'confirm';
 
-export interface InputSettings {
-  invertMouseY: boolean;
-  invertPadY: boolean;
-  mouseSensitivity: number;
+export type Bindings = Record<BindAction, string[]>;
+
+export const BIND_LABELS: [BindAction, string][] = [
+  ['throttleUp', 'Throttle up'],
+  ['throttleDown', 'Throttle down'],
+  ['pitchUp', 'Pitch up'],
+  ['pitchDown', 'Pitch down'],
+  ['yawLeft', 'Yaw left'],
+  ['yawRight', 'Yaw right'],
+  ['rollLeft', 'Roll left'],
+  ['rollRight', 'Roll right'],
+  ['strafeLeft', 'Strafe left'],
+  ['strafeRight', 'Strafe right'],
+  ['strafeUp', 'Strafe up'],
+  ['strafeDown', 'Strafe down'],
+  ['boost', 'Boost'],
+  ['slide', 'Slide (hold)'],
+  ['fire', 'Fire guns'],
+  ['missile', 'Fire missile'],
+  ['targetNearest', 'Target nearest'],
+  ['targetNext', 'Next target'],
+  ['matchSpeed', 'Match target speed'],
+  ['camera', 'Toggle camera'],
+  ['centerMouse', 'Recentre mouse stick'],
+  ['pause', 'Pause (Esc always works)'],
+];
+
+export const DEFAULT_BINDINGS: Bindings = {
+  throttleUp: ['KeyW'],
+  throttleDown: ['KeyS'],
+  pitchUp: ['ArrowUp'],
+  pitchDown: ['ArrowDown'],
+  yawLeft: ['ArrowLeft'],
+  yawRight: ['ArrowRight'],
+  rollLeft: ['KeyQ'],
+  rollRight: ['KeyE'],
+  strafeLeft: ['KeyA'],
+  strafeRight: ['KeyD'],
+  strafeUp: ['KeyR'],
+  strafeDown: ['KeyF'],
+  boost: ['ShiftLeft', 'ShiftRight'],
+  slide: ['Space'],
+  fire: ['Mouse0', 'ControlLeft'],
+  missile: ['Mouse2', 'KeyG'],
+  targetNearest: ['KeyT'],
+  targetNext: ['Tab'],
+  matchSpeed: ['KeyZ'],
+  camera: ['KeyC'],
+  centerMouse: ['KeyX'],
+  pause: ['KeyP'],
+};
+
+const EDGE_ACTIONS: Partial<Record<BindAction, Action>> = {
+  targetNearest: 'targetNearest',
+  targetNext: 'targetNext',
+  matchSpeed: 'matchSpeed',
+  camera: 'camera',
+  centerMouse: 'centerMouse',
+  pause: 'pause',
+};
+
+/** Human-readable name for a key code or mouse button ("Mouse0"). */
+export function keyLabel(code: string | undefined): string {
+  if (!code) return '—';
+  const special: Record<string, string> = {
+    Mouse0: 'Left click',
+    Mouse1: 'Middle click',
+    Mouse2: 'Right click',
+    Mouse3: 'Mouse 4',
+    Mouse4: 'Mouse 5',
+    Space: 'Space',
+    ShiftLeft: 'Left Shift',
+    ShiftRight: 'Right Shift',
+    ControlLeft: 'Left Ctrl',
+    ControlRight: 'Right Ctrl',
+    AltLeft: 'Left Alt',
+    AltRight: 'Right Alt',
+    ArrowUp: '↑',
+    ArrowDown: '↓',
+    ArrowLeft: '←',
+    ArrowRight: '→',
+    Tab: 'Tab',
+    Enter: 'Enter',
+    Backspace: 'Backspace',
+    CapsLock: 'Caps Lock',
+  };
+  if (special[code]) return special[code];
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Numpad')) return `Num ${code.slice(6)}`;
+  return code;
 }
 
 // Standard Gamepad mapping: identical indices for Xbox and PlayStation pads.
@@ -49,17 +162,27 @@ const deadzone = (v: number, dz = 0.12): number => {
 
 const curve = (v: number, p = 1.6): number => Math.sign(v) * Math.pow(Math.abs(v), p);
 
+export interface InputSettings {
+  invertMouseY: boolean;
+  invertPadY: boolean;
+  mouseSensitivity: number;
+}
+
 /**
- * Unifies keyboard, mouse (virtual joystick under pointer lock) and gamepad. Whichever device
- * was touched last drives the HUD prompts.
+ * Unifies keyboard, mouse (virtual joystick under pointer lock) and gamepad. Keyboard and mouse
+ * buttons go through a rebindable action map; mouse buttons appear as "Mouse0".."Mouse4".
  */
 export class Input {
   readonly settings: InputSettings = { invertMouseY: false, invertPadY: false, mouseSensitivity: 1 };
   device: 'mouse' | 'gamepad' = 'mouse';
-  private readonly keys = new Set<string>();
+  bindings: Bindings = cloneBindings(DEFAULT_BINDINGS);
+  private codeToActions = new Map<string, BindAction[]>();
+  /** Held keys and mouse buttons. */
+  private readonly held = new Set<string>();
   private readonly actionsPressed = new Set<Action>();
-  private mouseButtons = 0;
-  private mouseMissileEdge = false;
+  private missileEdge = false;
+  /** Set while a menu captures a key for rebinding: gameplay ignores input. */
+  suspended = false;
   /** Virtual stick position, unit disc. */
   readonly cursor = { x: 0, y: 0 };
   pointerLocked = false;
@@ -72,18 +195,17 @@ export class Input {
   anyKeyPressed = false;
 
   constructor(private readonly canvas: HTMLElement) {
+    this.setBindings(this.bindings);
     window.addEventListener('keydown', (e) => {
+      if (this.suspended) return;
       if (e.code === 'Tab' || e.code === 'Space') e.preventDefault();
-      if (!e.repeat) this.onKeyEdge(e.code);
-      this.keys.add(e.code);
+      if (!e.repeat) this.onDown(e.code);
+      this.held.add(e.code);
       this.device = 'mouse';
       this.anyKeyPressed = true;
     });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => {
-      this.keys.clear();
-      this.mouseButtons = 0;
-    });
+    window.addEventListener('keyup', (e) => this.held.delete(e.code));
+    window.addEventListener('blur', () => this.held.clear());
     window.addEventListener('mousemove', (e) => {
       if (!this.pointerLocked) return;
       const s = 0.0028 * this.settings.mouseSensitivity;
@@ -97,18 +219,37 @@ export class Input {
       this.device = 'mouse';
     });
     window.addEventListener('mousedown', (e) => {
-      this.mouseButtons |= 1 << e.button;
-      if (e.button === 2) this.mouseMissileEdge = true;
+      if (this.suspended) return;
+      const code = `Mouse${e.button}`;
+      this.held.add(code);
+      // mouse buttons only count as flight controls while the pointer is captured, so clicking
+      // menu buttons never fires guns
+      if (this.pointerLocked) this.onDown(code);
       this.device = 'mouse';
       this.anyKeyPressed = true;
     });
-    window.addEventListener('mouseup', (e) => {
-      this.mouseButtons &= ~(1 << e.button);
-    });
+    window.addEventListener('mouseup', (e) => this.held.delete(`Mouse${e.button}`));
     window.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => {
       this.pointerLocked = document.pointerLockElement === this.canvas;
     });
+  }
+
+  setBindings(b: Bindings): void {
+    this.bindings = cloneBindings(b);
+    this.codeToActions.clear();
+    for (const [action, codes] of Object.entries(this.bindings) as [BindAction, string[]][]) {
+      for (const c of codes) {
+        const list = this.codeToActions.get(c) ?? [];
+        list.push(action);
+        this.codeToActions.set(c, list);
+      }
+    }
+  }
+
+  /** Primary binding label for prompts and hints. */
+  label(action: BindAction): string {
+    return keyLabel(this.bindings[action][0]);
   }
 
   requestPointerLock(): void {
@@ -122,31 +263,24 @@ export class Input {
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
-  private onKeyEdge(code: string): void {
-    switch (code) {
-      case 'Tab':
-        this.actionsPressed.add('targetNext');
-        break;
-      case 'KeyT':
-        this.actionsPressed.add('targetNearest');
-        break;
-      case 'KeyC':
-        this.actionsPressed.add('camera');
-        break;
-      case 'Escape':
-      case 'KeyP':
-        this.actionsPressed.add('pause');
-        break;
-      case 'KeyX':
-        this.actionsPressed.add('centerMouse');
-        break;
-      case 'KeyZ':
-        this.actionsPressed.add('matchSpeed');
-        break;
-      case 'Enter':
-        this.actionsPressed.add('confirm');
-        break;
+  private onDown(code: string): void {
+    if (code === 'Escape') this.actionsPressed.add('pause');
+    if (code === 'Enter') this.actionsPressed.add('confirm');
+    for (const a of this.codeToActions.get(code) ?? []) {
+      const edge = EDGE_ACTIONS[a];
+      if (edge) this.actionsPressed.add(edge);
+      if (a === 'missile') this.missileEdge = true;
     }
+  }
+
+  private down(action: BindAction): boolean {
+    for (const c of this.bindings[action]) {
+      if (!this.held.has(c)) continue;
+      // mouse buttons only fly the ship while the pointer is captured
+      if (c.startsWith('Mouse') && !this.pointerLocked) continue;
+      return true;
+    }
+    return false;
   }
 
   /** Call once per frame before reading. */
@@ -172,6 +306,7 @@ export class Input {
       this.device = 'gamepad';
       this.anyKeyPressed = true;
     }
+    if (this.suspended) return;
     const edge = (i: number) => this.padButtons[i] && !this.padPrev[i];
     if (edge(PAD.LB)) this.actionsPressed.add('targetNext');
     if (edge(PAD.Y)) this.actionsPressed.add('targetNearest');
@@ -190,10 +325,15 @@ export class Input {
     return this.actionsPressed.has(a);
   }
 
+  /** Swallows a pending one-shot action (a menu already handled the key). */
+  consume(a: Action): void {
+    this.actionsPressed.delete(a);
+  }
+
   /** Call at the end of each frame. */
   endFrame(): void {
     this.actionsPressed.clear();
-    this.mouseMissileEdge = false;
+    this.missileEdge = false;
     this.padMissileEdge = false;
     this.anyKeyPressed = false;
   }
@@ -204,7 +344,7 @@ export class Input {
   }
 
   read(): FlightInput {
-    const k = (c: string) => (this.keys.has(c) ? 1 : 0);
+    const k = (a: BindAction) => (this.down(a) ? 1 : 0);
     const out: FlightInput = {
       pitch: 0,
       yaw: 0,
@@ -217,6 +357,7 @@ export class Input {
       fire: false,
       missile: false,
     };
+    if (this.suspended) return out;
 
     // Mouse virtual stick
     if (this.pointerLocked) {
@@ -229,17 +370,17 @@ export class Input {
         out.pitch += -curve(this.cursor.y * scale, 1.3) * yInv;
       }
     }
-    // Keyboard
-    out.pitch += k('ArrowUp') - k('ArrowDown');
-    out.yaw += k('ArrowRight') - k('ArrowLeft');
-    out.roll += k('KeyE') - k('KeyQ');
-    out.strafeX += k('KeyD') - k('KeyA');
-    out.strafeY += k('KeyR') - k('KeyF');
-    out.throttleDelta += k('KeyW') - k('KeyS');
-    out.boost = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
-    out.slide = this.keys.has('Space');
-    out.fire = (this.mouseButtons & 1) !== 0 || this.keys.has('ControlLeft');
-    out.missile = this.mouseMissileEdge || this.keys.has('KeyG');
+    // Keyboard and mouse buttons through the binding map
+    out.pitch += k('pitchUp') - k('pitchDown');
+    out.yaw += k('yawRight') - k('yawLeft');
+    out.roll += k('rollRight') - k('rollLeft');
+    out.strafeX += k('strafeRight') - k('strafeLeft');
+    out.strafeY += k('strafeUp') - k('strafeDown');
+    out.throttleDelta += k('throttleUp') - k('throttleDown');
+    out.boost = this.down('boost');
+    out.slide = this.down('slide');
+    out.fire = this.down('fire');
+    out.missile = this.missileEdge;
 
     // Gamepad
     if (this.padConnected) {
@@ -266,4 +407,10 @@ export class Input {
     out.throttleDelta = clamp(out.throttleDelta, -1, 1);
     return out;
   }
+}
+
+export function cloneBindings(b: Bindings): Bindings {
+  const out = {} as Bindings;
+  for (const [k, v] of Object.entries(b) as [BindAction, string[]][]) out[k] = [...v];
+  return out;
 }

@@ -71,6 +71,10 @@ object space so it stays attached to moving ships. No texture files are involved
 
 ## Controls
 
+Press **Esc** in flight for the pause menu (options, controls, restart, quit). Every keyboard
+and mouse action can be rebound under **Controls**; bindings are saved in the browser. The
+table below lists the defaults.
+
 | Action | Mouse & keyboard | Gamepad |
 |---|---|---|
 | Pitch / yaw | Mouse (virtual stick, **X** recentres) | Right stick |

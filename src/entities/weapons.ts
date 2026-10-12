@@ -196,7 +196,10 @@ export class Missile {
   readonly mesh = new THREE.Group();
   readonly pos = new THREE.Vector3();
   readonly vel = new THREE.Vector3();
+  /** Where the missile's nose (and seeker) points; thrust acts along it. */
+  readonly dir = new THREE.Vector3(0, 0, -1);
   life = 9;
+  age = 0;
   alive = true;
   trailTimer = 0;
   readonly speed: number;
@@ -230,7 +233,10 @@ export class MissileSystem {
     const m = new Missile(owner, target, color);
     owner.forward(_d);
     m.pos.copy(owner.pos).addScaledVector(_d, owner.radius + 2).addScaledVector(owner.up(_p), -1.2);
-    m.vel.copy(owner.vel).addScaledVector(_d, 30);
+    // The missile inherits the launcher's momentum but points where the launcher points. When
+    // fired backwards out of a slide, its motor first has to cancel that momentum.
+    m.dir.copy(_d);
+    m.vel.copy(owner.vel).addScaledVector(_d, 25);
     m.mesh.position.copy(m.pos);
     this.scene.add(m.mesh);
     this.missiles.push(m);
@@ -247,23 +253,31 @@ export class MissileSystem {
     for (const m of this.missiles) {
       if (!m.alive) continue;
       m.life -= dt;
+      m.age += dt;
       const t = m.target;
-      _d.copy(m.vel).normalize();
       if (t && t.alive) {
         _p.subVectors(t.pos, m.pos);
-        const ti = interceptTime(_p, t.vel, m.speed);
+        const ti = interceptTime(_p, t.vel, Math.max(m.vel.length(), 120));
         const aim = _s.copy(t.pos).addScaledVector(t.vel, ti > 0 ? Math.min(ti, 3) : 0).sub(m.pos).normalize();
-        const angle = _d.angleTo(aim);
-        if (angle > 1.4) {
-          m.target = null; // seeker lost the target
+        const angle = m.dir.angleTo(aim);
+        // the seeker looks along the nose, not along the direction of travel
+        if (angle > 1.6 && m.age > 0.5) {
+          m.target = null; // target left the seeker's field of view
         } else if (angle > 1e-4) {
-          const k = Math.min(1, (m.turnRate * dt) / angle);
-          _d.lerp(aim, k).normalize();
+          const k = Math.min(1, ((m.turnRate * (m.age < 0.5 ? 1.6 : 1)) * dt) / angle);
+          m.dir.lerp(aim, k).normalize();
         }
       } else m.target = null;
-      const sp = Math.min(m.speed, m.vel.length() + 160 * dt);
-      m.vel.copy(_d).multiplyScalar(sp);
-      const step = sp * dt;
+      // rocket motor along the nose, with fins bleeding off sideways and backwards drift
+      m.vel.addScaledVector(m.dir, 420 * dt);
+      const along = m.vel.dot(m.dir);
+      _p.copy(m.vel).addScaledVector(m.dir, -along);
+      m.vel.addScaledVector(_p, -(1 - Math.exp(-3.5 * dt)));
+      if (along < 0) m.vel.addScaledVector(m.dir, -along * (1 - Math.exp(-5 * dt)));
+      const sp = m.vel.length();
+      if (sp > m.speed) m.vel.multiplyScalar(m.speed / sp);
+      const step = Math.min(sp, m.speed) * dt;
+      _d.copy(m.vel).normalize();
 
       let detonate = false;
       let victim: Ship | null = null;
@@ -293,11 +307,11 @@ export class MissileSystem {
       }
 
       m.mesh.position.copy(m.pos);
-      m.mesh.quaternion.setFromUnitVectors(Z, _p.copy(_d).negate());
+      m.mesh.quaternion.setFromUnitVectors(Z, _p.copy(m.dir).negate());
       m.trailTimer -= dt;
       if (m.trailTimer <= 0) {
         m.trailTimer = 0.016;
-        _p.copy(m.pos).addScaledVector(_d, -1.6);
+        _p.copy(m.pos).addScaledVector(m.dir, -1.6);
         ctx.fx.particles.emit(_p, _s.set(rand(-3, 3), rand(-3, 3), rand(-3, 3)), {
           life: rand(0.8, 1.4),
           size0: 1.6,

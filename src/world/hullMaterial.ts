@@ -77,19 +77,26 @@ vec4 hPlates(vec2 uv) {
 
 // Screen-space bump mapping (same maths as three.js perturbNormalArb).
 vec3 hullPerturb(vec3 surfPos, vec3 surfNorm, vec2 dHdxy, float faceDir) {
-  vec3 sx = normalize(dFdx(surfPos));
-  vec3 sy = normalize(dFdy(surfPos));
+  vec3 dx = dFdx(surfPos);
+  vec3 dy = dFdy(surfPos);
+  // degenerate derivatives (edge-on or sub-pixel triangles) would produce NaN
+  if (dot(dx, dx) < 1e-14 || dot(dy, dy) < 1e-14) return surfNorm;
+  vec3 sx = normalize(dx);
+  vec3 sy = normalize(dy);
   vec3 r1 = cross(sy, surfNorm);
   vec3 r2 = cross(surfNorm, sx);
   float det = dot(sx, r1) * faceDir;
   vec3 grad = sign(det) * (dHdxy.x * r1 + dHdxy.y * r2);
-  return normalize(abs(det) * surfNorm - grad);
+  vec3 n = abs(det) * surfNorm - grad;
+  float len2 = dot(n, n);
+  return len2 > 1e-14 ? n * inversesqrt(len2) : surfNorm;
 }
 `;
 
 const COLOR = /* glsl */ `
 vec3 hp = vObjPos / uPanel;
-vec3 hn = normalize(cross(dFdx(vObjPos), dFdy(vObjPos)));
+vec3 hc = cross(dFdx(vObjPos), dFdy(vObjPos));
+vec3 hn = dot(hc, hc) > 1e-20 ? normalize(hc) : vec3(0.0, 1.0, 0.0);
 vec3 hw = pow(abs(hn), vec3(8.0));
 hw /= (hw.x + hw.y + hw.z + 1e-5);
 float footprint = length(fwidth(hp));
@@ -122,7 +129,7 @@ if (uRock > 0.5) {
     vec2 cluster = floor(wuv / vec2(5.0, 3.0));
     float lit = step(1.0 - uWindows, hHash(cluster + 9.1)) * step(0.25, hHash(floor(wuv) + 1.7));
     vec3 wcol = mix(vec3(1.0, 0.72, 0.38), vec3(0.4, 0.9, 1.0), step(0.6, hHash(cluster + 2.0)));
-    hullEmit = wcol * wdot * lit * detailFade * 1.6;
+    hullEmit = wcol * wdot * lit * detailFade * 1.25;
   }
 }
 

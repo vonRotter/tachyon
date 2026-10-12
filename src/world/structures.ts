@@ -113,16 +113,19 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
     const inner = dir.clone().multiplyScalar(38);
     const outer = dir.clone().multiplyScalar(R - 14);
     rb.strut(inner, outer, 6, white, { sides: 10 });
-    const up = v3(0, 16, 0);
-    rb.strut(inner.clone().add(up), outer.clone().add(up), 1.8, magenta);
-    rb.strut(inner.clone().sub(up), outer.clone().sub(up), 1.8, magenta);
-    for (let k = 1; k < 5; k++) {
-      const t0 = 38 + ((R - 52) * k) / 5;
+    // rails sit well clear of the spoke so the gaps are flyable at speed
+    const up = v3(0, 34, 0);
+    rb.strut(inner.clone().add(up), outer.clone().add(up), 2, magenta);
+    rb.strut(inner.clone().sub(up), outer.clone().sub(up), 2, magenta);
+    for (const k of [1, 3]) {
+      const t0 = 38 + ((R - 52) * k) / 4;
       const p = dir.clone().multiplyScalar(t0);
-      const p2 = dir.clone().multiplyScalar(t0 + (R - 52) / 10);
-      rb.strut(p.clone().add(up), p2, 1.2, yellow);
-      rb.strut(p.clone().sub(up), p2, 1.2, yellow);
+      const p2 = dir.clone().multiplyScalar(t0 + (R - 52) / 8);
+      rb.strut(p.clone().add(up), p2, 1.4, yellow);
+      rb.strut(p.clone().sub(up), p2, 1.4, yellow);
     }
+    rb.strut(outer.clone().add(up), outer.clone().add(v3(0, 11, 0)), 2, magenta);
+    rb.strut(outer.clone().sub(up), outer.clone().sub(v3(0, 11, 0)), 2, magenta);
   }
 
   // --- Docking arms ------------------------------------------------------------------------
@@ -133,10 +136,10 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
     rb.strut(start, end, 4, '#c7cde0', { sides: 8 });
     const side = v3(-dir.z, 0, dir.x);
     const cradle = end.clone();
-    rb.box(cradle, v3(30, 6, 30), '#2b2f45', { quat: quatY(-a) });
+    rb.box(cradle, v3(44, 6, 50), '#2b2f45', { quat: quatY(-a) });
     for (const s of [1, -1]) {
-      const wall = cradle.clone().addScaledVector(side, s * 14).add(v3(0, 12, 0));
-      rb.box(wall, v3(26, 20, 3), orange, { quat: quatY(-a) });
+      const wall = cradle.clone().addScaledVector(side, s * 24).add(v3(0, 12, 0));
+      rb.box(wall, v3(40, 20, 3), orange, { quat: quatY(-a) });
       ringBeacons.push({
         position: wall.clone().add(v3(0, 11, 0)),
         color: new THREE.Color('#ffb020'),
@@ -160,22 +163,25 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
 
   // --- Lattice towers (fly inside them) -------------------------------------------------------
   const db = new StructureBuilder();
-  const h = 18;
-  const step = 30;
+  // 64 m square section, 44 m between levels: roomy enough to fly through at full speed
+  const h = 32;
+  const step = 44;
   for (const sign of [1, -1]) {
-    const y0 = sign * 112;
-    const levels = 12;
+    const y0 = sign * 108;
+    const levels = 8;
     const corners = [v3(h, 0, h), v3(-h, 0, h), v3(-h, 0, -h), v3(h, 0, -h)];
     const yAt = (k: number) => y0 + sign * k * step;
     for (const c of corners) {
-      b.strut(v3(c.x, yAt(0), c.z), v3(c.x, yAt(levels), c.z), 2.2, yellow, { sides: 6 });
+      b.strut(v3(c.x, yAt(0), c.z), v3(c.x, yAt(levels), c.z), 2.6, yellow, { sides: 6 });
     }
+    // collar joining the tower to the hub dome
+    b.box(v3(0, y0, 0), v3(h * 2 + 6, 5, h * 2 + 6), '#2b2f45');
     for (let k = 0; k <= levels; k++) {
       for (let j = 0; j < 4; j++) {
         const c1 = corners[j];
         const c2 = corners[(j + 1) % 4];
         b.strut(v3(c1.x, yAt(k), c1.z), v3(c2.x, yAt(k), c2.z), 1.4, white, { sides: 5 });
-        if (k < levels && k % 4 !== 1) {
+        if (k < levels && k % 3 === 0) {
           const flip = (k + j) % 2 === 0;
           const a1 = flip ? c1 : c2;
           const a2 = flip ? c2 : c1;
@@ -195,24 +201,24 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
 
     // Solar wings at two heights, crossing at right angles
     for (const [yk, alongX] of [
-      [6, true],
-      [9, false],
+      [3.5, true],
+      [6.5, false],
     ] as const) {
       const y = yAt(yk);
       for (const s of [1, -1]) {
         const dir = alongX ? v3(s, 0, 0) : v3(0, 0, s);
         const boomStart = dir.clone().multiplyScalar(h).setY(y);
-        const boomEnd = dir.clone().multiplyScalar(250).setY(y);
+        const boomEnd = dir.clone().multiplyScalar(300).setY(y);
         b.strut(boomStart, boomEnd, 2.6, '#c7cde0', { sides: 6 });
         for (let p = 0; p < 3; p++) {
-          const along = 60 + p * 66;
-          for (const off of [26, -26]) {
+          const along = 80 + p * 84;
+          for (const off of [42, -42]) {
             const center = dir.clone().multiplyScalar(along).setY(y);
             if (alongX) center.z += off;
             else center.x += off;
-            const size = alongX ? v3(58, 1.2, 40) : v3(40, 1.2, 58);
+            const size = alongX ? v3(54, 1.2, 36) : v3(36, 1.2, 54);
             b.box(center, size, indigo);
-            b.box(center.clone().setY(y + 0.7), alongX ? v3(58, 0.3, 1) : v3(1, 0.3, 58), '#8a7dff', {
+            b.box(center.clone().setY(y + 0.7), alongX ? v3(54, 0.3, 1) : v3(1, 0.3, 54), '#8a7dff', {
               glow: 1.8,
               collide: false,
             });
@@ -224,28 +230,28 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
     // Tip: comms dish on top, caged reactor below
     const tip = yAt(levels);
     if (sign > 0) {
-      for (const c of corners) b.strut(v3(c.x, tip, c.z), v3(0, tip + 44, 0), 1.6, white);
+      for (const c of corners) b.strut(v3(c.x, tip, c.z), v3(0, tip + 50, 0), 1.8, white);
       // rotating sensor dish with a sweeping radar boom
-      db.cylinder(v3(0, tip + 46, 0), 46, 4, cream, { sides: 24, radiusTop: 34 });
-      db.sphere(v3(0, tip + 54, 0), 4, '#ff2050', { glow: 3, collide: false });
-      db.box(v3(38, tip + 51, 0), v3(66, 3, 4), '#2b2f45');
-      db.box(v3(72, tip + 54, 0), v3(6, 9, 10), orange);
-      db.sphere(v3(75.5, tip + 54, 0), 1.6, '#ff2050', { glow: 3, collide: false });
-      db.box(v3(-30, tip + 50, 0), v3(10, 6, 10), magenta);
+      db.cylinder(v3(0, tip + 52, 0), 46, 4, cream, { sides: 24, radiusTop: 34 });
+      db.sphere(v3(0, tip + 60, 0), 4, '#ff2050', { glow: 3, collide: false });
+      db.box(v3(38, tip + 57, 0), v3(66, 3, 4), '#2b2f45');
+      db.box(v3(72, tip + 60, 0), v3(6, 9, 10), orange);
+      db.sphere(v3(75.5, tip + 60, 0), 1.6, '#ff2050', { glow: 3, collide: false });
+      db.box(v3(-30, tip + 56, 0), v3(10, 6, 10), magenta);
     } else {
-      b.sphere(v3(0, tip - 56, 0), 20, '#ff9a2a', { detail: 2, glow: 2.2 });
+      b.sphere(v3(0, tip - 60, 0), 22, '#ff9a2a', { detail: 2, glow: 2.2 });
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
         b.strut(
-          v3(Math.cos(a) * 24, tip, Math.sin(a) * 24),
-          v3(Math.cos(a) * 32, tip - 56, Math.sin(a) * 32),
-          1.8,
+          v3(Math.cos(a) * 42, tip, Math.sin(a) * 42),
+          v3(Math.cos(a) * 52, tip - 60, Math.sin(a) * 52),
+          2,
           '#2b2f45',
         );
         b.strut(
-          v3(Math.cos(a) * 32, tip - 56, Math.sin(a) * 32),
-          v3(Math.cos(a) * 18, tip - 90, Math.sin(a) * 18),
-          1.8,
+          v3(Math.cos(a) * 52, tip - 60, Math.sin(a) * 52),
+          v3(Math.cos(a) * 26, tip - 100, Math.sin(a) * 26),
+          2,
           '#2b2f45',
         );
       }
@@ -315,33 +321,33 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
   b.box(v3(0, 29, -290), v3(30, 4, 70), gold, { collide: false });
   b.box(v3(0, -21, -365), v3(30, 3, 60), dark, { collide: false });
 
-  // Hangar block with a broadside tunnel (50 x 30 opening) running along X
+  // Hangar block with a broadside tunnel (80 x 50 opening) running along X
   const hx = 70;
-  b.box(v3(0, 0, -125), v3(hx * 2, 70, 50), ivory);
-  b.box(v3(0, 0, -25), v3(hx * 2, 70, 50), ivory);
-  b.box(v3(0, 25, -75), v3(hx * 2, 20, 50), ivory);
-  b.box(v3(0, -25, -75), v3(hx * 2, 20, 50), ivory);
-  for (const z of [-99, -51]) {
-    b.box(v3(0, -14.6, z), v3(hx * 2, 0.4, 1), cyan, { glow: 2.4, collide: false });
-    b.box(v3(0, 14.6, z), v3(hx * 2, 0.4, 1), '#ffb030', { glow: 2.2, collide: false });
+  b.box(v3(0, 0, -147.5), v3(hx * 2, 110, 65), ivory);
+  b.box(v3(0, 0, -7.5), v3(hx * 2, 110, 55), ivory);
+  b.box(v3(0, 40, -75), v3(hx * 2, 30, 80), ivory);
+  b.box(v3(0, -40, -75), v3(hx * 2, 30, 80), ivory);
+  for (const z of [-114.4, -35.6]) {
+    b.box(v3(0, -24.6, z), v3(hx * 2, 0.4, 1), cyan, { glow: 2, collide: false });
+    b.box(v3(0, 24.6, z), v3(hx * 2, 0.4, 1), '#ffb030', { glow: 1.8, collide: false });
   }
   for (const s of [1, -1]) {
-    b.box(v3(s * (hx + 0.3), 0, -75), v3(0.4, 32, 52), cyan, { glow: 1.2, collide: false });
-    for (const z of [-104, -46]) {
+    b.box(v3(s * (hx + 0.3), 0, -75), v3(0.4, 52, 82), cyan, { glow: 1, collide: false });
+    for (const z of [-120, -30]) {
       beacons.push({ position: v3(s * (hx + 2), 0, z), color: new THREE.Color('#30ff70'), phase: z * 0.02 + s });
     }
   }
   // gold racing stripes along the flanks
   for (const s of [1, -1]) {
     b.box(v3(s * 52.3, 8, -200), v3(0.6, 6, 96), gold, { collide: false });
-    b.box(v3(s * (hx + 0.3), 30, -75), v3(0.6, 5, 148), gold, { collide: false });
+    b.box(v3(s * (hx + 0.3), 48, -80), v3(0.6, 5, 190), gold, { collide: false });
   }
 
   // Open cargo spine: four beams, ribs, and colourful containers with gaps to thread
-  const spineStart = 0;
+  const spineStart = 20;
   const spineEnd = 250;
-  const beamX = 42;
-  const beamY = 28;
+  const beamX = 56;
+  const beamY = 40;
   for (const sx of [1, -1])
     for (const sy of [1, -1]) {
       b.box(v3(sx * beamX, sy * beamY, (spineStart + spineEnd) / 2), v3(7, 7, spineEnd - spineStart), dark);
@@ -350,22 +356,22 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
     quat: quatX90,
     sides: 12,
   });
-  for (let z = spineStart + 25; z < spineEnd; z += 50) {
+  for (let z = spineStart + 40; z < spineEnd; z += 70) {
     b.box(v3(0, beamY, z), v3(beamX * 2 + 7, 5, 5), gold);
     b.box(v3(0, -beamY, z), v3(beamX * 2 + 7, 5, 5), gold);
     b.box(v3(beamX, 0, z), v3(5, beamY * 2, 5), gold);
     b.box(v3(-beamX, 0, z), v3(5, beamY * 2, 5), gold);
   }
   const crateColors = ['#ff4d4d', '#ffcf33', '#2fb7ff', '#3ee07a', '#ff7ad9', '#9b6bff'];
-  for (let z = spineStart + 40; z < spineEnd - 10; z += 50) {
+  for (let z = spineStart + 75; z < spineEnd - 10; z += 70) {
     for (const [cx, cy] of [
-      [0, 17],
-      [0, -17],
-      [20, 0],
-      [-20, 0],
+      [0, 15],
+      [0, -15],
+      [17, 0],
+      [-17, 0],
     ] as const) {
       if (rng.next() < 0.3) continue;
-      b.box(v3(cx, cy, z), v3(cx === 0 ? 14 : 12, cy === 0 ? 14 : 12, 20), rng.pick(crateColors));
+      b.box(v3(cx, cy, z), v3(12, 12, 20), rng.pick(crateColors));
     }
   }
 
@@ -433,7 +439,7 @@ export function buildAsteroids(world: CollisionWorld, center: THREE.Vector3, spr
     let p = v3(0, 0, 0);
     for (let tries = 0; tries < 20; tries++) {
       p = v3(rng.range(-1, 1), rng.range(-0.5, 0.5), rng.range(-1, 1)).multiplyScalar(spread).add(center);
-      if (placed.every((o) => o.p.distanceTo(p) > o.r + r + 25)) break;
+      if (placed.every((o) => o.p.distanceTo(p) > o.r + r + 45)) break;
     }
     placed.push({ p, r });
     const geo = new THREE.IcosahedronGeometry(r, 1);
