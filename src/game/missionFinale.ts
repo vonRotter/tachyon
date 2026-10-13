@@ -172,3 +172,123 @@ export async function runLastLight(g: Game, checkpoint: number, c: Campaign): Pr
   g.endMission('victory');
 }
 
+
+/** Bastion's shield pylon emitters. */
+const PYLON: ShipClass = { ...SHIP_CLASSES.relay, id: 'pylon', name: 'Shield pylon', hull: 800, shields: 350, radius: 16, bounty: 2500 };
+
+/**
+ * "The Bastion" (Drift finale) at Bastion, the Combine's fortress in the Reach. Bring down the
+ * four shield pylons, then silence the fortress batteries with the Long Patience's broadsides
+ * behind you, until the Combine pulls out of the Reach. Who flies with you depends on what you
+ * did at Kestrel.
+ */
+export async function runBastion(g: Game, checkpoint: number, c: Campaign): Promise<void> {
+  const player = g.player as Ship;
+  const B = (k: string) => g.points[`bastion.${k}`];
+  g.setRelation('combine', 'drift', true);
+  g.setRelation('combine', 'player', true);
+  g.setRelation('kestrel', 'combine', true);
+  g.friendlyFireLimit = 400;
+
+  const patience = g.spawnCapital('battlecruiser', 'drift', 'patience', 'Long Patience', v(0, 160, 2700), v(0, 60, 0), { armed: true, skill: 0.5 });
+  const dawn = g.spawnCapital('battlecruiser', 'combine', 'dawn', 'Sovereign Dawn', v(700, 100, 700), v(0, 160, 2700), { armed: true, skill: 0.55 });
+  // the shield: a pale dome round the core while the pylons stand
+  const dome = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(640, 4),
+    new THREE.MeshBasicMaterial({ color: '#5fe8ff', transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  g.addDecor(dome);
+  g.onFrame(() => {
+    (dome.material as THREE.MeshBasicMaterial).opacity = 0.05 + Math.sin(g.time * 2) * 0.02;
+  });
+  const pylons: Ship[] = checkpoint === 0 ? [0, 1, 2, 3].map((i) => g.spawnShip(PYLON, 'combine', 'Shield pylon', B(`pylon${i}`).clone(), B('center'), {})) : [];
+  const batteries: Ship[] = [0, 1, 2, 3, 4, 5].map((i) =>
+    g.spawnShip('cannon', 'combine', 'Bastion battery', B(`battery${i}`).clone(), patience.root.position, { turret: true, skill: 0.5, playerBias: 0.4 }),
+  );
+  const shield = (on: boolean) => {
+    dome.visible = on;
+    for (const s of batteries) s.invulnerable = on;
+  };
+  shield(checkpoint === 0);
+
+  const allies: Ship[] = [0, 1].map((i) => g.spawnShip('gannet', 'drift', i === 0 ? 'Kit' : 'Drift escort', v(-60 + i * 50, 200, 2350), B('center'), { skill: 0.6, playerBias: 0, damageScale: 0.6 }));
+  if (c.flags.kestrel === 'free') {
+    allies.push(g.spawnShip('warden', 'kestrel', 'Juno', v(-150, 230, 2400), B('center'), { skill: 0.65, playerBias: 0, damageScale: 0.6 }));
+    allies.push(g.spawnShip('warden', 'kestrel', 'Pike', v(-190, 210, 2440), B('center'), { skill: 0.6, playerBias: 0, damageScale: 0.6 }));
+  }
+  for (const s of allies) s.missiles = Math.min(s.missiles, 4);
+  player.placeAt(v(40, 230, 2300), B('center'), 90);
+  g.setMusicIntensity(0.5);
+
+  const enemies: Ship[] = [];
+  const drones = (n: number, at: THREE.Vector3) => {
+    for (let i = 0; i < n; i++) enemies.push(g.jumpIn('drone', 'combine', 'Combine drone', at.clone().add(v((i % 4) * 30 - 45, Math.floor(i / 4) * 30, 0)), patience.root.position, { skill: 0.45, playerBias: 0.4 }));
+  };
+
+  if (checkpoint === 0) {
+    g.objective = 'Bring down the shield pylons';
+    await g.say('sorrel', 'This is where the Combine runs the Reach from, Rook. Bastion. Its shield is fed by four pylons at the ends of the arms. Bring them down and the batteries are ours to break.');
+    if (c.flags.records === 'broadcast') await g.say('sorrel', 'Since the broadcast, their own contractors have been walking off. Bastion is half-crewed today. It will never be weaker.');
+    if (c.flags.kestrel === 'free') await g.say('juno', 'Kestrel militia, with you, Rook. You stood by us. We stand by you.');
+    if (c.flags.dawn === 'burned') await g.say('tessaine', 'The pilot who burned my hangar. I have been waiting for you, Rook.');
+    else await g.say('tessaine', 'Mother Sorrel. You have brought a battlecruiser to a fortress. Sovereign Dawn, launch all wings.');
+    g.setMusicIntensity(0.9);
+    enemies.push(...launchFrom(g, dawn, ['sabre', 'sabre', 'sabre', 'sabre'], 'combine', 'Dawn Sabre', { skill: 0.6, playerBias: 0.5, tactic: 'standoff' }));
+    drones(8, v(300, 300, 1200));
+    let wave = 0;
+    let nextWave = g.missionTime + 50;
+    await g.until(() => {
+      const left = pylons.filter((p) => p.alive).length;
+      g.objective = `Bring down the shield pylons · ${left} left`;
+      if (wave < 2 && g.missionTime > nextWave) {
+        wave++;
+        nextWave = g.missionTime + 50;
+        enemies.push(...launchFrom(g, dawn, ['sabre', 'sabre', 'sabre'], 'combine', 'Dawn Sabre', { skill: 0.6, playerBias: 0.5, tactic: wave === 1 ? 'flanker' : 'standoff' }));
+      }
+      return left === 0;
+    });
+    shield(false);
+    await g.say('kit', 'Shield is down! The whole thing just flickered out!');
+  }
+
+  g.checkpoint = 1;
+  shield(false);
+  g.setMusicIntensity(1);
+  await g.say('sorrel', 'Long Patience, all batteries, fire on the fortress. Rook, the guns on the arms and the tiers. Silence them.');
+  drones(10, v(-300, 200, 1000));
+  let broadside = g.missionTime + 20;
+  let first = true;
+  await g.until(() => {
+    const left = batteries.filter((s) => s.alive).length;
+    g.objective = `Silence Bastion's batteries · ${left} left`;
+    if (g.missionTime > broadside) {
+      broadside = g.missionTime + 25;
+      const live = batteries.filter((s) => s.alive);
+      const hit = live[Math.floor(Math.random() * live.length)];
+      if (hit && live.length > 1) {
+        g.detonate(hit.pos, 1.8, 0, 0);
+        g.onShipHit(hit, hit.hull + hit.shields + 1, null, hit.pos.clone(), 'missile');
+        if (first) {
+          first = false;
+          void g.say('magpie', 'Long Patience gunnery here. That one is ours. Find us another.').catch(() => undefined);
+        }
+      }
+    }
+    return left === 0;
+  });
+
+  // the Combine leaves the Reach
+  g.armCapital(dawn, false);
+  sweep(g, enemies);
+  g.setMusicIntensity(0.4);
+  await g.say('tessaine', 'Bastion is lost. All Combine units, withdraw. Sovereign Dawn, take us out. The Reach is yours, Mother Sorrel. For now.');
+  dawn.goal = v(5000, 300, -5000);
+  dawn.speed = 40;
+  await g.say('sorrel', 'For good, Commander. Rook. It is over. Come home.');
+  g.missionFlags.finale = 'drift';
+  g.objective = 'Land on the Long Patience';
+  g.armCapital(patience, false);
+  await g.dock(['patience.hangar']);
+  await g.wait(0.5);
+  g.endMission('victory');
+}

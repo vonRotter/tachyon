@@ -88,6 +88,10 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   silence the Long Patience's guns alongside the Sovereign Dawn's broadsides until Mother
   Sorrel strikes her colours. Partway through, a hospital ship leaves Haven and Tessaine orders
   it burned.
+- **Finale, Drift side: "The Bastion"** at the Combine's fortress: a symmetric stepped core in
+  ivory and gold, a command spire with a crescent blade, four arms ending in shield pylons and a
+  drydock with a destroyer half built inside. Bring down the pylons, then silence the batteries
+  with the Long Patience's broadsides behind you. If you freed Kestrel, its militia fly with you.
 - **Changing sides** happens only at moments like that (also at the Gallows, if you defend the
   habitat). The faction you leave takes its ships back: weapons fitted to them go to storage,
   upgrades go with the hull, and if nothing is left Kestrel lends you a Kite.

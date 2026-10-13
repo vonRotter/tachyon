@@ -5,6 +5,7 @@ import { buildGallows } from './gallows';
 import { buildAshfall } from './ashfall';
 import { buildVantage } from './vantage';
 import { buildHaven } from './haven';
+import { buildBastion } from './bastion';
 
 const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x, y, z);
 
@@ -162,4 +163,23 @@ const haven: Builder = (world) => {
   };
 };
 
-export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall, vantage, haven };
+const bastion: Builder = (world) => {
+  const station = buildBastion(world);
+  return {
+    ...merge('bastion', 'Bastion', [station], ['bastion']),
+    traffic: [
+      {
+        name: 'Liner Aurelian Dawn',
+        cls: 'liner',
+        points: [v(2400, 600, -1800), v(-2200, 650, -1600), v(-2400, 500, 1600), v(2200, 550, 1800)],
+        speed: 40,
+      },
+    ],
+    start: { pos: v(0, 220, 2300), look: v(0, 0, 0) },
+    arena: { center: v(0, 0, 900), warn: 3800, limit: 4600 },
+    orbit: { center: v(0, 60, 0), radius: 1300, height: 300 },
+    frames: {},
+  };
+};
+
+export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall, vantage, haven, bastion };

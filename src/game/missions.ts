@@ -5,7 +5,7 @@ import { runLaunchOrder } from './missionLaunchOrder';
 import { runFlotsam } from './missionFlotsam';
 import { runAccord } from './missionAccord';
 import { runOpenChannel } from './missionOpenChannel';
-import { runLastLight } from './missionFinale';
+import { runBastion, runLastLight } from './missionFinale';
 
 export interface MissionDef {
   id: string;
@@ -108,6 +108,19 @@ export const MISSIONS: MissionDef[] = [
     faction: 'combine',
     available: (c) => c.allegiance === 'combine' && (c.completed.accord ?? 0) > 0,
     victoryTitle: 'The Reach under the Combine',
+  },
+  {
+    id: 'bastion',
+    name: 'The Bastion',
+    location: 'Bastion',
+    map: 'bastion',
+    briefing:
+      'The Combine runs the Reach from Bastion, a fortress behind a shield fed by four pylons. Mother Sorrel is taking the Long Patience there. Bring down the pylons, silence the batteries, and the Combine leaves the Reach. Finale of the Drift campaign.',
+    pay: 30000,
+    run: runBastion,
+    faction: 'drift',
+    available: (c) => c.allegiance === 'drift' && (c.completed.accord ?? 0) > 0,
+    victoryTitle: 'The Combine leaves the Reach',
   },
 ];
 
