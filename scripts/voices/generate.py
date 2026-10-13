@@ -47,6 +47,7 @@ CAST = {
     # Helion Combine: British, measured
     "quell": {"voice": "bf_isabella", "lang": "en-gb", "speed": 1.02},
     "vale": {"voice": "bm_fable", "lang": "en-gb", "speed": 1.0},
+    "meridian": {"voice": "bm_lewis", "lang": "en-gb", "speed": 1.08},
     # Drift Union: British, older and warmer
     "sorrel": {"voice": "bf_emma", "lang": "en-gb", "speed": 0.9},
     "kit": {"voice": "af_kore", "lang": "en-us", "speed": 1.08},

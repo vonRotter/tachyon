@@ -145,6 +145,8 @@ export class Ship {
 
   /** Held by docking clamps: physics and controls are suspended. */
   held = false;
+  /** Engines cold: at zero throttle the ship coasts on its momentum instead of braking. */
+  coast = false;
   /** Fitted equipment ids (player ships). */
   readonly equipment = new Set<string>();
   flares = 0;
@@ -290,7 +292,8 @@ export class Ship {
     else this.energy = Math.min(cls.energy, this.energy + cls.energyRegen * pw.energyRegen * dt);
     this.sliding = c.slide;
 
-    if (!c.slide) {
+    const coasting = this.coast && c.throttle <= 0.001 && !wantsBoost;
+    if (!c.slide && !coasting) {
       // Forward speed is driven by a thrust-limited motor; sideways velocity is bled off by the
       // flight computer at a finite rate ("grip"), so hard turns carve with some slip.
       // negative throttle backs up (the player's throttle goes down to -0.25)

@@ -23,6 +23,7 @@ export const STYLES: Record<string, Omit<CapitalStyle, 'id' | 'name'>> = {
     light: '#c6ff5a',
     signs: ['DRIFT UNION', 'WE CARRY EACH OTHER'],
     signColor: '#c6ff5a',
+    rings: true,
   },
   wake: {
     hull: '#6a1424',
@@ -59,11 +60,6 @@ export const CAPITAL_INFO: Record<CapitalKind, CapitalInfo> = {
   battlecruiser: { kind: 'battlecruiser', label: 'Battlecruiser', length: 820, crew: 'about 900', role: 'Heavy gun barbettes and a broadside hangar. The biggest thing in the Reach.' },
 };
 
-/** A box that also blocks ships (StructureBuilder.box collides by default; this is for clarity). */
-function solid(b: StructureBuilder, c: THREE.Vector3, size: THREE.Vector3, color: string): void {
-  b.box(c, size, color);
-}
-
 function finish(
   b: StructureBuilder,
   world: CollisionWorld,
@@ -85,29 +81,57 @@ function finish(
   };
 }
 
-/** Frigate, ~60 m: a wedge hull with side sponsons, a bridge block and twin engines. */
+const X90 = new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2);
+
+/** A round engine bell with a glowing ring: circles break up all the angles. */
+function engine(b: StructureBuilder, at: THREE.Vector3, r: number, len: number, style: CapitalStyle): void {
+  b.cylinder(at, r, len, style.dark, { quat: X90, sides: 16 });
+  b.torus(at.clone().add(v3(0, 0, -len * 0.25)), r * 1.08, r * 0.12, style.trim, { radial: 6, tubular: 24 });
+  b.cylinder(at.clone().add(v3(0, 0, len / 2 + 0.2)), r * 0.86, 0.4, style.light, { quat: X90, sides: 16, glow: 1.7, collide: false });
+}
+
+/** A strip of lit windows or running lights. */
+function lights(b: StructureBuilder, at: THREE.Vector3, size: THREE.Vector3, color: string, glow = 1.6): void {
+  b.box(at, size, color, { glow, collide: false });
+}
+
+/**
+ * Frigate, ~64 m: an arrowhead. A flat delta hull with a raised wedge deck, a small bridge at the
+ * back, three ringed engines and down-turned wingtip fins.
+ */
 export function buildFrigate(world: CollisionWorld, transform: THREE.Matrix4, style: CapitalStyle): StructureResult {
   const b = new StructureBuilder(transform);
   const beacons: Beacon[] = [];
-  b.hull([v3(0, 0, -32), v3(7, 3, -14), v3(-7, 3, -14), v3(7, -4, -14), v3(-7, -4, -14), v3(0, 6, -10)], style.hull);
-  b.addCollider(new BoxCollider(v3(0, 0, -20).applyMatrix4(transform), v3(5, 4, 10), new THREE.Quaternion().setFromRotationMatrix(transform)));
-  solid(b, v3(0, 0, 4), v3(16, 10, 36), style.hull);
-  for (const s of [1, -1]) {
-    solid(b, v3(s * 10, -1, 2), v3(4, 6, 26), style.trim);
-    b.cylinder(v3(s * 6, 0, 25), 3.2, 8, style.dark, { quat: new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2), sides: 10 });
-    b.cylinder(v3(s * 6, 0, 29.1), 2.7, 0.3, style.light, { quat: new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2), sides: 10, glow: 1.4, collide: false });
-    b.box(v3(s * 8.05, 2.5, 4), v3(0.2, 0.8, 22), '#ffd27a', { glow: 1.4, collide: false });
-    beacons.push({ position: v3(s * 12.5, 2, 2), color: new THREE.Color(s > 0 ? '#30ff70' : '#ff2040'), phase: s });
+  b.hull(
+    [v3(0, -1, -34), v3(18, -2, 22), v3(-18, -2, 22), v3(15, 2, 24), v3(-15, 2, 24), v3(0, 5, -8), v3(0, 5, 22), v3(0, -6, 10), v3(6, -5, 20), v3(-6, -5, 20)],
+    style.hull,
+  );
+  const q = new THREE.Quaternion().setFromRotationMatrix(transform);
+  for (const [c, h] of [
+    [v3(0, 0, 8), v3(11, 4, 15)],
+    [v3(0, 0, -14), v3(5, 3, 10)],
+  ] as const) {
+    b.addCollider(new BoxCollider(c.clone().applyMatrix4(transform), h, q));
   }
-  solid(b, v3(0, 7.5, -2), v3(10, 5, 14), style.dark);
-  b.box(v3(0, 8.5, -9.05), v3(8, 1, 0.2), style.light, { glow: 2, collide: false });
-  b.strut(v3(0, 10, 4), v3(0, 18, 6), 0.3, style.dark, { collide: false });
-  beacons.push({ position: v3(0, 18.4, 6), color: new THREE.Color('#ff2040'), phase: 0 });
+  b.bevel(v3(0, 6, 6), v3(14, 4, 28), 1.5, style.trim, { front: [0.3, 0.7] });
+  b.bevel(v3(0, 10, 15), v3(9, 4, 9), 1, style.dark, { front: [0.7, 0.6] });
+  lights(b, v3(0, 10.6, 10.4), v3(6, 0.8, 0.2), style.light, 2);
+  b.bevel(v3(0, -5, 6), v3(4, 4, 30), 1, style.dark, { front: [0.6, 0.3], collide: false });
+  for (const s of [1, -1]) {
+    engine(b, v3(s * 9, 0, 26), 2.8, 7, style);
+    // wingtip fins, raked down at 45 degrees
+    b.hull(plate4(v3(s * 18, -2, 22), v3(s * 14, -2, 10), v3(s * 20, -9, 18), v3(s * 21, -9, 24), s), style.trim);
+    lights(b, v3(s * 10, 2.1, 12), v3(0.4, 0.4, 10), '#ffd27a', 1.4);
+    beacons.push({ position: v3(s * 21, -9, 24), color: new THREE.Color(s > 0 ? '#30ff70' : '#ff2040'), phase: s });
+  }
+  engine(b, v3(0, 2, 27), 3.2, 8, style);
+  b.strut(v3(0, 12, 17), v3(0, 20, 19), 0.3, style.dark, { collide: false });
+  beacons.push({ position: v3(0, 20.4, 19), color: new THREE.Color('#ff2040'), phase: 0 });
   return finish(b, world, transform, 'frigate', {
     beacons,
     turrets: [
-      { pos: v3(0, 13, -12), heavy: false },
-      { pos: v3(0, -10, 10), heavy: false },
+      { pos: v3(0, 15, -2), heavy: false },
+      { pos: v3(0, -12, 6), heavy: false },
     ],
     bays: [],
     docks: [],
@@ -115,59 +139,72 @@ export function buildFrigate(world: CollisionWorld, transform: THREE.Matrix4, st
   });
 }
 
+/** Thin plate through four points (for fins), thickened sideways. */
+function plate4(a: THREE.Vector3, b2: THREE.Vector3, c: THREE.Vector3, d: THREE.Vector3, side: number): THREE.Vector3[] {
+  const n = v3(side * 0.4, 0, 0);
+  return [a, b2, c, d].flatMap((p) => [p.clone().add(n), p.clone().sub(n)]);
+}
+
 /**
- * Destroyer, ~200 m: stepped prow, a long hull with a through-bay for assault ships, a bridge
- * tower and three engines. Turrets line the spine and both flanks.
+ * Destroyer, ~210 m: a hammerhead. A wide armoured hammer across the bow with heavy guns at
+ * each end, a long spine with a through-bay for assault ships, superstructure stepping up to the
+ * bridge, angled armour flanks, a keel fin and three ringed engines.
  */
 export function buildDestroyer(world: CollisionWorld, transform: THREE.Matrix4, style: CapitalStyle): StructureResult {
   const b = new StructureBuilder(transform);
   const beacons: Beacon[] = [];
-  const X90 = new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2);
-  solid(b, v3(0, 0, -88), v3(20, 14, 28), style.hull);
-  solid(b, v3(0, 0, -58), v3(34, 20, 34), style.hull);
-  b.hull([v3(0, -2, -112), v3(9, 6, -100), v3(-9, 6, -100), v3(9, -6, -100), v3(-9, -6, -100)], style.hull);
-  // hull around a through-bay (x -22..22, y -8..8, z -5..25)
-  solid(b, v3(0, 0, -23), v3(44, 26, 36), style.hull);
-  solid(b, v3(0, 0, 41), v3(44, 26, 32), style.hull);
-  solid(b, v3(0, 10.5, 10), v3(44, 5, 30), style.hull);
-  solid(b, v3(0, -10.5, 10), v3(44, 5, 30), style.hull);
+  // hammer and neck
+  b.bevel(v3(0, 0, -74), v3(112, 16, 26), 5, style.hull, { back: [0.5, 1] });
   for (const s of [1, -1]) {
-    b.box(v3(s * 22.2, 8.4, 10), v3(0.4, 0.6, 30), style.light, { glow: 1.8, collide: false });
-    b.box(v3(s * 22.2, -8.4, 10), v3(0.4, 0.6, 30), style.light, { glow: 1.8, collide: false });
-    b.box(v3(s * 22.3, 0, -24), v3(0.4, 4, 30), style.trim, { collide: false });
+    b.bevel(v3(s * 56, 0, -72), v3(16, 26, 36), 4, style.trim, { front: [0.8, 0.7] });
+    lights(b, v3(s * 56, 0, -90.2), v3(10, 1, 0.3), style.light, 2);
+    beacons.push({ position: v3(s * 64.5, 0, -72), color: new THREE.Color(s > 0 ? '#30ff70' : '#ff2040'), phase: s });
   }
-  b.box(v3(0, 7.8, 10), v3(40, 0.3, 1), '#ffd27a', { glow: 1.6, collide: false });
-  // engineering and engines
-  solid(b, v3(0, 0, 75), v3(36, 22, 36), style.hull);
+  b.cylinder(v3(0, 0, -87.6), 6, 1.2, style.dark, { quat: X90, sides: 20, collide: false });
+  b.torus(v3(0, 0, -88.4), 6.2, 0.5, style.light, { glow: 1.8, tubular: 28 });
+  b.bevel(v3(0, 0, -56), v3(20, 18, 22), 3, style.hull);
+  // spine around the through-bay (x -14..14, y -8..8, z -5..25)
+  b.bevel(v3(0, 0, -25), v3(28, 22, 40), 4, style.hull);
+  b.bevel(v3(0, 0, 62), v3(30, 24, 74), 4, style.hull, { back: [0.85, 0.85] });
+  b.bevel(v3(0, 10.5, 10), v3(28, 5, 30), 1.5, style.hull);
+  b.bevel(v3(0, -10.5, 10), v3(28, 5, 30), 1.5, style.hull);
+  for (const s of [1, -1]) {
+    lights(b, v3(s * 14.2, 7.6, 10), v3(0.4, 0.6, 30), style.light, 1.8);
+    lights(b, v3(s * 14.2, -7.6, 10), v3(0.4, 0.6, 30), style.light, 1.8);
+    // angled armour flanks
+    b.bevel(v3(s * 17, -3, 52), v3(4, 16, 64), 1.5, style.trim, { quat: new THREE.Quaternion().setFromAxisAngle(v3(0, 0, 1), s * 0.45), front: [1, 0.5] });
+    lights(b, v3(s * 15.2, 4, 45), v3(0.3, 0.8, 34), '#ffd27a', 1.4);
+  }
+  lights(b, v3(0, 7.8, 10), v3(26, 0.3, 1), '#ffd27a', 1.6);
+  // superstructure stepping up to the bridge
+  b.bevel(v3(0, 14, 44), v3(22, 6, 52), 2, style.trim, { front: [0.6, 1] });
+  b.bevel(v3(0, 19.5, 56), v3(15, 6, 32), 2, style.hull, { front: [0.6, 1] });
+  b.bevel(v3(0, 25, 62), v3(11, 5, 14), 1.5, style.dark, { front: [0.7, 0.6] });
+  lights(b, v3(0, 25.6, 55.2), v3(9, 1, 0.3), style.light, 2.2);
+  b.strut(v3(0, 28, 66), v3(0, 46, 68), 0.5, style.dark, { collide: false });
+  beacons.push({ position: v3(0, 46.6, 68), color: new THREE.Color('#ff2040'), phase: 0 });
+  // keel fin
+  b.hull([v3(0, -11, -30), v3(0, -11, 80), v3(0, -24, 60), v3(0, -22, 10), v3(1.2, -11, 20), v3(-1.2, -11, 20)], style.dark);
+  // engines
   for (const [x, y] of [
-    [-10, 4],
-    [10, 4],
+    [-9, 5],
+    [9, 5],
     [0, -6],
   ] as const) {
-    b.cylinder(v3(x, y, 98), 6, 10, style.dark, { quat: X90, sides: 12 });
-    b.cylinder(v3(x, y, 103.2), 5.2, 0.4, style.light, { quat: X90, sides: 12, glow: 1.6, collide: false });
-  }
-  // bridge tower
-  solid(b, v3(0, 20, 48), v3(14, 14, 20), style.dark);
-  b.box(v3(0, 24, 37.9), v3(12, 2, 0.2), style.light, { glow: 2.2, collide: false });
-  b.strut(v3(0, 27, 52), v3(0, 46, 54), 0.5, style.dark, { collide: false });
-  beacons.push({ position: v3(0, 46.6, 54), color: new THREE.Color('#ff2040'), phase: 0 });
-  for (const z of [-90, -40, 60]) {
-    for (const s of [1, -1]) beacons.push({ position: v3(s * 23, 0, z), color: new THREE.Color(s > 0 ? '#30ff70' : '#ff2040'), phase: z * 0.01 + s });
+    engine(b, v3(x, y, 103), 6, 10, style);
   }
   const turrets: TurretMount[] = [
-    { pos: v3(0, 18, -60), heavy: true },
-    { pos: v3(0, 22, -24), heavy: true },
-    { pos: v3(0, 20, 72), heavy: true },
+    { pos: v3(56, 21, -72), heavy: true },
+    { pos: v3(-56, 21, -72), heavy: true },
+    { pos: v3(0, 26, 34), heavy: true },
   ];
   for (const s of [1, -1]) {
-    for (const z of [-50, 40, 75]) turrets.push({ pos: v3(s * 27, 6, z), heavy: false });
-    turrets.push({ pos: v3(s * 15, -18, -30), heavy: false });
+    turrets.push({ pos: v3(s * 18, 15, -28), heavy: false }, { pos: v3(s * 21, 8, 80), heavy: false }, { pos: v3(s * 12, -18, 40), heavy: false });
   }
   return finish(b, world, transform, 'destroyer', {
     beacons,
     turrets,
-    bays: [{ pos: v3(-8, -2, 10), out: v3(1, 0, 0) }],
+    bays: [{ pos: v3(-6, -2, 10), out: v3(1, 0, 0) }],
     docks: [
       {
         id: `${style.id}.bay`,
@@ -175,8 +212,8 @@ export function buildDestroyer(world: CollisionWorld, transform: THREE.Matrix4, 
         pad: v3(0, -4, 10),
         outward: v3(1, 0, 0),
         up: v3(0, 1, 0),
-        mouth: 22,
-        opening: [15, 8],
+        mouth: 14,
+        opening: [14, 8],
         maxSpeed: 40,
       },
     ],
@@ -185,93 +222,75 @@ export function buildDestroyer(world: CollisionWorld, transform: THREE.Matrix4, 
 }
 
 /**
- * Carrier, ~600 m: a long hangar tunnel runs the whole length under the flight deck. Fighters
- * launch out of the bow and come home through the stern, between the engines. Light defences.
+ * Carrier, ~600 m: a tuning fork. Two long prongs carry the flight decks; between them, open to
+ * space, is the landing deck where you park, backed by the engineering block. Fighters launch
+ * from bays in the prongs' inner faces. An asymmetric island rides the starboard prong.
  */
 export function buildCarrierShip(world: CollisionWorld, transform: THREE.Matrix4, style: CapitalStyle): StructureResult {
   const b = new StructureBuilder(transform);
   const beacons: Beacon[] = [];
-  const X90 = new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2);
-  const L = 520; // tunnel length, z -260..260
-  // tunnel walls: 60 wide, 30 tall inside
-  solid(b, v3(0, 26, 0), v3(130, 22, L), style.hull); // flight deck block
-  solid(b, v3(0, -26, 0), v3(130, 22, L), style.hull); // keel
-  for (const s of [1, -1]) solid(b, v3(s * 47.5, 0, 0), v3(35, 30, L), style.hull);
-  // bow and stern caps leave the tunnel mouth open
-  b.hull([v3(-65, 37, -260), v3(65, 37, -260), v3(-65, -37, -260), v3(65, -37, -260), v3(-30, 20, -310), v3(30, 20, -310), v3(-30, -20, -300), v3(30, -20, -300)], style.hull);
-  for (const s of [1, -1]) solid(b, v3(s * 47, 0, -285), v3(36, 30, 50), style.hull);
-  solid(b, v3(0, 26, -285), v3(60, 22, 50), style.hull);
-  solid(b, v3(0, -26, -285), v3(60, 22, 50), style.hull);
-  // deck-edge sponsons and an overhanging bow deck give it a carrier's silhouette
   for (const s of [1, -1]) {
-    solid(b, v3(s * 72, 33, -20), v3(16, 6, 380), style.hull);
-    b.box(v3(s * 80.2, 33, -20), v3(0.4, 2, 370), style.trim, { glow: 1.1, collide: false });
-    b.box(v3(s * 65.2, -10, 0), v3(0.4, 6, L - 40), style.trim, { collide: false });
-    solid(b, v3(s * 60, -34, 40), v3(14, 10, 300), style.dark);
+    const x = s * 72;
+    // prong: a long bevelled wedge, layered with a flight deck
+    b.bevel(v3(x, 0, -60), v3(56, 44, 400), 8, style.hull, { front: [0.5, 0.55] });
+    b.bevel(v3(x, 25, -40), v3(44, 6, 340), 3, style.dark, { front: [0.5, 1] });
+    for (let z = -190; z < 120; z += 28) lights(b, v3(x, 28.2, z), v3(1, 0.3, 12), '#ffd27a', 1.4);
+    lights(b, v3(x + s * 20, 28.2, -40), v3(0.5, 0.3, 320), style.light, 1.2);
+    // outer armour belt and inner bay doors
+    b.bevel(v3(x + s * 29, -6, -40), v3(6, 22, 300), 2, style.trim, { front: [1, 0.5] });
+    for (const z of [-140, -80, -20, 40]) lights(b, v3(x - s * 28.2, -4, z), v3(0.3, 10, 22), style.light, 1.3);
+    beacons.push({ position: v3(x, 0, -262), color: new THREE.Color(s > 0 ? '#30ff70' : '#ff2040'), phase: s });
   }
-  b.hull([v3(-58, 33, -300), v3(58, 33, -300), v3(-58, 38, -300), v3(58, 38, -300), v3(-40, 34, -350), v3(40, 34, -350), v3(-40, 37, -350), v3(40, 37, -350)], style.hull);
-  b.box(v3(0, 38.2, -320), v3(70, 0.3, 2), style.trim, { glow: 1.4, collide: false });
-  // flight deck markings and island
-  for (let z = -240; z < 240; z += 30) b.box(v3(0, 37.2, z), v3(1.2, 0.3, 14), '#ffd27a', { glow: 1.5, collide: false });
-  for (const s of [1, -1]) b.box(v3(s * 30, 37.2, 0), v3(0.6, 0.3, L - 20), style.light, { glow: 1.2, collide: false });
-  solid(b, v3(52, 58, 60), v3(18, 20, 70), style.dark);
-  solid(b, v3(52, 74, 70), v3(12, 12, 36), style.hull);
-  b.box(v3(52, 76, 51.9), v3(10, 2, 0.2), style.light, { glow: 2.2, collide: false });
-  b.strut(v3(52, 80, 80), v3(52, 110, 84), 0.8, style.dark, { collide: false });
-  b.cylinder(v3(52, 84, 60), 7, 1.2, style.trim, { sides: 16, radiusTop: 4, collide: false });
-  b.box(v3(52, 70, 36), v3(14, 1.2, 4), style.trim, { collide: false });
-  for (let i = 0; i < 4; i++) b.box(v3(58.2, 62 + i * 3, 60), v3(0.3, 1, 50), '#ffd27a', { glow: 1.4, collide: false });
-  beacons.push({ position: v3(52, 111, 84), color: new THREE.Color('#ff2040'), phase: 0 });
-  // hangar interior lighting
-  for (let z = -240; z < 240; z += 24) {
-    b.box(v3(0, 14.7, z), v3(50, 0.3, 1.2), '#dff4ff', { glow: 1.4, collide: false });
-    for (const s of [1, -1]) b.box(v3(s * 29.7, -10, z), v3(0.3, 1, 8), style.light, { glow: 1.4, collide: false });
-  }
-  // stern engines around the recovery mouth
+  // the palm: engineering block joining the prongs
+  b.bevel(v3(0, 0, 190), v3(200, 60, 120), 10, style.hull, { back: [0.85, 0.8] });
+  b.bevel(v3(0, 36, 196), v3(140, 12, 90), 4, style.trim, { front: [0.8, 1] });
+  // landing deck between the prongs, open to space
+  b.bevel(v3(0, -16, 100), v3(88, 6, 64), 2, style.dark);
+  b.torus(v3(0, -12.6, 104), 14, 0.5, style.light, { glow: 2, tubular: 48, quat: X90 });
+  for (const z of [80, 92, 116, 128]) lights(b, v3(0, -12.7, z), v3(30, 0.2, 1), '#ffd27a', 1.4);
+  lights(b, v3(0, 0, 129.6), v3(70, 2, 0.4), style.light, 1.8);
+  // island on the starboard prong only
+  b.bevel(v3(72, 42, 40), v3(22, 26, 64), 4, style.hull, { front: [0.7, 0.8] });
+  b.bevel(v3(72, 60, 48), v3(16, 10, 34), 3, style.dark, { front: [0.6, 0.7] });
+  lights(b, v3(72, 61, 30.9), v3(12, 1.6, 0.3), style.light, 2.2);
+  b.torus(v3(72, 72, 56), 7, 0.6, style.trim, { tubular: 24, quat: X90 });
+  b.strut(v3(72, 64, 60), v3(72, 92, 64), 0.8, style.dark, { collide: false });
+  beacons.push({ position: v3(72, 92.6, 64), color: new THREE.Color('#ff2040'), phase: 0 });
+  // engines on the palm's back face
   for (const [x, y] of [
-    [-48, 24],
-    [48, 24],
-    [-48, -24],
-    [48, -24],
-    [0, 30],
+    [-66, 14],
+    [66, 14],
+    [-66, -14],
+    [66, -14],
+    [-22, 0],
+    [22, 0],
   ] as const) {
-    b.cylinder(v3(x, y, 272), x === 0 ? 10 : 14, 24, style.dark, { quat: X90, sides: 14 });
-    b.cylinder(v3(x, y, 284.2), x === 0 ? 8.5 : 12, 0.5, style.light, { quat: X90, sides: 14, glow: 1.8, collide: false });
+    engine(b, v3(x, y, 258), 12, 20, style);
   }
-  // mouth frames
-  for (const z of [-310, 260]) {
-    const zz = z === -310 ? -310.2 : 260.2;
-    b.box(v3(0, 15.6, zz), v3(62, 1.2, 0.6), style.light, { glow: 1.8, collide: false });
-    b.box(v3(0, -15.6, zz), v3(62, 1.2, 0.6), style.light, { glow: 1.8, collide: false });
-  }
-  for (let k = 0; k < 8; k++) {
-    for (const s of [1, -1]) beacons.push({ position: v3(s * 26, -16, 268 + k * 14), color: new THREE.Color(style.light), phase: 8 - k, kind: 'chase' });
-  }
-  for (const z of [-200, -60, 80, 220]) for (const s of [1, -1]) beacons.push({ position: v3(s * 66, 0, z), color: new THREE.Color(s > 0 ? '#30ff70' : '#ff2040'), phase: z * 0.01 });
   const turrets: TurretMount[] = [];
-  for (const s of [1, -1]) for (const z of [-220, -60, 120, 240]) turrets.push({ pos: v3(s * 72, 10, z), heavy: false });
-  turrets.push({ pos: v3(0, 46, -200), heavy: true }, { pos: v3(-30, 46, 180), heavy: true });
+  for (const s of [1, -1]) for (const z of [-200, -80, 60]) turrets.push({ pos: v3(s * 104, 10, z), heavy: false });
+  turrets.push({ pos: v3(-50, 50, 196), heavy: true }, { pos: v3(50, 50, 196), heavy: true });
   const r = finish(b, world, transform, 'carrier-ship', {
     beacons,
     turrets,
-    bays: [-14, 0, 14].map((x) => ({ pos: v3(x, -10, -230), out: v3(0, 0, -1) })),
+    bays: [-80, -20].flatMap((z) => [1, -1].map((s) => ({ pos: v3(s * 36, -6, z), out: v3(0, 0, -1) }))),
     docks: [
       {
         id: `${style.id}.hangar`,
-        name: `${style.name}, recovery deck`,
-        pad: v3(0, -10, 150),
-        outward: v3(0, 0, 1),
+        name: `${style.name}, landing deck`,
+        pad: v3(0, -8, 104),
+        outward: v3(0, 0, -1),
         up: v3(0, 1, 0),
-        mouth: 110,
-        opening: [28, 13],
+        mouth: 60,
+        opening: [40, 20],
         maxSpeed: 55,
       },
     ],
-    points: { center: v3(0, 0, 0), bow: v3(0, 0, -330), stern: v3(0, 0, 300) },
+    points: { center: v3(0, 0, 0), bow: v3(0, 0, -300), stern: v3(0, 0, 300) },
   });
   for (const s of [1, -1]) {
     const sign = createHologram(style.signs, style.signColor, 120, 21 + s);
-    r.group.add(placeHologram(sign, v3(s * 66, 10, -100), v3(s, 0, 0)));
+    r.group.add(placeHologram(sign, v3(s * 104, 0, -100), v3(s, 0, 0)));
   }
   return r;
 }

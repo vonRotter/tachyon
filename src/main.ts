@@ -358,7 +358,32 @@ game.onPauseChange = (paused) => {
   if (!paused) closeAllMenus();
   show('pause', paused);
 };
-game.menuOpen = () => menuStack.length > 0;
+game.menuOpen = () => menuStack.length > 0 || $('swap').classList.contains('visible');
+
+// mid-mission ship pick (aboard a friendly capital ship)
+game.fitFor = (id) => fitShip(id, campaign.fits[id]);
+game.onChooseShip = () =>
+  new Promise((resolve) => {
+    const list = $('swap-list');
+    list.innerHTML = '';
+    const current = campaign.activeShip;
+    for (const id of campaign.ships) {
+      const cls = SHIP_CLASSES[id];
+      const fit = campaign.fits[id];
+      const weapons = fit.weapons.filter(Boolean).length;
+      const b = document.createElement('button');
+      b.innerHTML = `${cls.name}${id === current ? ' (current)' : ''}<small>${cls.description ?? ''} Weapons fitted: ${weapons} of ${fit.weapons.length}.</small>`;
+      if (id === current) b.classList.add('chosen');
+      b.addEventListener('click', () => {
+        show('swap', false);
+        campaign.activeShip = id;
+        saveCampaign();
+        resolve(id === current ? null : id);
+      });
+      list.appendChild(b);
+    }
+    show('swap', true);
+  });
 
 // clicking the game view re-captures the mouse
 game.renderer.domElement.addEventListener('click', () => {

@@ -331,6 +331,68 @@ export class Game implements CombatContext {
     this.hintTimer = seconds;
   }
 
+  /** Per-frame mission logic (cleared when a mission starts). */
+  private frameHooks: ((dt: number) => void)[] = [];
+  /** Mission-only scenery (cleared when a mission starts). */
+  private decor: THREE.Object3D[] = [];
+  /** Stealth: detection 0..1 shown on the HUD while set (null = not sneaking). */
+  signature: number | null = null;
+  /** Set by the UI: lets the player pick one of their ships mid-mission; resolves to its id. */
+  onChooseShip: (() => Promise<string | null>) | null = null;
+  /** Set by the UI: builds the fitted class for one of the player's ships. */
+  fitFor: ((shipId: string) => { cls: ShipClass; fitted: Fitted }) | null = null;
+
+  onFrame(cb: (dt: number) => void): void {
+    this.frameHooks.push(cb);
+  }
+
+  addDecor(o: THREE.Object3D): void {
+    this.scene.add(o);
+    this.decor.push(o);
+  }
+
+  /**
+   * Mission API: freeze the action and let the player pick a ship from their hangar (they are
+   * docked), then swap it in where the old one sits. Resolves once the new ship is in place.
+   */
+  async chooseShip(): Promise<void> {
+    if (!this.onChooseShip || !this.fitFor || !this.player) return;
+    const token = this.missionToken;
+    const prev = this.state;
+    this.state = 'paused';
+    this.input.exitPointerLock();
+    const id = await this.onChooseShip();
+    this.checkToken(token);
+    this.state = prev === 'paused' ? 'playing' : prev;
+    if (this.input.device === 'mouse') this.input.requestPointerLock();
+    if (id) this.swapPlayer(this.fitFor(id));
+  }
+
+  /** Replaces the player's ship with a freshly fitted one at the same spot. */
+  swapPlayer(fit: { cls: ShipClass; fitted: Fitted }): void {
+    const old = this.player;
+    if (!old) return;
+    const ship = new Ship(fit.cls, 'player', 'Rook');
+    ship.pos.copy(old.pos);
+    ship.quat.copy(old.quat);
+    ship.vel.copy(old.vel);
+    ship.held = old.held;
+    ship.isPlayer = true;
+    for (const e of fit.fitted.equipment) ship.equipment.add(e);
+    ship.flares = ship.equipment.has('flares') ? 10 : 0;
+    ship.kills = old.kills;
+    ship.shotsFired = old.shotsFired;
+    ship.shotsHit = old.shotsHit;
+    ship.syncTransform();
+    this.scene.add(ship.root);
+    old.dispose(this.scene);
+    old.alive = false;
+    this.ships = this.ships.filter((s) => s !== old);
+    this.ships.push(ship);
+    this.player = ship;
+    this.playerFit = fit;
+  }
+
   /** Outcome flags the mission records for the campaign ("gallows" -> "burned", ...). */
   missionFlags: Record<string, string> = {};
   /** Extra pay a mission awards on top of the contract (bonuses). */
@@ -377,6 +439,14 @@ export class Game implements CombatContext {
   /** Opens docking at the given ports (the player requests clearance with the dock key). */
   allowDocking(ids: string[]): void {
     this.docking.allowed = new Set(ids);
+  }
+
+  /** Mission API: release the clamps (if landed) and close all docks. */
+  closeDocking(): void {
+    this.docking.allowed = null;
+    this.docking.cancel();
+    this.autoDock = false;
+    if (this.player) this.player.held = false;
   }
 
   /** Resolves once the player has landed at one of `ids`. */
@@ -489,6 +559,13 @@ export class Game implements CombatContext {
     }
   }
 
+  private clearMissionExtras(): void {
+    this.frameHooks = [];
+    for (const o of this.decor) this.scene.remove(o);
+    this.decor = [];
+    this.signature = null;
+  }
+
   private clearCapitals(): void {
     for (const c of this.capitals) {
       this.scene.remove(c.root);
@@ -546,6 +623,7 @@ export class Game implements CombatContext {
     this.damageFlash = 0;
     this.bounties = 0;
     this.clearCapitals();
+    this.clearMissionExtras();
     this.docking.setPorts(this.location.docks);
     this.dockGuide = null;
     this.autoDock = false;
@@ -1332,6 +1410,7 @@ export class Game implements CombatContext {
       const steps = Math.ceil(dt / (1 / 90));
       const h = dt / steps;
       for (let i = 0; i < steps; i++) this.step(h);
+      for (const hook of this.frameHooks) hook(dt);
       this.updateDocking(dt);
       this.updatePlayerSystems(dt);
       // resolve waiters
@@ -1447,6 +1526,7 @@ export class Game implements CombatContext {
         gamepad: this.input.device === 'gamepad',
         dock: this.dockGuide,
         docks: this.docking.openPorts(),
+        signature: this.signature,
       });
     } else this.hud.clear();
   }
@@ -1513,6 +1593,7 @@ export class Game implements CombatContext {
     this.bolts.clear();
     this.missiles.clear();
     this.clearCapitals();
+    this.clearMissionExtras();
     this.docking.setPorts(this.location.docks);
     this.dockGuide = null;
     this.objective = '';

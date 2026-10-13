@@ -54,6 +54,8 @@ export interface CapitalStyle {
   /** Dock id prefix and display name ("carrier" / "Sovereign Dawn"). */
   id: string;
   name: string;
+  /** Drift ships wear big rings round their spines. */
+  rings?: boolean;
 }
 
 export const COMBINE_STYLE: CapitalStyle = {
@@ -421,19 +423,27 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4, st
   const cyan = style.light;
   const turrets: TurretMount[] = [];
 
-  // Stepped prow
-  b.box(v3(0, 0, -365), v3(40, 24, 70), ivory);
-  b.box(v3(0, 0, -290), v3(72, 40, 80), ivory);
-  b.box(v3(0, 0, -200), v3(104, 56, 100), ivory);
-  b.box(v3(0, 29, -290), v3(30, 4, 70), gold, { collide: false });
-  b.box(v3(0, -21, -365), v3(30, 3, 60), dark, { collide: false });
+  // Bladed prow: a long tapered wedge, layered with armour decks
+  b.bevel(v3(0, -2, -330), v3(92, 38, 170), 6, ivory, { front: [0.22, 0.32], lift: -5 });
+  b.bevel(v3(0, 18, -300), v3(62, 8, 140), 3, gold, { front: [0.3, 0.6] });
+  b.bevel(v3(0, -22, -310), v3(40, 8, 130), 3, dark, { front: [0.3, 0.5], collide: false });
+  b.bevel(v3(0, 0, -200), v3(104, 56, 100), 8, ivory, { front: [0.88, 0.8] });
+  b.bevel(v3(0, 30, -205), v3(70, 6, 80), 2.5, dark, { front: [0.7, 1] });
+  for (const s of [1, -1]) {
+    // angled cheek plates down the prow
+    b.bevel(v3(s * 44, -6, -260), v3(6, 26, 120), 2, gold, { quat: new THREE.Quaternion().setFromAxisAngle(v3(0, 0, 1), s * 0.5), front: [0.5, 0.4], collide: false });
+    b.box(v3(s * 30, 8, -330), v3(0.3, 0.8, 90), cyan, { glow: 1.5, collide: false });
+  }
 
   // Hangar block with a broadside tunnel (80 x 50 opening) running along X
   const hx = 70;
-  b.box(v3(0, 0, -147.5), v3(hx * 2, 110, 65), ivory);
-  b.box(v3(0, 0, -7.5), v3(hx * 2, 110, 55), ivory);
+  b.bevel(v3(0, 0, -147.5), v3(hx * 2, 110, 65), 8, ivory, { front: [0.92, 0.9] });
+  b.bevel(v3(0, 0, -7.5), v3(hx * 2, 110, 55), 8, ivory);
   b.box(v3(0, 40, -75), v3(hx * 2, 30, 80), ivory);
   b.box(v3(0, -40, -75), v3(hx * 2, 30, 80), ivory);
+  // layered dorsal deck over the hangar
+  b.bevel(v3(0, 62, -80), v3(104, 14, 170), 4, gold, { front: [0.7, 1], back: [0.85, 1] });
+  b.bevel(v3(0, 72, -70), v3(60, 8, 110), 3, dark, { front: [0.6, 1] });
   for (const z of [-114.4, -35.6]) {
     b.box(v3(0, -24.6, z), v3(hx * 2, 0.4, 1), cyan, { glow: 2, collide: false });
     b.box(v3(0, 24.6, z), v3(hx * 2, 0.4, 1), '#ffb030', { glow: 1.8, collide: false });
@@ -485,14 +495,31 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4, st
     }
   }
 
-  // Engineering block, bridge tower and engines
-  b.box(v3(0, 0, 315), v3(150, 90, 130), ivory);
-  b.box(v3(0, 46, 315), v3(110, 3, 110), dark, { collide: false });
-  b.box(v3(0, 76, 300), v3(40, 60, 50), ivory);
-  b.box(v3(0, 96, 274.7), v3(30, 4, 0.5), cyan, { glow: 2.6, collide: false });
-  b.strut(v3(0, 106, 300), v3(0, 150, 300), 1.2, dark);
-  b.strut(v3(10, 106, 310), v3(16, 135, 318), 0.8, dark);
-  beacons.push({ position: v3(0, 151, 300), color: new THREE.Color('#ff2040'), phase: 0 });
+  if (style.rings) {
+    // big rings round the cargo spine, on spokes: the Drift build their ships round habitats
+    for (const z of [70, 150, 230]) {
+      b.torus(v3(0, 0, z), 80, 3.5, gold, { tubular: 64, radial: 8 });
+      b.torus(v3(0, 0, z), 80, 1, cyan, { tubular: 64, glow: 1.6 });
+      for (let k = 0; k < 4; k++) {
+        const a = Math.PI / 4 + (k * Math.PI) / 2;
+        b.strut(v3(Math.cos(a) * 62, Math.sin(a) * 50, z), v3(Math.cos(a) * 78, Math.sin(a) * 78, z), 2, dark);
+      }
+    }
+  }
+
+  // Engineering block, and a command tower offset to port: the ship is deliberately lopsided
+  b.bevel(v3(0, 0, 315), v3(150, 90, 130), 12, ivory, { front: [0.9, 0.85], back: [0.86, 0.82] });
+  b.bevel(v3(0, 50, 318), v3(112, 10, 108), 4, dark, { front: [0.8, 1] });
+  b.bevel(v3(-38, 80, 300), v3(40, 54, 52), 6, ivory, { front: [0.75, 0.8] });
+  b.bevel(v3(-38, 112, 306), v3(28, 12, 34), 3, dark, { front: [0.7, 0.6] });
+  b.box(v3(-38, 113, 288.6), v3(22, 3, 0.4), cyan, { glow: 2.6, collide: false });
+  b.box(v3(-38, 96, 273.6), v3(30, 2, 0.4), cyan, { glow: 2, collide: false });
+  b.strut(v3(-38, 118, 310), v3(-38, 160, 312), 1.2, dark);
+  beacons.push({ position: v3(-38, 161, 312), color: new THREE.Color('#ff2040'), phase: 0 });
+  // starboard: a sensor ring on a pylon
+  b.strut(v3(40, 55, 330), v3(46, 86, 336), 1.6, dark);
+  b.torus(v3(46, 92, 336), 12, 1.2, gold, { quat: new THREE.Quaternion().setFromAxisAngle(v3(0, 1, 0), 0.6), tubular: 32 });
+  b.torus(v3(46, 92, 336), 12, 0.35, cyan, { quat: new THREE.Quaternion().setFromAxisAngle(v3(0, 1, 0), 0.6), tubular: 32, glow: 1.8 });
   for (const s of [1, -1]) {
     b.box(v3(s * 75.4, 0, 315), v3(0.6, 8, 120), gold, { collide: false });
   }
@@ -503,21 +530,23 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4, st
     [-40, -22],
   ] as const) {
     b.cylinder(v3(ex, ey, 400), 18, 40, '#5a6078', { quat: quatX90, sides: 18, radiusTop: 14 });
+    b.torus(v3(ex, ey, 392), 19, 2, gold, { tubular: 32 });
     b.cylinder(v3(ex, ey, 420.5), 15.5, 1, '#8fdcff', { quat: quatX90, sides: 18, glow: 3.2, collide: false });
   }
 
   // Heavy gun barbettes down the prow and light batteries along the flanks
   for (const [z, y] of [
-    [-345, 12],
-    [-300, 20],
-    [-255, 20],
-    [-205, 28],
+    [-345, 21],
+    [-300, 22],
+    [-255, 23],
+    [-205, 33],
   ] as const) {
     b.cylinder(v3(0, y + 1.5, z), 9, 3, dark, { collide: false, sides: 12 });
     turrets.push({ pos: v3(0, y + 11, z), heavy: true });
   }
   for (const s of [1, -1]) {
-    for (const z of [-190, -110, -30, 280, 340]) {
+    // flank batteries stay clear of the hangar tunnel mouths (z -115 to -35)
+    for (const z of [-235, -175, 40, 280, 340]) {
       const x = s * (z > 200 ? 75 : z < -150 ? 52 : 70);
       turrets.push({ pos: v3(x + s * 6, 0, z), heavy: false });
     }

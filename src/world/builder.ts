@@ -170,6 +170,59 @@ export class StructureBuilder {
     );
   }
 
+  /**
+   * Box with 45-degree chamfered edges, the basic sci-fi block. `bevel` is the chamfer in metres.
+   * `front`/`back` scale the -Z / +Z faces (x, y) to taper it into wedges and noses, and `lift`
+   * shifts the front face up or down. Collides as a box.
+   */
+  bevel(
+    center: THREE.Vector3,
+    size: THREE.Vector3,
+    bevel: number,
+    color: THREE.ColorRepresentation,
+    opts: PartOptions & { front?: [number, number]; back?: [number, number]; lift?: number } = {},
+  ): void {
+    const hx = size.x / 2;
+    const hy = size.y / 2;
+    const hz = size.z / 2;
+    const quat = opts.quat ?? new THREE.Quaternion();
+    const pts: THREE.Vector3[] = [];
+    for (const sz of [-1, 1]) {
+      const [tx, ty] = (sz < 0 ? opts.front : opts.back) ?? [1, 1];
+      const dy = sz < 0 ? (opts.lift ?? 0) : 0;
+      const ex = hx * tx;
+      const ey = hy * ty;
+      const bx = Math.min(bevel, ex * 0.9);
+      const by = Math.min(bevel, ey * 0.9);
+      const bz = Math.min(bevel, hz * 0.9);
+      for (const sx of [-1, 1])
+        for (const sy of [-1, 1]) {
+          const c = new THREE.Vector3(sx * ex, sy * ey + dy, sz * hz);
+          pts.push(c.clone().add(new THREE.Vector3(-sx * bx, 0, 0)));
+          pts.push(c.clone().add(new THREE.Vector3(0, -sy * by, 0)));
+          pts.push(c.clone().add(new THREE.Vector3(0, 0, -sz * bz)));
+        }
+    }
+    const local = new THREE.Matrix4().compose(center, quat, _s);
+    this.geometry(new ConvexGeometry(pts), local, color, opts.glow ?? 0);
+    if (opts.collide ?? true) {
+      // two boxes, front half and back half, each as wide as its half of the taper
+      const tf = opts.front ?? [1, 1];
+      const tb = opts.back ?? [1, 1];
+      const tm: [number, number] = [(tf[0] + tb[0]) / 2, (tf[1] + tb[1]) / 2];
+      const lift = opts.lift ?? 0;
+      const wq = this.baseQuat.clone().multiply(quat);
+      for (const [a, b2, zc, dy] of [
+        [tf, tm, -hz / 2, lift * 0.75],
+        [tm, tb, hz / 2, lift * 0.25],
+      ] as const) {
+        const half = new THREE.Vector3(hx * ((a[0] + b2[0]) / 2) * 0.9, hy * ((a[1] + b2[1]) / 2) * 0.9, (hz / 2) * 0.98);
+        const lc = new THREE.Vector3(0, dy, zc).applyQuaternion(quat).add(center);
+        this.colliders.push(new BoxCollider(lc.applyMatrix4(this.base), half, wq));
+      }
+    }
+  }
+
   /** Faceted convex hull from points: used for fighter hulls, wings and armour plates. */
   hull(points: THREE.Vector3[], color: THREE.ColorRepresentation, glow = 0): void {
     this.geometry(new ConvexGeometry(points), new THREE.Matrix4(), color, glow);

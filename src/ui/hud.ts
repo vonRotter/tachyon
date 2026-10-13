@@ -24,6 +24,8 @@ export interface HudData {
   dock: DockGuide | null;
   /** Open docks before clearance is requested. */
   docks: { name: string; pos: THREE.Vector3 }[];
+  /** Stealth detection 0..1, or null when not sneaking. */
+  signature: number | null;
 }
 
 const _v = new THREE.Vector3();
@@ -305,6 +307,7 @@ export class Hud {
     this.radar(d);
     if (d.dock) this.dockGuide(d, d.dock);
     for (const port of d.docks) this.dockMarker(d, port);
+    if (d.signature !== null) this.signatureMeter(d.signature, d.time);
 
     // objective & hint
     g.textAlign = 'center';
@@ -321,6 +324,20 @@ export class Hud {
       g.fillStyle = '#ff9a3c';
       g.fillText('LEAVING THE OPERATIONS AREA. TURN BACK', this.w / 2, this.h * 0.34);
     }
+  }
+
+  /** Stealth: how close the enemy is to noticing you. */
+  private signatureMeter(v: number, time: number): void {
+    const g = this.ctx;
+    const w = 260;
+    const x = this.w / 2 - w / 2;
+    const y = 48;
+    const color = v > 0.75 ? '#ff4040' : v > 0.4 ? '#ffb347' : '#5fe8ff';
+    g.textAlign = 'center';
+    g.font = `700 13px ${FONT}`;
+    g.fillStyle = v > 0.75 && Math.sin(time * 12) > 0 ? '#ffffff' : color;
+    g.fillText(v > 0.75 ? 'SIGNATURE · THEY ARE LOOKING' : v > 0.4 ? 'SIGNATURE · CAREFUL' : 'SIGNATURE · COLD', this.w / 2, y - 6);
+    this.bar(x, y, w, 8, v, color);
   }
 
   /** A faint marker for an open dock you have not asked to land at yet. */

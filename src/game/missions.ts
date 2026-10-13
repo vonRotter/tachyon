@@ -2,6 +2,7 @@ import type { Game } from './game';
 import type { Campaign } from './loadout';
 import { runKestrelMission } from './mission';
 import { runLaunchOrder } from './missionLaunchOrder';
+import { runFlotsam } from './missionFlotsam';
 
 export interface MissionDef {
   id: string;
@@ -44,6 +45,18 @@ export const MISSIONS: MissionDef[] = [
     run: runLaunchOrder,
     available: (c) => c.allegiance === 'combine' && (c.completed['cold-guns'] ?? 0) > 0,
     victoryTitle: 'The Gallows falls',
+  },
+  {
+    id: 'flotsam',
+    name: 'Flotsam',
+    location: 'The Ashfall',
+    map: 'ashfall',
+    briefing:
+      'Mother Sorrel needs the Combine\'s transfer records, kept aboard the carrier Meridian. Drift in with the wreckage, slip onto her recovery deck, grab the package, then run for the Long Patience. You will be outgunned and outnumbered. Fly.',
+    pay: 18000,
+    run: runFlotsam,
+    available: (c) => c.allegiance === 'drift' && (c.completed['cold-guns'] ?? 0) > 0,
+    victoryTitle: 'The records are out',
   },
 ];
 

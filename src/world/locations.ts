@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { CollisionWorld } from './colliders';
 import { buildAsteroids, buildCarrier, buildKestrelStation, type Beacon, type DockSpec, type Spinner } from './structures';
 import { buildGallows } from './gallows';
+import { buildAshfall } from './ashfall';
 
 const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x, y, z);
 
@@ -94,4 +95,18 @@ const gallows: Builder = (world) => {
   };
 };
 
-export const LOCATIONS: Record<string, Builder> = { kestrel, gallows };
+const ashfall: Builder = (world) => {
+  const field = buildAshfall(world);
+  // the capital ships (the Combine carrier at the origin, the Drift battlecruiser 4.5 km off
+  // its bow) are spawned by the mission, since they move and shoot
+  return {
+    ...merge('ashfall', 'The Ashfall', [field], ['ashfall']),
+    traffic: [],
+    start: { pos: v(260, 40, 2600), look: v(0, -10, 260) },
+    arena: { center: v(0, 0, -1500), warn: 5200, limit: 6200 },
+    orbit: { center: v(0, 0, -2200), radius: 1600, height: 300 },
+    frames: {},
+  };
+};
+
+export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall };
