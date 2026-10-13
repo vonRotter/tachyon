@@ -455,6 +455,12 @@ button.primary {
 .hangar-right {
   right: 16px;
   width: min(340px, 34vw);
+  display: flex;
+  flex-direction: column;
+}
+
+.hangar-right > * {
+  flex: none;
 }
 
 .tabs {
@@ -583,7 +589,7 @@ button:disabled {
   gap: 8px;
   align-items: center;
   font-size: 13px;
-  margin-bottom: 5px;
+  margin-bottom: 3px;
 }
 
 .stat-label {
@@ -645,6 +651,14 @@ button:disabled {
 
 .mission-list .card {
   cursor: pointer;
+}
+
+/* the contract list takes what room is left and scrolls, so Launch stays in view */
+.hangar-right > .mission-list {
+  flex: 1 1 auto;
+  min-height: 150px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .hangar-actions {
@@ -827,4 +841,44 @@ button:disabled {
 
 .db-paint button.on {
   background: rgba(255, 255, 255, 0.14);
+}
+
+/* campaign progress above the contracts */
+.campaign-strip {
+  margin-bottom: 8px;
+}
+
+.campaign-head {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.campaign-pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.campaign-pip {
+  font-size: 12px;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--muted);
+}
+
+.campaign-pip.done {
+  border-color: rgba(77, 252, 210, 0.5);
+  color: var(--accent);
+}
+
+.campaign-pip.done::before {
+  content: '✓ ';
+}
+
+.campaign-pip.next {
+  border-color: #ffd36b;
+  color: #ffd36b;
 }

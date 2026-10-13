@@ -23,7 +23,7 @@ import {
   type ShipFit,
 } from '../game/loadout';
 import { DATABASE, DB_CATEGORIES, dbVisible, type DbEntry } from '../game/database';
-import { MISSIONS, briefingText, type MissionDef } from '../game/missions';
+import { MISSIONS, briefingText, campaignPath, missionById, nextStory, type MissionDef } from '../game/missions';
 import type { FactionId } from '../entities/factions';
 
 type Tab = 'ships' | 'upgrades' | 'weapons' | 'equipment' | 'database';
@@ -74,6 +74,9 @@ export class Shop {
   setCampaign(c: Campaign): void {
     this.campaign = c;
     this.viewShip = c.activeShip;
+    // back in the hangar: the next story contract is the one picked
+    const next = nextStory(c);
+    if (next) this.selectedMission = next.id;
     this.render();
   }
 
@@ -505,9 +508,9 @@ export class Shop {
     const lines = [
       `Weapons: ${names.join(', ')}`,
       `Equipment (${viewFit.equipment.length}/${slots}): ${viewFit.equipment.map((e) => EQUIPMENT[e].name).join(', ') || 'none'}`,
-      'Faint bars: the hull fully upgraded.',
     ];
     for (const l of lines) fitEl.appendChild(el('div', '', l));
+    root.title = 'Faint bars: the hull fully upgraded.';
     this.onShowShip(viewId);
   }
 
@@ -569,17 +572,48 @@ export class Shop {
     const root = $('mission-list');
     root.innerHTML = '';
     if (!c.started) {
+      $('campaign-strip').innerHTML = '';
       root.appendChild(el('p', 'tab-note', 'Pick a ship to see your first contract.'));
       return;
     }
-    const missions = MISSIONS.filter((m) => m.available(c));
-    if (!missions.some((m) => m.id === this.selectedMission)) this.selectedMission = missions[0].id;
+    const strip = $('campaign-strip');
+    strip.innerHTML = '';
+    strip.appendChild(this.campaignStrip());
+    // the next story contract first, then anything new, then what you have already flown
+    const next = nextStory(c);
+    const rank = (m: MissionDef) => (m === next ? 0 : c.completed[m.id] ? 2 : 1);
+    const missions = MISSIONS.filter((m) => m.available(c)).sort((a, b) => rank(a) - rank(b));
+    if (!missions.some((m) => m.id === this.selectedMission)) this.selectedMission = (next ?? missions[0]).id;
     for (const m of missions) root.appendChild(this.missionCard(m));
+  }
+
+  /** Where you are in the story: one pip per chapter of your side's path. */
+  private campaignStrip(): HTMLElement {
+    const c = this.campaign;
+    const path = campaignPath(c);
+    const strip = el('div', 'campaign-strip');
+    const side = c.allegiance === 'combine' ? 'Helion Combine' : c.allegiance === 'drift' ? 'Drift Union' : 'No side yet';
+    const done = path.every((id) => c.completed[id]) && path.length > 1;
+    strip.appendChild(el('div', 'campaign-head', done ? `Campaign complete · ${side}` : `Campaign · ${side}`));
+    const row = el('div', 'campaign-pips');
+    const next = nextStory(c);
+    for (const id of path) {
+      const m = missionById(id);
+      const state = c.completed[id] ? 'done' : next?.id === id ? 'next' : 'later';
+      const pip = el('span', `campaign-pip ${state}`, m.name);
+      row.appendChild(pip);
+    }
+    if (path.length === 1) row.appendChild(el('span', 'campaign-pip later', 'Where you land decides the rest'));
+    strip.appendChild(row);
+    if (done) strip.appendChild(el('p', 'tab-note', 'Every contract can be flown again, at reduced pay.'));
+    return strip;
   }
 
   private missionCard(m: MissionDef): HTMLElement {
     const done = this.campaign.completed[m.id] ?? 0;
-    const card = this.card(`${m.name} · ${m.location}`, briefingText(m, this.campaign), {
+    // flown contracts fold down to one line unless selected
+    const brief = done && m.id !== this.selectedMission ? '' : briefingText(m, this.campaign);
+    const card = this.card(`${m.name} · ${m.location}`, brief, {
       status: done ? `FLOWN ×${done} · ${cr(Math.round(m.pay * 0.4))}+` : `${cr(m.pay)}+`,
       active: m.id === this.selectedMission,
     });

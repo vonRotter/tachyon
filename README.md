@@ -66,6 +66,10 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 - **Docking.** Request clearance and fly the holographic gates into a bay; the clamps take over
   once you are inside and slow enough. Kestrel Station has a hangar on its hub, and the Combine
   carrier lands you inside its hangar tunnel.
+- **Campaign.** Five chapters per side, shown as a progress strip above the contracts:
+  Cold Guns, then Launch Order (Combine) or Flotsam (Drift), Open Channel, The Accord, and
+  Last Light (Combine) or The Bastion (Drift). The next story contract is picked for you when
+  you return to the hangar; flown contracts fold down and can be replayed.
 - **Mission "Cold Guns"** at Kestrel Station: three Red Wake raider waves ending with a gunship,
   radio drama between the station, the Helion Combine and the Drift Union. You choose a side by
   where you land: Kestrel's bay 1 (Drift Union) or the Sovereign Dawn (Combine). Checkpoints let

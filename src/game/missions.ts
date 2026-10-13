@@ -127,3 +127,23 @@ export const MISSIONS: MissionDef[] = [
 export const briefingText = (m: MissionDef, c: Campaign): string => (typeof m.briefing === 'string' ? m.briefing : m.briefing(c));
 
 export const missionById = (id: string): MissionDef => MISSIONS.find((m) => m.id === id) ?? MISSIONS[0];
+
+/** The story in order for each side; the hangar shows where you are in it. */
+export const CAMPAIGN_PATHS: Record<'combine' | 'drift' | 'none', string[]> = {
+  none: ['cold-guns'],
+  combine: ['cold-guns', 'launch-order', 'open-channel', 'accord', 'last-light'],
+  drift: ['cold-guns', 'flotsam', 'open-channel', 'accord', 'bastion'],
+};
+
+export function campaignPath(c: Campaign): string[] {
+  return CAMPAIGN_PATHS[c.allegiance === 'combine' || c.allegiance === 'drift' ? c.allegiance : 'none'];
+}
+
+/** The next story contract you have not flown, if any. */
+export function nextStory(c: Campaign): MissionDef | null {
+  for (const id of campaignPath(c)) {
+    const m = MISSIONS.find((x) => x.id === id);
+    if (m && m.available(c) && !c.completed[id]) return m;
+  }
+  return null;
+}
