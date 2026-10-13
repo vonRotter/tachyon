@@ -4,6 +4,7 @@ import { runKestrelMission } from './mission';
 import { runLaunchOrder } from './missionLaunchOrder';
 import { runFlotsam } from './missionFlotsam';
 import { runAccord } from './missionAccord';
+import { runOpenChannel } from './missionOpenChannel';
 
 export interface MissionDef {
   id: string;
@@ -65,6 +66,21 @@ export const MISSIONS: MissionDef[] = [
     victoryTitle: 'The records are out',
   },
   {
+    id: 'open-channel',
+    name: 'Open Channel',
+    location: 'Vantage Station',
+    map: 'vantage',
+    briefing: (c) =>
+      c.allegiance === 'combine'
+        ? 'The Drift mean to broadcast stolen Combine records from Vantage, a research station with the only dish array that reaches every station in the Reach. Silence its three transmitters before the upload completes.'
+        : 'Mother Sorrel is broadcasting the Combine\'s transfer records from Vantage, a research station with the only dish array that reaches every station in the Reach. Hold off the Combine until the upload completes.',
+    pay: 16000,
+    run: (g, cp, c) => runOpenChannel(g, cp, c.allegiance === 'combine' ? 'combine' : 'drift'),
+    faction: 'current',
+    available: (c) => (c.allegiance === 'combine' || c.allegiance === 'drift') && ((c.completed['launch-order'] ?? 0) > 0 || (c.completed.flotsam ?? 0) > 0),
+    victoryTitle: 'Open Channel',
+  },
+  {
     id: 'accord',
     name: 'The Accord',
     location: 'Kestrel Station',
@@ -76,7 +92,7 @@ export const MISSIONS: MissionDef[] = [
     pay: 20000,
     run: (g, cp, c) => runAccord(g, cp, c.allegiance === 'combine' ? 'combine' : 'drift'),
     faction: 'current',
-    available: (c) => (c.allegiance === 'combine' || c.allegiance === 'drift') && ((c.completed['launch-order'] ?? 0) > 0 || (c.completed.flotsam ?? 0) > 0),
+    available: (c) => (c.allegiance === 'combine' || c.allegiance === 'drift') && (c.completed['open-channel'] ?? 0) > 0,
     victoryTitle: 'The Accord',
   },
 ];

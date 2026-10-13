@@ -3,6 +3,7 @@ import type { CollisionWorld } from './colliders';
 import { buildAsteroids, buildCarrier, buildKestrelStation, type Beacon, type DockSpec, type Spinner } from './structures';
 import { buildGallows } from './gallows';
 import { buildAshfall } from './ashfall';
+import { buildVantage } from './vantage';
 
 const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x, y, z);
 
@@ -109,4 +110,16 @@ const ashfall: Builder = (world) => {
   };
 };
 
-export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall };
+const vantage: Builder = (world) => {
+  const station = buildVantage(world);
+  return {
+    ...merge('vantage', 'Vantage Station', [station], ['vantage']),
+    traffic: [],
+    start: { pos: v(-500, 160, -900), look: v(0, 0, 0) },
+    arena: { center: v(0, 0, 0), warn: 3400, limit: 4200 },
+    orbit: { center: v(0, 0, 0), radius: 1000, height: 220 },
+    frames: {},
+  };
+};
+
+export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall, vantage };

@@ -435,6 +435,8 @@ game.onMissionEnd = (result) => {
     'dawn:burned': 'The east cradle burns',
     'dawn:spared': 'The Dawn survives',
     'dawn:saved': 'Four hundred lives',
+    'records:broadcast': 'Every station has it',
+    'records:silenced': 'The Reach hears nothing',
   };
   const outcome = Object.entries(game.missionFlags)
     .map(([k, v]) => outcomeTitles[`${k}:${v}`])

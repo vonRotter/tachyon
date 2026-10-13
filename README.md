@@ -72,6 +72,10 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   disguised as debris without moving too much, land in its hangar, grab the records, then run
   for the Drift battlecruiser through the wreckage with fighters and the carrier's guns behind
   you. Swap ships on landing, then help hold off the strike.
+- **Mission "Open Channel"** (either side) at Vantage, a research station with the only dish
+  array that reaches every station in the Reach. The Drift broadcast the Combine's transfer
+  records from it: hold the array against drones, Sabres and a frigate until the upload
+  finishes, or, flying for the Combine, silence its three transmitters before it does.
 - **Mission "The Accord"** (either side) at Kestrel: the Combine and the Drift sign a
   ceasefire, and each brings something it should not. The Combine's delegation shuttles carry
   marines; the Drift's gift hauler carries mining charge meant for the Sovereign Dawn and the
