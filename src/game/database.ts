@@ -1,7 +1,7 @@
 import { FACTIONS, type FactionId } from '../entities/factions';
 import { SHIP_CLASSES, type ShipClass } from '../entities/shipClasses';
 import { CAPITAL_INFO, type CapitalKind } from '../world/capitals';
-import { proven, type Campaign } from './loadout';
+import type { Campaign } from './loadout';
 
 /**
  * The hangar's ship database: everything you can meet in the Reach, from fighters to
@@ -81,7 +81,7 @@ export const DATABASE: DbEntry[] = [
   ship('wren', 'Fighters', ['kestrel']),
   ship('warden', 'Fighters', ['kestrel']),
   ship('lancer', 'Fighters', ['player']),
-  ship('talon', 'Fighters', ['player', 'kestrel', 'patrol']),
+  ship('talon', 'Fighters', ['patrol', 'kestrel']),
   ship('corsair', 'Fighters', ['player']),
   ship('sabre', 'Fighters', ['combine']),
   ship('halberd', 'Fighters', ['combine']),
@@ -110,13 +110,11 @@ export const DATABASE: DbEntry[] = [
 ];
 
 /**
- * Faction yard hulls stay out of the database until you have met one in a mission or the yard
- * has opened to you; everything else is common knowledge.
+ * The database fills in as you go: an entry appears once you have met that ship in a mission (or
+ * own it). The test cheat shows everything.
  */
 export function dbVisible(e: DbEntry, c: Campaign): boolean {
-  if (e.show.kind !== 'ship') return true;
-  const cls = SHIP_CLASSES[e.show.classId];
-  const maker = cls.maker;
-  if (!maker || maker === 'kestrel') return true;
-  return c.unlimited || proven(c, maker) || c.seen.includes(cls.id);
+  if (c.unlimited) return true;
+  if (e.show.kind === 'capital') return c.seen.includes(`capital-${e.show.capital}`);
+  return c.seen.includes(e.show.classId) || c.ships.includes(e.show.classId);
 }

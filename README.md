@@ -38,7 +38,7 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 
   | Yard | Who can buy | Look | Doctrine | Ships |
   |---|---|---|---|---|
-  | Independent yards | Anyone | Rounded nacelles, rings, hoops, bright paint | Balanced, forgiving | Wren, Warden, Kite, Lancer, Talon, Corsair |
+  | Independent yards | Anyone | Rounded nacelles, rings, hoops, bright paint | Balanced, forgiving | Warden, Kite, Lancer, Corsair (the Wren and Talon are militia and Patrol only) |
   | Helion Combine | Combine pilots | Symmetry, bevelled wedges, crescent blades, ivory and gold | Fast-recharging shields, energy, long guns; thin hulls | Sabre, Halberd |
   | Drift Union | Drift pilots | Asymmetric, exposed frames and rings, bolted-on pods | Heavy armour, deep magazines, many hardpoints; weak shields | Gannet, Bulwark |
   | Red Wake | Wake pilots (no Wake path yet) | Hooked blades, forward fangs, crimson over black | Speed and short, hard-hitting guns; fragile | Fang |
@@ -52,9 +52,17 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   and die to a single burst.
 - **Civilian ships:** container ships, hospital ships, cruise liners and asteroid miners, built
   with the same bevelled-block language as everything else. They fly the traffic lanes.
-- **Ship database** in the hangar: every fighter, gunship, capital ship, civilian hull and
-  installation in the Reach, with facts, a description, and a turntable model you can repaint
-  in each operator's colours.
+- **Ship database** in the hangar: fills in as you meet ships in missions (fighters, gunships,
+  capital ships, civilian hulls, installations), with facts, a description, and a turntable model
+  you can repaint in each operator's colours.
+- **Standard or hardcore.** A new campaign asks. On standard, dying costs 2,500 cr for the tug
+  that recovers you and the repairs, and you retry from a checkpoint. On hardcore you have one
+  life: die, and the campaign is over.
+- **Story contracts are flown once.** Odd jobs come from a job board of three that is dealt
+  again after each story chapter, and you have time for two side activities (odd jobs or the
+  Baron's arc) before the next chapter will not wait.
+- **Docking** picks the open bay you are facing; press the dock key again on the approach to
+  switch to another open bay.
 - **Difficulty** (Options): Easy, Normal or Hard scales the damage you take and how sharply
   hostile pilots and gunners fly.
 - **Test cheat:** Ctrl+P toggles unlimited credits, opens every yard, lists every contract and
@@ -192,7 +200,7 @@ table below lists the defaults.
 | Guns | Left click | RT / R2 |
 | Missile (most types need a lock) | Right click or G | RB / R1 |
 | Drop flare | V | B / Circle |
-| Power to shields / guns / engines / balanced | 1 / 2 / 3 / 4 (press again to balance) | R3 cycles |
+| Power: balanced / shields / guns / engines | 1 / 2 / 3 / 4 (press again to balance) | R3 cycles |
 | Request docking (again: docking computer) | B | X / Square |
 | Target nearest / next | T / Tab | Y (Triangle) / LB (L1) |
 | Camera | C | View/Share |

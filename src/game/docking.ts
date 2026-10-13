@@ -128,6 +128,21 @@ export class Docking {
       });
   }
 
+  /** Allowed ports within range, best first: the one you are facing, then the nearest. */
+  choices(pos: THREE.Vector3, facing: THREE.Vector3, range = 6000): DockSpec[] {
+    const scored: { p: DockSpec; score: number }[] = [];
+    for (const p of this.ports) {
+      if (!this.allowed?.has(p.id)) continue;
+      const f = this.frame(p, this.f);
+      const approach = f.pad.clone().addScaledVector(f.outward, p.mouth + 60);
+      const d = approach.distanceTo(pos);
+      if (d > range) continue;
+      const angle = approach.sub(pos).normalize().angleTo(facing);
+      scored.push({ p, score: angle + d / 20000 });
+    }
+    return scored.sort((a, b) => a.score - b.score).map((s) => s.p);
+  }
+
   /** Nearest allowed port within range, or null. */
   nearest(pos: THREE.Vector3, range = 6000): DockSpec | null {
     let best: DockSpec | null = null;

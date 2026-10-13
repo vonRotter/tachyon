@@ -854,7 +854,7 @@ function talon(p: Palette): ShipModel {
 
 /**
  * Wren: Kestrel's station-defence fighter, after the Jedi starfighter. A small flat delta with
- * the cockpit bubble at the back, a droid socket on one side and two engines at the corners.
+ * the cockpit bubble at the back, a little dorsal fin and two engines at the corners.
  * Small and friendly-looking, which it is until you threaten the station.
  */
 function wren(p: Palette): ShipModel {
@@ -869,10 +869,8 @@ function wren(p: Palette): ShipModel {
   b.hullMirrored(plate([v3(1.2, 0.27, -0.6), v3(1.6, 0.27, -0.6), v3(2.3, 0.2, 1.6), v3(1.9, 0.22, 1.6)], UPN, 0.04), p.secondary);
   // cockpit bubble at the back
   b.hull([v3(0, 0.35, -0.6), v3(0.55, 0.45, 0.2), v3(-0.55, 0.45, 0.2), v3(0, 1.15, 0.5), v3(0.45, 0.55, 1.4), v3(-0.45, 0.55, 1.4), v3(0, 0.95, 1.4)], p.canopy, 1.15);
-  // droid socket to port
-  b.cylinder(v3(-1.3, 0.55, 0.9), 0.32, 0.6, '#dfe6ee', { ...NO, sides: 10 });
-  b.sphere(v3(-1.3, 0.88, 0.9), 0.32, p.secondary, { ...NO, detail: 1 });
-  b.sphere(v3(-1.15, 0.95, 0.66), 0.08, '#4dc8ff', { ...NO, glow: 2, detail: 0 });
+  // a small dorsal fin behind the canopy
+  b.hull(plate([v3(0, 0.6, 1.0), v3(0, 0.6, 2.2), v3(0, 1.5, 2.5), v3(0, 1.3, 1.8)], SIDEN, 0.1), p.secondary);
   // corner engines
   for (const s of [1, -1]) {
     b.cylinder(v3(s * 1.9, 0.1, 2.2), 0.42, 1.4, p.secondary, { ...NO, quat: X90, sides: 10 });

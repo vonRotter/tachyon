@@ -1,7 +1,7 @@
 import './style.css';
 import { Game, type Difficulty } from './game/game';
-import { defect, fitShip, migrateCampaign, missionPayout, newCampaign, newFit, type Campaign, type Side } from './game/loadout';
-import { missionById, type MissionDef } from './game/missions';
+import { DEATH_FEE, defect, fitShip, migrateCampaign, missionPayout, newCampaign, newFit, type Campaign, type Side } from './game/loadout';
+import { dealBoard, isSide, missionById, nextStory, type MissionDef } from './game/missions';
 import { SHIP_CLASSES } from './entities/shipClasses';
 import { Shop } from './ui/shop';
 import { detectQuality, type QualityLevel } from './core/quality';
@@ -65,7 +65,15 @@ const game = new Game($('game'), $<HTMLCanvasElement>('hud'));
 let mission: MissionDef = missionById('cold-guns');
 (window as unknown as { __game: Game }).__game = game;
 (window as unknown as { __classes: typeof SHIP_CLASSES }).__classes = SHIP_CLASSES;
-game.input.setBindings({ ...DEFAULT_BINDINGS, ...load<Partial<Bindings>>('veil.bindings', {}) });
+const savedBindings = load<Partial<Bindings>>('veil.bindings', {});
+// older builds had 1 = shields ... 4 = balanced; the HUD shows balanced first, so 1 is balanced now
+if (savedBindings.powerShields?.[0] === 'Digit1' && savedBindings.powerBalanced?.[0] === 'Digit4') {
+  savedBindings.powerBalanced = ['Digit1'];
+  savedBindings.powerShields = ['Digit2'];
+  savedBindings.powerGuns = ['Digit3'];
+  savedBindings.powerEngines = ['Digit4'];
+}
+game.input.setBindings({ ...DEFAULT_BINDINGS, ...savedBindings });
 
 function applySettings(): void {
   game.input.settings.invertMouseY = settings.invertMouse;
@@ -293,6 +301,8 @@ function startAudio(): void {
 }
 
 function openHangar(): void {
+  // saves from before the job board get one dealt
+  if ((campaign.completed['cold-guns'] ?? 0) > 0 && !campaign.board.length) dealBoard(campaign);
   startAudio();
   closeAllMenus();
   show('title', false);
@@ -321,12 +331,28 @@ function begin(m: MissionDef, checkpoint: number): void {
 }
 
 $('launch').addEventListener('click', () => openHangar());
+/** New campaign: pick standard or hardcore, then off to the start. */
+function startNewCampaign(): void {
+  show('title', true);
+  show('new-run', true);
+}
 $('new-campaign').addEventListener('click', () => {
-  if (campaign.started && !window.confirm('Start a new campaign? Your ships, credits and story progress will be lost.')) return;
-  campaign = newCampaign();
-  saveCampaign();
-  openHangar();
+  if (campaign.started && !campaign.dead && !window.confirm('Start a new campaign? Your ships, credits and story progress will be lost.')) return;
+  startNewCampaign();
 });
+for (const [id, hardcore] of [
+  ['run-standard', false],
+  ['run-hardcore', true],
+] as const) {
+  $(id).addEventListener('click', () => {
+    campaign = newCampaign();
+    campaign.hardcore = hardcore;
+    saveCampaign();
+    show('new-run', false);
+    openHangar();
+  });
+}
+$('run-cancel').addEventListener('click', () => show('new-run', false));
 
 // --- Test cheat: Ctrl+P toggles unlimited credits --------------------------------------------
 const toastEl = $('toast');
@@ -356,7 +382,14 @@ $('restart').addEventListener('click', () => begin(mission, 0));
 $('restart2').addEventListener('click', () => begin(mission, 0));
 $('retry').addEventListener('click', () => begin(mission, game.checkpoint));
 $('abandon').addEventListener('click', () => openHangar());
-$('to-hangar').addEventListener('click', () => openHangar());
+$('to-hangar').addEventListener('click', () => {
+  if (campaign.dead) {
+    show('debrief', false);
+    startNewCampaign();
+    return;
+  }
+  openHangar();
+});
 $('hangar-title').addEventListener('click', () => {
   show('hangar', false);
   game.quitToTitle();
@@ -438,6 +471,24 @@ game.onMissionEnd = (result) => {
     if (flewFor && flewFor === campaign.allegiance && !game.missionFlags.defect) {
       campaign.standing[flewFor] = (campaign.standing[flewFor] ?? 0) + 1;
     }
+    if (isSide(mission)) {
+      // side work uses up this chapter's allowance, and a job leaves the board
+      campaign.sideDone++;
+      campaign.board = campaign.board.filter((id) => id !== mission.id);
+      if (!campaign.board.length && !nextStory(campaign)) dealBoard(campaign);
+    } else {
+      // a story chapter done: the clock resets and the board fills up again
+      campaign.sideDone = 0;
+      dealBoard(campaign);
+    }
+  }
+  // dying costs: on hardcore it ends the campaign, otherwise a tug recovers you and bills you
+  const died = result === 'defeat' && game.playerDied;
+  let bill = 0;
+  if (died && campaign.hardcore) campaign.dead = true;
+  else if (died && !campaign.unlimited) {
+    bill = Math.min(DEATH_FEE, campaign.credits);
+    campaign.credits -= bill;
   }
   saveCampaign();
   const outcomeTitles: Record<string, string> = {
@@ -481,7 +532,11 @@ game.onMissionEnd = (result) => {
   $('debrief-stats').innerHTML = stats.map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
   const choice = $('debrief-choice');
   choice.innerHTML = '';
-  $('retry').style.display = result === 'victory' ? 'none' : '';
+  const over = campaign.dead;
+  $('retry').style.display = result === 'victory' || over ? 'none' : '';
+  $('restart2').style.display = result === 'victory' || over ? 'none' : '';
+  $('to-hangar').textContent = over ? 'Start a new campaign' : 'Return to hangar';
+  if (over) $('debrief-title').textContent = 'Rook is gone';
   const note = document.createElement('p');
   const sides: Record<string, string> = {
     combine: 'You landed on the Sovereign Dawn. You fly for the Helion Combine now.',
@@ -495,7 +550,12 @@ game.onMissionEnd = (result) => {
   const defected = result === 'victory' ? game.missionFlags.defect : undefined;
   const lost = confiscated.length ? ` They kept what was theirs: ${confiscated.join(', ')}.` : '';
   const gift = result === 'victory' && game.missionFlags.gift ? `The ${SHIP_CLASSES[game.missionFlags.gift]?.name ?? 'ship'} is waiting in your hangar. ` : '';
-  note.textContent = `${side ? `${sides[side]} ` : ''}${defected ? `${turned[defected]}${lost} ` : ''}${gift}Credits: ${campaign.unlimited ? '∞ (test mode)' : `${campaign.credits.toLocaleString()} cr`}.`;
+  const deathNote = over
+    ? 'Hardcore: one life, and it is spent. The campaign ends here. '
+    : bill
+      ? `A salvage tug pulled you out of the wreck. Recovery and repairs: ${bill.toLocaleString()} cr. `
+      : '';
+  note.textContent = `${deathNote}${side ? `${sides[side]} ` : ''}${defected ? `${turned[defected]}${lost} ` : ''}${gift}Credits: ${campaign.unlimited ? '∞ (test mode)' : `${campaign.credits.toLocaleString()} cr`}.`;
   choice.appendChild(note);
   show('debrief', true);
 };

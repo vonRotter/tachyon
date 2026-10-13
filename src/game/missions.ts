@@ -1,5 +1,5 @@
 import type { Game } from './game';
-import type { Campaign, Side } from './loadout';
+import { SIDE_PER_CHAPTER, type Campaign, type Side } from './loadout';
 import { runKestrelMission } from './mission';
 import { runLaunchOrder } from './missionLaunchOrder';
 import { runFlotsam } from './missionFlotsam';
@@ -285,4 +285,35 @@ export function nextStory(c: Campaign): MissionDef | null {
     if (m && m.available(c) && !c.completed[id]) return m;
   }
   return null;
+}
+
+/** Side activities are odd jobs and the Baron's arc. */
+export const isSide = (m: MissionDef): boolean => m.kind === 'job' || m.kind === 'baron';
+
+/** True while a story chapter is waiting and this chapter's side work is used up. */
+export function sideLocked(c: Campaign): boolean {
+  return !c.unlimited && nextStory(c) !== null && (c.completed['cold-guns'] ?? 0) > 0 && c.sideDone >= SIDE_PER_CHAPTER;
+}
+
+/** Deals a fresh board of odd jobs: three at random from those open to you. */
+export function dealBoard(c: Campaign): void {
+  const pool = MISSIONS.filter((m) => m.kind === 'job' && m.available(c)).map((m) => m.id);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  c.board = pool.slice(0, 3);
+}
+
+/**
+ * Whether a contract shows in the hangar: story and arc missions once only, odd jobs only while
+ * they are on the board, and no side work once this chapter's share is used. Test mode shows all.
+ */
+export function offered(m: MissionDef, c: Campaign): boolean {
+  if (c.unlimited) return true;
+  if (!m.available(c)) return false;
+  if (m.kind === 'job') return c.board.includes(m.id) && !sideLocked(c);
+  if (c.completed[m.id]) return false;
+  if (isSide(m)) return !sideLocked(c);
+  return true;
 }

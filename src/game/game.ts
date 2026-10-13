@@ -77,6 +77,20 @@ const _q = new THREE.Quaternion();
 const hit = makeRayHit();
 
 
+
+const _hp = new THREE.Vector3();
+/**
+ * Where gun mount `i` fires from. Models list their hardpoints; a fit with more guns than that
+ * gets extra hardpoints set out and down from the listed ones, so every fitted gun shows its own
+ * bolts instead of firing from the same spot as another.
+ */
+function gunHardpoint(guns: THREE.Vector3[], i: number): THREE.Vector3 {
+  if (i < guns.length) return guns[i];
+  const base = guns[i % guns.length];
+  const ring = Math.floor(i / guns.length);
+  const side = base.x === 0 ? (ring % 2 ? -1 : 1) : Math.sign(base.x);
+  return _hp.set(base.x + side * 0.6 * ring, base.y - 0.45 * ring, base.z + 0.4 * ring);
+}
 export class Game implements CombatContext {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
@@ -407,6 +421,8 @@ export class Game implements CombatContext {
   missionFlags: Record<string, string> = {};
   /** Extra pay a mission awards on top of the contract (bonuses). */
   bonusPay = 0;
+  /** The player's ship was destroyed this mission (as opposed to failing an objective). */
+  playerDied = false;
   /** Ship classes that appeared this mission, for the hangar database. */
   readonly seenClasses = new Set<string>();
 
@@ -468,18 +484,34 @@ export class Game implements CombatContext {
     return this.docking.active?.id ?? ids[0];
   }
 
-  /** Dock key: clearance for the nearest open port; pressed again with a docking computer, it flies you in. */
+  /**
+   * Dock key: clearance for the open port you are facing. Pressed again on the approach with
+   * more than one port open, it switches to the next one; with a docking computer it engages the
+   * autopilot (from the gates on, when several ports are open).
+   */
   requestDock(): void {
     const p = this.player;
     if (!p || !p.alive) return;
-    if (this.docking.active) {
+    const facing = this.camera.getWorldDirection(new THREE.Vector3());
+    const choices = this.docking.choices(p.pos, facing);
+    const active = this.docking.active;
+    if (active) {
+      const several = choices.length > 1;
+      if (several && this.docking.stage === 'approach' && !this.autoDock) {
+        const next = choices[(choices.findIndex((c) => c.id === active.id) + 1) % choices.length];
+        this.docking.cancel();
+        this.docking.begin(next);
+        this.audio.blip(1320, 0.1, 0.06);
+        this.hint(`Clearance switched: ${next.name}`, 3);
+        return;
+      }
       if (p.equipment.has('dockingComputer') || this.autopilot) {
         this.autoDock = !this.autoDock;
         this.hint(this.autoDock ? 'Docking computer engaged' : 'Docking computer off: you have the controls', 2.5);
-      } else this.hint(`Cleared for ${this.docking.active.name}. Follow the gates`, 3);
+      } else this.hint(`Cleared for ${active.name}. Follow the gates`, 3);
       return;
     }
-    const port = this.docking.nearest(p.pos);
+    const port = choices[0];
     if (!port) {
       this.audio.blip(300, 0.1, 0.1);
       this.hint(this.docking.allowed ? 'Too far from an open docking bay' : 'No docking clearance right now', 2.5);
@@ -487,7 +519,8 @@ export class Game implements CombatContext {
     }
     this.docking.begin(port);
     this.audio.blip(1320, 0.1, 0.06);
-    this.hint(`Docking clearance: ${port.name}. Fly through the gates${p.equipment.has('dockingComputer') ? `, or press ${this.input.label('dock')} again for the docking computer` : ''}`, 5);
+    const others = choices.length > 1 ? `. Press ${this.input.label('dock')} again for ${choices[1].name}` : '';
+    this.hint(`Docking clearance: ${port.name}. Fly through the gates${others}${p.equipment.has('dockingComputer') && !others ? `, or press ${this.input.label('dock')} again for the docking computer` : ''}`, 6);
   }
 
   onKill(cb: (ship: Ship, by: Ship | null) => void): void {
@@ -548,6 +581,7 @@ export class Game implements CombatContext {
     opts: { armed?: boolean; skill?: number; speed?: number } = {},
   ): CapitalShip {
     const cap = new CapitalShip(kind, faction, id, name, pos, look);
+    this.seenClasses.add(`capital-${kind}`);
     cap.speed = opts.speed ?? 0;
     this.scene.add(cap.root);
     this.world.attach(cap.world, cap.root);
@@ -667,6 +701,9 @@ export class Game implements CombatContext {
     this.missionFlags = {};
     this.bonusPay = 0;
     this.seenClasses.clear();
+    this.playerDied = false;
+    // the battlecruiser some locations are built round counts as met
+    if (this.location.frames.carrier) this.seenClasses.add('capital-battlecruiser');
     this.friendlyFire.clear();
     this.friendlyFireLimit = 220;
     this.onBetrayal = null;
@@ -789,6 +826,7 @@ export class Game implements CombatContext {
     for (const cb of this.killListeners) cb(ship, by);
     if (ship.isPlayer) {
       this.objective = '';
+      this.playerDied = true;
       window.setTimeout(() => this.endMission('defeat'), 2200);
     }
   }
@@ -950,8 +988,7 @@ export class Game implements CombatContext {
       let sound = true;
       for (let i = 0; i < mounts.length; i++) {
         if ((ship.mountTimers[i] ?? 0) > 0) continue;
-        const hp = ship.model.guns[i % ship.model.guns.length];
-        if (this.fireBolt(ship, mounts[i], hp, sound)) {
+        if (this.fireBolt(ship, mounts[i], gunHardpoint(ship.model.guns, i), sound)) {
           ship.mountTimers[i] = mounts[i].cooldown * POWER[ship.power].gunRate;
           sound = false;
         }

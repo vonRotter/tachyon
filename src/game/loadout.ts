@@ -293,7 +293,20 @@ export interface Campaign {
   standing: Partial<Record<Side, number>>;
   /** Ship classes met in missions (unlocks their database entries). */
   seen: string[];
+  /** Hardcore: one life. Dying ends the campaign. */
+  hardcore: boolean;
+  /** Set when a hardcore pilot dies: the campaign is over. */
+  dead: boolean;
+  /** Odd jobs on offer right now (a few at a time). */
+  board: string[];
+  /** Side activities flown since the last story chapter (they are capped while the story waits). */
+  sideDone: number;
 }
+
+/** What dying costs on a standard campaign: the tug that recovers you, and the repairs. */
+export const DEATH_FEE = 2500;
+/** Side activities allowed per story chapter. */
+export const SIDE_PER_CHAPTER = 2;
 
 export type Side = 'combine' | 'drift' | 'wake';
 
@@ -354,6 +367,10 @@ export function newCampaign(): Campaign {
     flags: {},
     standing: {},
     seen: [],
+    hardcore: false,
+    dead: false,
+    board: [],
+    sideDone: 0,
   };
 }
 
@@ -376,6 +393,8 @@ export function migrateCampaign(raw: OldCampaign | null): Campaign {
     fit.equipment = old.equipment ?? [];
     if (Array.isArray(old.weapons)) {
       fit.weapons = fit.weapons.map((_, i) => old.weapons?.[i] ?? null);
+      // a hull that lost slots puts the extra weapons into storage
+      for (const w of old.weapons.slice(fit.weapons.length)) if (w) c.inventory[w] = (c.inventory[w] ?? 0) + 1;
     } else {
       // older saves had one gun type and one missile type per ship
       fit.weapons = fit.weapons.map((w) => (w && weaponInfo(w)?.kind === 'gun' ? (old.gun ?? w) : w && canMount(s, old.missile ?? w) ? (old.missile ?? w) : w));
@@ -389,6 +408,10 @@ export function migrateCampaign(raw: OldCampaign | null): Campaign {
   delete c.missiles;
   c.standing = { ...(c.standing ?? {}) };
   c.seen = [...(c.seen ?? [])];
+  c.board = [...(c.board ?? [])];
+  c.sideDone = c.sideDone ?? 0;
+  c.hardcore = c.hardcore ?? false;
+  c.dead = c.dead ?? false;
   // saves from before standing existed: count the faction contracts already flown
   if (raw && raw.standing === undefined) {
     if (c.completed['launch-order']) c.standing.combine = c.completed['launch-order'];

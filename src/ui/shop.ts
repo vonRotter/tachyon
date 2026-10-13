@@ -23,7 +23,8 @@ import {
   type ShipFit,
 } from '../game/loadout';
 import { DATABASE, DB_CATEGORIES, dbVisible, type DbEntry } from '../game/database';
-import { MISSIONS, briefingText, campaignPath, missionById, nextStory, type MissionDef } from '../game/missions';
+import { MISSIONS, briefingText, campaignPath, missionById, nextStory, offered, sideLocked, type MissionDef } from '../game/missions';
+import { SIDE_PER_CHAPTER } from '../game/loadout';
 import type { FactionId } from '../entities/factions';
 
 type Tab = 'ships' | 'upgrades' | 'weapons' | 'equipment' | 'database';
@@ -65,6 +66,8 @@ export class Shop {
     for (const b of document.querySelectorAll<HTMLButtonElement>('#hangar [data-tab]')) {
       b.addEventListener('click', () => {
         this.tab = b.dataset.tab as Tab;
+        // fitting tabs work on the ship you fly, so that is the one on the turntable
+        if (this.tab === 'upgrades' || this.tab === 'weapons' || this.tab === 'equipment') this.viewShip = this.campaign.activeShip;
         this.render();
       });
     }
@@ -82,13 +85,15 @@ export class Shop {
 
   render(): void {
     const c = this.campaign;
-    $('credits').textContent = c.unlimited ? '∞ cr (test mode)' : cr(c.credits);
+    $('credits').textContent = `${c.hardcore ? 'HARDCORE · ' : ''}${c.unlimited ? '∞ cr (test mode)' : cr(c.credits)}`;
     if (!c.started) this.tab = 'ships';
     for (const b of document.querySelectorAll<HTMLButtonElement>('#hangar [data-tab]')) {
       b.classList.toggle('on', b.dataset.tab === this.tab);
       b.disabled = !c.started && b.dataset.tab !== 'ships';
     }
-    ($('hangar-launch') as HTMLButtonElement).disabled = !c.started;
+    const launch = $('hangar-launch') as HTMLButtonElement;
+    launch.disabled = !c.started || this.tab === 'database';
+    launch.textContent = this.tab === 'database' ? 'Leave the database to launch' : 'Launch';
     const list = $('shop-list');
     list.innerHTML = '';
     if (!c.started) this.renderStartPick(list);
@@ -169,7 +174,7 @@ export class Shop {
       el('p', 'tab-note', `Choose your first ship. You have ${cr(START_BUDGET)}: whatever the ship does not cost, you keep for upgrades, weapons and equipment.`),
     );
     list.appendChild(el('p', 'tab-note', 'Only the independent yards will sell to a pilot nobody has hired yet. Faction yards open up once you work for a faction.'));
-    for (const id of PLAYER_SHIPS.filter((s) => (SHIP_CLASSES[s].maker ?? 'kestrel') === 'kestrel' && SHIP_CLASSES[s].price <= START_BUDGET)) {
+    for (const id of PLAYER_SHIPS.filter((s) => (SHIP_CLASSES[s].maker ?? 'kestrel') === 'kestrel' && SHIP_CLASSES[s].forSale !== false && SHIP_CLASSES[s].price <= START_BUDGET)) {
       const cls = SHIP_CLASSES[id];
       const left = START_BUDGET - cls.price;
       const card = this.card(cls.name, cls.description ?? '', { status: cr(cls.price), active: this.viewShip === id });
@@ -237,7 +242,8 @@ export class Shop {
         list.appendChild(el('p', 'yard-note', design.principle));
         list.appendChild(el('p', 'yard-note', design.doctrine));
       }
-      for (const id of ids) this.shipCard(list, id);
+      // hulls nobody sells stay out of the shop (the database shows them once you have met one)
+      for (const id of ids) if (SHIP_CLASSES[id].forSale !== false || c.ships.includes(id) || c.unlimited) this.shipCard(list, id);
     }
   }
 
@@ -517,7 +523,14 @@ export class Shop {
   // --- database ------------------------------------------------------------------------------
 
   private renderDatabase(list: HTMLElement): void {
-    list.appendChild(el('p', 'tab-note', 'Everything you can meet in the Reach. Select an entry to put it on the turntable.'));
+    list.appendChild(el('p', 'tab-note', 'Every ship you have met in the Reach. New entries are added as you meet them. Select one to put it on the turntable.'));
+    if (!dbVisible(this.dbEntry, this.campaign)) {
+      const first = DATABASE.find((d) => dbVisible(d, this.campaign));
+      if (first) {
+        this.dbEntry = first;
+        this.dbFaction = first.operators[0];
+      }
+    }
     for (const cat of DB_CATEGORIES) {
       list.appendChild(el('div', 'tab-head', cat));
       for (const e of DATABASE.filter((d) => d.category === cat && dbVisible(d, this.campaign))) {
@@ -582,17 +595,23 @@ export class Shop {
     // the next story contract first, then anything new, then what you have already flown
     const next = nextStory(c);
     const rank = (m: MissionDef) => (m === next ? 0 : m.repeatable ? 2 : c.completed[m.id] ? 3 : 1);
-    const missions = MISSIONS.filter((m) => c.unlimited || m.available(c)).sort((a, b) => rank(a) - rank(b));
+    const missions = MISSIONS.filter((m) => offered(m, c)).sort((a, b) => rank(a) - rank(b));
     if (!missions.some((m) => m.id === this.selectedMission)) this.selectedMission = (next ?? missions[0]).id;
     const groups: [string, MissionDef[]][] = [
       ['Story', missions.filter((m) => (m.kind ?? 'story') === 'story')],
       ['The Scarlet Baron', missions.filter((m) => m.kind === 'baron')],
-      ['Odd jobs · full pay every time', missions.filter((m) => m.kind === 'job')],
+      ['Job board', missions.filter((m) => m.kind === 'job')],
     ];
     for (const [title, list] of groups) {
       if (!list.length) continue;
       root.appendChild(el('div', 'contract-group', title));
       for (const m of list) root.appendChild(this.missionCard(m));
+    }
+    if (sideLocked(c)) {
+      root.appendChild(el('div', 'contract-group', 'Side work'));
+      root.appendChild(el('p', 'tab-note', `No time for more side work: you have taken ${SIDE_PER_CHAPTER} jobs since the last chapter, and the next one will not wait. Fly the story contract to open the board again.`));
+    } else if (nextStory(c) && (c.completed['cold-guns'] ?? 0) > 0 && !c.unlimited) {
+      root.appendChild(el('p', 'tab-note', `Side work before the next chapter: ${SIDE_PER_CHAPTER - c.sideDone} of ${SIDE_PER_CHAPTER} left.`));
     }
   }
 

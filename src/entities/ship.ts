@@ -131,6 +131,8 @@ export class Ship {
   lastDamageTime = -99;
   lastAttacker: Ship | null = null;
   boosting = false;
+  /** Set when boost runs the tank dry; boost stays off until energy recovers (no sputtering). */
+  boostLocked = false;
   sliding = false;
   thrust = 0;
   private shieldFlash = 0;
@@ -286,7 +288,9 @@ export class Ship {
 
     // energy and boost
     const pw = POWER[this.power];
-    const wantsBoost = c.boost && this.energy > 2;
+    if (this.energy <= 1) this.boostLocked = true;
+    else if (this.boostLocked && this.energy >= cls.energy * 0.3) this.boostLocked = false;
+    const wantsBoost = c.boost && !this.boostLocked;
     this.boosting = wantsBoost;
     if (wantsBoost) this.energy = Math.max(0, this.energy - cls.boostDrain * dt);
     else this.energy = Math.min(cls.energy, this.energy + cls.energyRegen * pw.energyRegen * dt);
