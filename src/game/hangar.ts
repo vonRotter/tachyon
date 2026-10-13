@@ -188,6 +188,18 @@ export class Hangar {
     const key = `${cls.model}:${paint.key}`;
     if (key === this.displayKey) return;
     const m = getShipModel(cls.model, paint.palette, paint.key);
+    if (cls.radius > 12) {
+      // big civilian hulls become turntable models, like capital ships
+      const holder = new THREE.Group();
+      const box = new THREE.Box3().setFromObject(m.group);
+      const size = box.getSize(new THREE.Vector3());
+      m.group.position.copy(box.getCenter(new THREE.Vector3())).negate();
+      holder.add(m.group);
+      holder.scale.setScalar(18 / Math.max(size.x, size.z, 1));
+      this.setDisplay(holder, key, false);
+      this.targetDist = 36;
+      return;
+    }
     this.setDisplay(m.group, key, false);
     this.targetDist = clamp(cls.radius * 7.5 + 8, 12, 60);
   }

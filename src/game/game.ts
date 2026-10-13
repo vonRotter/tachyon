@@ -516,7 +516,7 @@ export class Game implements CombatContext {
   private spawnTraffic(): void {
     for (const route of this.location.traffic) {
       const pts = route.points;
-      const ship = this.spawnShip('freighter', 'drift', route.name, pts[0].clone(), pts[1], { speed: route.speed });
+      const ship = this.spawnShip(route.cls ?? 'freighter', 'drift', route.name, pts[0].clone(), pts[1], { speed: route.speed });
       ship.ai = new WaypointPilot(pts, 0.85);
       ship.invulnerable = true;
     }

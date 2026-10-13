@@ -10,6 +10,8 @@ const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(
 /** A civilian route flown in a loop. */
 export interface TrafficRoute {
   name: string;
+  /** Ship class (default: the Drift bulk hauler). */
+  cls?: string;
   points: THREE.Vector3[];
   speed: number;
 }
@@ -67,6 +69,18 @@ const kestrel: Builder = (world) => {
         name: 'Bulk Hauler Ostrava',
         points: [v(800, -120, 0), v(560, -60, 560), v(0, -20, 800), v(-560, -60, 560), v(-800, -120, 0), v(-560, -180, -560), v(0, -220, -800), v(560, -180, -560)],
         speed: 35,
+      },
+      {
+        name: 'Container ship Halvard',
+        cls: 'container',
+        points: [v(2200, -400, 1600), v(600, -380, 1900), v(-1400, -300, 1500), v(-2100, -350, -200), v(-600, -420, -1900), v(1500, -420, -1500)],
+        speed: 30,
+      },
+      {
+        name: 'Ore barge Pell',
+        cls: 'miner',
+        points: [v(-1500, -160, 900), v(-900, -60, 300), v(-1000, -200, 1100)],
+        speed: 18,
       },
       {
         name: 'Bulk Hauler Tamsin',

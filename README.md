@@ -50,6 +50,8 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   wings, engine pods that thrust both ways, so it strafes hard); the Wren, Kestrel's tiny
   station-defence fighter, after the Jedi starfighter. Unmanned combat drones are small, fast
   and die to a single burst.
+- **Civilian ships:** container ships, hospital ships, cruise liners and asteroid miners, built
+  with the same bevelled-block language as everything else. They fly the traffic lanes.
 - **Ship database** in the hangar: every fighter, gunship, capital ship, civilian hull and
   installation in the Reach, with facts, a description, and a turntable model you can repaint
   in each operator's colours.
