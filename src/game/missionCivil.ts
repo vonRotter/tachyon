@@ -15,7 +15,7 @@ const glow = (color: string, opacity = 1): THREE.MeshBasicMaterial =>
   new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
 
 /** A holographic gate: a ring you fly through, facing along `dir`. */
-function makeGate(pos: THREE.Vector3, dir: THREE.Vector3, radius: number): THREE.Group {
+export function makeGate(pos: THREE.Vector3, dir: THREE.Vector3, radius: number): THREE.Group {
   const g = new THREE.Group();
   const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 1.2, 6, 40), glow('#ffd36b', 0.9));
   const inner = new THREE.Mesh(new THREE.TorusGeometry(radius * 0.8, 0.3, 4, 40), glow('#ffd36b', 0.4));
@@ -45,64 +45,165 @@ function makePickup(kind: 'pod' | 'crate'): THREE.Group {
 
 // =============================================================================================
 
-/** "Hot Cargo" at Kestrel: a cold-chain courier run through ten gates against the clock. */
+/** A rival in the Ring Run: full throttle at the next gate, boosting on the straights. */
+class RacePilot {
+  index = 0;
+  finished = -1;
+  constructor(
+    private readonly gates: THREE.Vector3[],
+    private readonly g: Game,
+    private readonly pace: number,
+  ) {}
+  update(ship: Ship, dt: number): void {
+    void dt;
+    const c = ship.controls;
+    c.fire = false;
+    c.missile = false;
+    c.slide = false;
+    c.strafeX = 0;
+    c.strafeY = 0;
+    if (this.finished >= 0) {
+      c.throttle = 0.3;
+      c.boost = false;
+      return;
+    }
+    const target = this.gates[this.index];
+    const to = target.clone().sub(ship.pos);
+    const dist = to.length();
+    if (dist < RACE_GATE) {
+      this.index++;
+      if (this.index >= this.gates.length) this.finished = this.g.missionTime;
+      return;
+    }
+    to.normalize();
+    const local = to.clone().applyQuaternion(ship.quat.clone().invert());
+    c.pitch = Math.max(-1, Math.min(1, Math.atan2(local.y, -local.z) * 3));
+    c.yaw = Math.max(-1, Math.min(1, Math.atan2(local.x, -local.z) * 3));
+    c.roll = 0;
+    const aligned = -local.z > 0.97;
+    c.throttle = aligned ? this.pace : 0.55;
+    c.boost = aligned && dist > 260 && ship.energy > ship.cls.energy * 0.35;
+  }
+}
+
+/** How close to a gate's centre counts as through it. */
+const RACE_GATE = 24;
+
+/**
+ * "The Ring Run" at Kestrel: the dock crews' monthly race. Over and under the spinning habitat
+ * ring (mind the spokes), through the rock field, a long boost to the Combine battlecruiser and
+ * straight through her hangar tunnel, then home. Three rivals; the purse depends on where you
+ * finish.
+ */
 export async function runCourier(g: Game): Promise<void> {
   const player = g.player as Ship;
-  const route = [
-    v(560, 60, 260),
-    v(320, 140, 620),
-    v(-180, 220, 560),
-    v(-520, 300, 120),
-    v(-260, 380, -360),
-    v(240, 280, -560),
-    v(640, 80, -320),
-    v(560, -160, 120),
-    v(120, -300, 420),
-    v(-380, -180, 300),
+  const P = (k: string) => g.points[k];
+  const port = P('carrier.hangarPort');
+  const starboard = P('carrier.hangarStarboard');
+  const tunnel = port.clone().add(starboard).multiplyScalar(0.5);
+  // into the tunnel from whichever side faces the rock field
+  const rocks = v(-1200, -120, 650);
+  const [inSide, outSide] = port.distanceTo(rocks) < starboard.distanceTo(rocks) ? [port, starboard] : [starboard, port];
+  // out of the far side of the tunnel, then a loop up and over her spine
+  const across = outSide.clone().sub(inSide).normalize();
+  const up = v(0, 1, 0);
+  const course = [
+    v(430, 70, 330),
+    v(0, 90, 330),
+    v(-150, 0, 40),
+    v(-330, -60, -100),
+    v(-760, -110, 260),
+    v(-1060, -130, 585),
+    v(-1330, -90, 800),
+    v(-1000, 40, 1150),
+    inSide.clone(),
+    tunnel.clone(),
+    outSide.clone(),
+    outSide.clone().addScaledVector(across, 130).addScaledVector(up, 130),
+    tunnel.clone().addScaledVector(up, 230),
+    inSide.clone().addScaledVector(across, -220).addScaledVector(up, 60),
+    v(520, 50, 560),
   ];
-  const gates = route.map((p, i) => {
-    const next = route[(i + 1) % route.length];
-    const gate = makeGate(p, next.clone().sub(p), 26);
+  const gates = course.map((p, i) => {
+    const next = course[Math.min(i + 1, course.length - 1)];
+    const prev = course[Math.max(i - 1, 0)];
+    const dir = i === course.length - 1 ? p.clone().sub(prev) : next.clone().sub(prev);
+    const gate = makeGate(p, dir, RACE_GATE - 4);
     g.addDecor(gate);
     return gate;
   });
-  player.placeAt(v(760, 40, 120), route[0], 80);
+  const grid = v(760, 60, 520);
+  const look = course[0];
+  g.park(player, grid.clone(), look);
+  const rivals: [string, string, number][] = [
+    ['warden', 'Pike', 0.97],
+    ['wren', 'Mags Okonkwo', 0.95],
+    ['kite', 'Tully Brand', 0.92],
+  ];
+  const racers = rivals.map(([cls, name, pace], i) => {
+    const s = g.spawnShip(cls, 'kestrel', name, grid.clone().add(v(-40 + i * 40, i % 2 ? 25 : -25, 40)), look, { speed: 0 });
+    g.park(s, s.pos.clone(), look);
+    // they race, they do not fight: bumps and scrapes only
+    s.invulnerable = true;
+    const rp = new RacePilot(course, g, pace);
+    s.ai = rp;
+    return { ship: s, pilot: rp };
+  });
   let index = 0;
-  const limit = 80;
-  let started = -1;
-  g.setMusicIntensity(0.5);
-  g.objective = 'Fly the gates';
-  await g.say('varga', 'Rook, Kestrel Control. Cold-chain serum for the hospital deck, and the cooler on it is failing. Ten gates round the station, and the clock starts at the first one. Do not dawdle.');
-  g.hint('Gates are marked on your HUD. Boost between them, slow down for the tight turns', 7);
+  let finished = -1;
   const mark = () => {
-    g.waypoints = index < gates.length ? [{ name: `GATE ${index + 1}`, pos: route[index], color: '#ffd36b' }] : [];
+    g.waypoints = index < course.length ? [{ name: index === course.length - 1 ? 'FINISH' : `GATE ${index + 1}`, pos: course[index], color: '#ffd36b' }] : [];
     gates.forEach((gt, i) => (gt.visible = i >= index));
   };
   mark();
-  let failed = false;
+  g.setMusicIntensity(0.4);
+  g.objective = 'The Ring Run · on the grid';
+  await g.say('varga', 'Rook, Kestrel Control. The dock crews\' Ring Run is about to start, and you are on the grid. Over and under the habitat ring, mind the spokes, through the rocks, and through the Combine battlecruiser\'s hangar. Yes, they agreed. Do not hit anything that belongs to them.');
+  await g.say('pike', 'Rook! Good. I was running out of people to beat. See you at the finish. From the front.');
+  g.hint('Gates are marked on your HUD. Boost on the straights, slide through the tight turns', 7);
+  await g.say('varga', 'Racers, on my mark. Three. Two. One. Go!');
+  const start = g.missionTime;
+  for (const r of racers) {
+    r.ship.held = false;
+    r.ship.controls.throttle = 1;
+  }
+  player.held = false;
+  player.controls.throttle = 1;
+  g.setMusicIntensity(0.8);
+  const place = () => 1 + racers.filter((r) => r.pilot.finished >= 0 || r.pilot.index > index || (r.pilot.index === index && r.ship.pos.distanceTo(course[index]) < player.pos.distanceTo(course[index]))).length;
+  let tunnelCalled = false;
+  const limit = 240;
   await g.until(() => {
-    if (player.pos.distanceTo(route[index]) < 30) {
-      if (started < 0) started = g.missionTime;
-      g.audio.blip(1320 + index * 60, 0.08, 0.08);
+    if (index < course.length && player.pos.distanceTo(course[index]) < RACE_GATE) {
+      g.audio.blip(1320 + index * 40, 0.08, 0.08);
       index++;
       mark();
+      if (index >= course.length) finished = g.missionTime;
+      if (index === 8 && !tunnelCalled) {
+        tunnelCalled = true;
+        void g.say('pike', 'Here comes the fun part. Through the hangar, and pray they do not close the doors.').catch(() => undefined);
+      }
+      if (index === 11) void g.say('varga', 'And now up and over her back. Mind the turrets, they are attached.').catch(() => undefined);
     }
-    const left = started < 0 ? limit : limit - (g.missionTime - started);
-    g.objective = `Fly the gates · ${index} of ${gates.length} · ${Math.max(0, Math.ceil(left))} s`;
-    if (left <= 0) failed = true;
-    return index >= gates.length || failed;
+    const t = g.missionTime - start;
+    g.objective = `The Ring Run · gate ${Math.min(index + 1, course.length)} of ${course.length} · position ${place()} of ${racers.length + 1} · ${Math.floor(t)} s`;
+    return finished >= 0 || t > limit || !player.alive;
   });
   g.waypoints = [];
-  if (failed) {
-    g.objective = '';
-    await g.say('varga', 'Too slow, Rook. The serum has warmed past use. We will find another batch.');
+  g.objective = '';
+  if (finished < 0) {
+    await g.say('varga', 'Rook, the race is long over. The crews have gone home. Come in.');
     g.endMission('defeat');
     return;
   }
-  const spare = Math.max(0, Math.round(limit - (g.missionTime - started)));
-  g.bonusPay = spare * 120;
-  g.objective = '';
-  await g.say('varga', `Serum is in, with ${spare} seconds to spare. The hospital deck owes you one, Rook.`);
+  const ahead = racers.filter((r) => r.pilot.finished >= 0 && r.pilot.finished < finished).length;
+  const position = ahead + 1;
+  const time = Math.round(finished - start);
+  g.bonusPay = [6000, 3000, 1500, 0][position - 1];
+  if (position === 1) await g.say('varga', `First place, Rook, in ${time} seconds! The purse is yours.`);
+  else await g.say('varga', `Rook crosses the line in position ${position}, ${time} seconds. ${position < 4 ? 'There is prize money for that.' : 'No purse, but you finished.'}`);
+  if (position === 1) await g.say('pike', 'Next month. Next month I am taking that back.');
+  else if (racers[0].pilot.finished >= 0 && racers[0].pilot.finished < finished) await g.say('pike', 'From the front, Rook. As promised.');
   await g.wait(1);
   g.endMission('victory');
 }

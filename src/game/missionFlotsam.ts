@@ -95,12 +95,28 @@ export async function runFlotsam(g: Game, checkpoint: number): Promise<void> {
     // start drifting with the wreckage, engines cold, towards the open fork
     const mouth = meridian.toWorld(v(0, -8, -80));
     const start = v(240, 40, 2600);
-    const drift = mouth.clone().sub(start).normalize().multiplyScalar(40);
+    const drift = mouth.clone().sub(start).normalize().multiplyScalar(60);
     player.placeAt(start, mouth, 0);
-    player.vel.copy(drift);
+    player.vel.set(0, 0, 0);
     player.controls.throttle = 0;
-    player.coast = true;
     debrisStream(g, start.clone().addScaledVector(drift, 6), drift);
+    // you ride the stream in the lee of a big rock: the current carries you both, so zero
+    // throttle keeps you with it and your own flying is relative to the wreckage
+    let carried = true;
+    const rock = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(16, 1),
+      new THREE.MeshStandardMaterial({ color: '#5c5560', roughness: 0.9, metalness: 0.2, flatShading: true }),
+    );
+    const rockOffset = v(-34, -12, 8).applyQuaternion(player.quat);
+    rock.position.copy(start).add(rockOffset);
+    rock.scale.set(1.3, 0.8, 1.1);
+    g.addDecor(rock);
+    g.onFrame((dt) => {
+      rock.position.addScaledVector(drift, dt);
+      rock.rotation.x += dt * 0.05;
+      rock.rotation.y += dt * 0.03;
+      if (carried && player.alive) player.pos.addScaledVector(drift, dt);
+    });
 
     // the signature meter: engines, guns and getting close to a picket all show up
     let signature = 0;
@@ -127,8 +143,8 @@ export async function runFlotsam(g: Game, checkpoint: number): Promise<void> {
     g.objective = 'Drift in with the wreckage. Keep your engines cold';
     g.hint(
       pad()
-        ? 'Throttle at zero. Look and roll all you like; small strafes are quiet. Boosting or firing will give you away'
-        : `Keep the throttle at zero. Look and roll all you like; small strafes (${key('strafeLeft')}/${key('strafeRight')}) are quiet. Boosting or firing will give you away`,
+        ? 'The stream carries you: keep the throttle at zero and stay by the rock. Look and roll all you like; boosting or firing will give you away'
+        : `The stream carries you: keep the throttle at zero and stay by the rock. Look and roll all you like; small strafes (${key('strafeLeft')}/${key('strafeRight')}) are quiet. Boosting or firing will give you away`,
       10,
     );
     await g.say('sorrel', 'Rook. The transfer records are aboard the Meridian. Drift in with the wreckage, engines cold. Any burn and their sensors will see you.');
@@ -137,13 +153,16 @@ export async function runFlotsam(g: Game, checkpoint: number): Promise<void> {
     if (spotted) {
       g.signature = null;
       await g.say('meridian', 'Contact in the debris stream! Unknown fighter, running dark. Wings, intercept!');
+      carried = false;
       g.hint('You were spotted. Try again: drift, do not burn', 6);
       await g.wait(2);
       g.endMission('defeat');
       return;
     }
     g.signature = null;
-    player.coast = false;
+    // off the rock: keep the stream's momentum as your own
+    carried = false;
+    player.vel.add(drift);
     g.setMusicIntensity(0.4);
     await g.say('sorrel', 'Now, Rook! Light your engines and get inside before they react!');
     g.objective = 'Get inside the Meridian: land on the deck between her prongs';

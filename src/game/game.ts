@@ -23,7 +23,7 @@ import { Hangar } from './hangar';
 import { CapitalShip } from '../entities/capitalShip';
 import type { CapitalKind } from '../world/capitals';
 import { DockPilot, Docking, type DockGuide } from './docking';
-import { listContacts, readout, type ScanReadout } from './scanner';
+import { listContacts, readout, type Contact, type ScanReadout } from './scanner';
 import { FACTIONS, hostile, resetRelations, setHostile, type FactionId } from '../entities/factions';
 import { AIPilot, FACTION_TACTICS, TurretAI, WaypointPilot, type Tactic, RoutePilot } from '../entities/ai';
 import { Instructor } from '../entities/instructor';
@@ -34,6 +34,9 @@ import { Comms } from '../ui/comms';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
 /** Damage the player takes, and how much sharper (or duller) hostile pilots and gunners fly. */
+/** Seconds for a built-in flare to come back (up to two). */
+const FLARE_RECHARGE = 20;
+
 export const DIFFICULTY: Record<Difficulty, { damageTaken: number; skill: number }> = {
   easy: { damageTaken: 0.6, skill: -0.12 },
   normal: { damageTaken: 1, skill: 0 },
@@ -134,7 +137,24 @@ export class Game implements CombatContext {
   state: GameState = 'title';
   time = 0;
   missionTime = 0;
-  checkpoint = 0;
+  private checkpointAt = 0;
+  /** What you had when you reached each checkpoint: a retry starts you there with the same. */
+  private readonly checkpointSaves = new Map<number, { hull: number; missiles: number; flares: number; bounties: number; bonusPay: number; kills: number }>();
+  /** Bounties restored from a checkpoint: already paid out at the debrief of the failed attempt. */
+  bountiesCarried = 0;
+
+  /** The stage a retry starts from; missions raise it as they go, and each raise is saved. */
+  get checkpoint(): number {
+    return this.checkpointAt;
+  }
+
+  set checkpoint(n: number) {
+    const p = this.player;
+    if (n > this.checkpointAt && p?.alive && this.state === 'playing') {
+      this.checkpointSaves.set(n, { hull: p.hull, missiles: p.missiles, flares: p.flares, bounties: this.bounties, bonusPay: this.bonusPay, kills: p.kills });
+    }
+    this.checkpointAt = n;
+  }
   objective = '';
   private hintText: string | null = null;
   private hintTimer = 0;
@@ -407,7 +427,7 @@ export class Game implements CombatContext {
     ship.held = old.held;
     ship.isPlayer = true;
     for (const e of fit.fitted.equipment) ship.equipment.add(e);
-    ship.flares = ship.equipment.has('flares') ? 10 : 0;
+    ship.flares = ship.equipment.has('flares') ? 12 : 2;
     ship.kills = old.kills;
     ship.shotsFired = old.shotsFired;
     ship.shotsHit = old.shotsHit;
@@ -498,6 +518,13 @@ export class Game implements CombatContext {
     this.scanKey = next ? next.key : null;
     this.audio.blip(next ? 1760 : 660, 0.05, 0.05);
     if (!next) this.hint('Scanner off', 1.5);
+  }
+
+  /** The contact the scanner is on, if it is open. */
+  private scannedContact(): Contact | null {
+    const p = this.player;
+    if (!p || !this.scanKey) return null;
+    return listContacts(p, this.ships, this.capitals, this.points).find((c) => c.key === this.scanKey) ?? null;
   }
 
   /** Refreshes the scanner readout (the contact may have moved, been hit, or be gone). */
@@ -669,11 +696,33 @@ export class Game implements CombatContext {
   }
 
   /** Spawns a ship with a jump-in flash. */
-  jumpIn(classId: string, faction: FactionId, name: string, pos: THREE.Vector3, lookAt: THREE.Vector3, opts: SpawnOptions = {}): Ship {
+  jumpIn(classId: string, faction: FactionId, name: string, at: THREE.Vector3, lookAt: THREE.Vector3, opts: SpawnOptions = {}): Ship {
+    // ships come out of a jump at full speed: never inside a rock, or pointed straight at one
+    const pos = this.clearJumpSpot(at, lookAt, SHIP_CLASSES[classId].radius);
     const s = this.spawnShip(classId, faction, name, pos, lookAt, { speed: SHIP_CLASSES[classId].boostSpeed, ...opts });
     this.fx.jumpIn(pos, s.forward(_v), FACTIONS[faction].palette.engine);
     this.audio.jumpIn(pos);
     return s;
+  }
+
+  /** The nearest spot to `pos` with room around it and a clear run of 400 m towards `look`. */
+  private clearJumpSpot(pos: THREE.Vector3, look: THREE.Vector3, radius: number): THREE.Vector3 {
+    const n = new THREE.Vector3();
+    const room = radius * 3 + 10;
+    const clear = (p: THREE.Vector3): boolean => {
+      if (this.world.nearestSurface(p, room, n) < room) return false;
+      const dir = look.clone().sub(p);
+      const len = Math.min(400, dir.length());
+      return len < 1 || !this.world.raycast(p, dir.normalize(), len, radius + 4, hit);
+    };
+    if (clear(pos)) return pos;
+    for (let k = 1; k <= 20; k++) {
+      const a = k * 2.4;
+      const r = 50 * k;
+      const p = pos.clone().add(new THREE.Vector3(Math.cos(a) * r, ((k % 3) - 1) * r * 0.4, Math.sin(a) * r));
+      if (clear(p)) return p;
+    }
+    return pos;
   }
 
   /** Ships on their way out: they fly clear and jump when their time comes. */
@@ -694,6 +743,15 @@ export class Game implements CombatContext {
       s.target = null;
       this.retreating.push({ ship: s, at: this.missionTime + 4 + i * 0.7 + rand(0, 2) });
     });
+  }
+
+  /** Your target is gone: move on to the next hostile, the way a targeting computer would. */
+  private autoRetarget(): void {
+    const p = this.player;
+    if (!p?.alive || !p.target || p.target.alive) return;
+    const wasHostile = hostile(p.faction, p.target.faction);
+    p.target = null;
+    if (wasHostile) this.cycleTarget(true);
   }
 
   /** Escort drones left behind when a mission moves the player: bring them back on the wing. */
@@ -771,7 +829,8 @@ export class Game implements CombatContext {
     this.bolts.clear();
     this.missiles.clear();
     this.missionTime = 0;
-    this.checkpoint = checkpoint;
+    this.checkpointAt = checkpoint;
+    if (checkpoint === 0) this.checkpointSaves.clear();
     this.objective = '';
     this.hintText = null;
     this.lockProgress = 0;
@@ -791,6 +850,7 @@ export class Game implements CombatContext {
     this.scanReadout = null;
     this.retreating = [];
     this.fade(false);
+    this.arena = { center: this.location.arena.center.clone(), warn: this.location.arena.warn, limit: this.location.arena.limit };
     // the battlecruiser some locations are built round counts as met
     if (this.location.frames.carrier) this.seenClasses.add('capital-battlecruiser');
     this.friendlyFire.clear();
@@ -801,10 +861,22 @@ export class Game implements CombatContext {
     const player = this.spawnShip(fit ? fit.cls : 'kite', 'player', 'Rook', this.location.start.pos.clone(), this.location.start.look, { speed: 40 });
     player.isPlayer = true;
     if (fit) for (const e of fit.fitted.equipment) player.equipment.add(e);
-    player.flares = player.equipment.has('flares') ? 10 : 0;
+    player.flares = player.equipment.has('flares') ? 12 : 2;
     player.controls.throttle = 0.4;
     this.player = player;
     if (player.equipment.has('droneBay')) this.launchEscorts(player);
+    // a retry from a checkpoint starts with what you had when you reached it
+    this.bountiesCarried = 0;
+    const save = checkpoint > 0 ? this.checkpointSaves.get(checkpoint) : undefined;
+    if (save) {
+      player.hull = Math.min(player.cls.hull, save.hull);
+      player.missiles = Math.min(player.cls.missiles, save.missiles);
+      player.flares = save.flares;
+      player.kills = save.kills;
+      this.bounties = save.bounties;
+      this.bountiesCarried = save.bounties;
+      this.bonusPay = save.bonusPay;
+    }
     this.spawnTraffic();
     this.camQuat.copy(player.quat);
     this.aimQuat.copy(player.quat);
@@ -821,6 +893,22 @@ export class Game implements CombatContext {
         if (!(e instanceof MissionAbort) && token === this.missionToken) console.error(e);
       });
     }
+  }
+
+  /** Set before the prologue starts: the player asked for the flight introduction. */
+  tutorial = false;
+
+  /** The mission area: the location's by default; escort missions move it with the escort. */
+  arena = { center: new THREE.Vector3(), warn: 3000, limit: 4000 };
+
+  /** Mission API: the mission area travels with this ship (while it lives). */
+  followArena(ship: Ship, warn = 2600, limit = 3400): void {
+    this.arena.warn = warn;
+    this.arena.limit = limit;
+    this.arena.center.copy(ship.pos);
+    this.onFrame(() => {
+      if (ship.alive) this.arena.center.copy(ship.pos);
+    });
   }
 
   /** Mission API: fade the view to black (with an optional caption) or back. */
@@ -1012,8 +1100,22 @@ export class Game implements CombatContext {
     } else if (!(this.stopDetent && next < 0)) c.throttle = next;
     const cap = Docking.approachThrottle(this.dockGuide, p);
     if (cap !== null && f.throttleDelta <= 0) c.throttle = Math.min(c.throttle, cap);
-    if (this.input.pressed('matchSpeed') && p.target) {
-      c.throttle = clamp(p.target.speed / p.cls.maxSpeed, 0, 1);
+    if (this.input.pressed('matchSpeed')) {
+      // with the scanner open it matches the scanned contact, otherwise the combat target
+      const scanned = this.scannedContact();
+      const speed = scanned?.ship ? scanned.ship.speed : scanned?.capital ? scanned.capital.speed : p.target?.speed;
+      if (speed !== undefined) {
+        c.throttle = clamp(speed / p.cls.maxSpeed, 0, 1);
+        this.hint(`Matching speed: ${Math.round(speed)} m/s`, 1.5);
+      }
+    }
+    if (this.input.pressed('scanTarget')) {
+      const scanned = this.scannedContact();
+      if (scanned?.ship && scanned.ship.alive) {
+        p.target = scanned.ship;
+        this.lockProgress = 0;
+        this.audio.blip(1100, 0.08, 0.05);
+      } else this.hint(scanned ? 'Only ships can be targeted' : `Scan a ship first (${this.input.label('scan')})`, 2);
     }
     if (this.input.pressed('flares')) this.dropFlare(p);
     if (this.input.pressed('dock')) this.requestDock();
@@ -1057,7 +1159,8 @@ export class Game implements CombatContext {
   private cycleTarget(nearest: boolean): void {
     const p = this.player;
     if (!p) return;
-    const enemies = this.ships.filter((s) => s.alive && s !== p && (!s.cls.civilian || s.cls.targetable) && hostile(p.faction, s.faction));
+    // ships you cannot hurt right now (shielded, or out of the fight) are left out
+    const enemies = this.ships.filter((s) => s.alive && s !== p && !s.invulnerable && (!s.cls.civilian || s.cls.targetable) && hostile(p.faction, s.faction));
     if (!enemies.length) {
       p.target = null;
       return;
@@ -1374,9 +1477,16 @@ export class Game implements CombatContext {
       return;
     }
     // lead & lock
-    const t = p.target;
+    this.autoRetarget();
+    // built-in flares: two charges that come back slowly; a dispenser adds ten more
+    if (p.flares < 2) {
+      p.flareCharge += dt;
+      if (p.flareCharge >= FLARE_RECHARGE) {
+        p.flareCharge = 0;
+        p.flares++;
+      }
+    } else p.flareCharge = 0;
     this.hasLead = false;
-    if (t && !t.alive) p.target = null;
     if (p.target) {
       const tt = p.target;
       _v.subVectors(tt.pos, p.pos);
@@ -1419,8 +1529,8 @@ export class Game implements CombatContext {
     }
 
     // boundary
-    const r = p.pos.distanceTo(this.location.arena.center);
-    if (r > this.location.arena.limit) {
+    const r = p.pos.distanceTo(this.arena.center);
+    if (r > this.arena.limit) {
       this.boundaryTimer += dt;
       if (this.boundaryTimer > 1) {
         this.boundaryTimer = 0;
@@ -1698,7 +1808,7 @@ export class Game implements CombatContext {
         aim: this.input.mouseAimActive ? this.aimPoint : null,
         objective: this.objective,
         hint: this.hintText,
-        boundary: p.pos.distanceTo(this.location.arena.center) > this.location.arena.warn,
+        boundary: p.pos.distanceTo(this.arena.center) > this.arena.warn,
         damageFlash: this.damageFlash,
         time: this.time,
         gamepad: this.input.device === 'gamepad',

@@ -3,6 +3,8 @@ import type { Game } from './game';
 import type { Ship } from '../entities/ship';
 import { AIPilot, RoutePilot } from '../entities/ai';
 import { SHIP_CLASSES, type ShipClass } from '../entities/shipClasses';
+import { launchFrom } from './missionFinale';
+import { makeGate } from './missionCivil';
 
 /**
  * The prologue, before you have a ship of your own: Rook flies escort for a small independent
@@ -67,6 +69,12 @@ export async function runPrologue(g: Game): Promise<void> {
   player.placeAt(v(470, 110, 2620), route[0], 40);
 
   g.setMusicIntensity(0.15);
+  if (g.tutorial) {
+    // the caravan waits at the start while Dace shows you the ropes
+    for (const rp of pilots) rp.hold = true;
+    await flightSchool(g, player, dace);
+    for (const rp of pilots) rp.hold = false;
+  }
   g.objective = 'Escort the Tamsin caravan to Kestrel';
   await g.wait(1.2);
   g.hint(
@@ -112,18 +120,41 @@ export async function runPrologue(g: Game): Promise<void> {
   await g.say('tamsin', 'That is all of them. Nice flying, both of you. Drinks are on me at Kestrel.');
   await g.wait(3);
 
-  // --- the one they cannot handle ----------------------------------------------------------------
-  g.setMusicIntensity(1);
+  // --- Vey's pack: hard, but the escorts can still hold ----------------------------------------
+  g.setMusicIntensity(0.85);
   const ahead = luck.pos.clone().add(v(0, 60, -900));
+  const w2: Ship[] = [];
+  for (let i = 0; i < 3; i++) w2.push(g.jumpIn('fang', 'wake', 'Wake Fang', ahead.clone().add(v(-140 + i * 140, 90, 120)), luck.pos, { skill: 0.5, playerBias: 0.55, flares: 2 }));
+  for (let i = 0; i < 4; i++) w2.push(g.jumpIn('drone', 'wake', 'Wake drone', ahead.clone().add(v((i % 2) * 60 - 30, 140 + Math.floor(i / 2) * 40, 60)), luck.pos, { skill: 0.4, playerBias: 0.4 }));
+  await g.say('vey', 'Nice little caravan. Shame about the escort.');
+  await g.say('dace', 'Fangs. Those are Vey\'s own. Stay close to the haulers, Rook, they are faster than us.');
+  const w2Start = g.missionTime;
+  await g.until(() => {
+    g.objective = `Protect the caravan · ${alive(w2)} raiders left`;
+    return alive(w2) === 0 || g.missionTime > w2Start + 90;
+  });
+  g.retreat(w2.filter((s) => s.alive));
+  g.setMusicIntensity(0.4);
+  await g.say('tamsin', 'They are breaking off! I think we did it. Rook, Dace, I could kiss you both.');
+  await g.wait(2);
+
+  // --- the one nobody could handle: Vey brings the fleet ------------------------------------------
+  await g.say('vey', 'Enough games. Bring them in.');
+  g.setMusicIntensity(1);
+  const fleetAt = luck.pos.clone().add(v(-300, 420, -1500));
+  const bc = g.spawnCapital('battlecruiser', 'wake', 'redtithe', 'Red Tithe', fleetAt.clone(), luck.pos, { armed: true, skill: 0.45 });
+  const carrier = g.spawnCapital('carrier', 'wake', 'hollowcrown', 'Hollow Crown', fleetAt.clone().add(v(1300, -120, 300)), luck.pos, { armed: true, skill: 0.4 });
+  g.fx.jumpIn(bc.root.position, v(0, 0, 1), '#ff5a3a');
+  g.fx.jumpIn(carrier.root.position, v(0, 0, 1), '#ff5a3a');
+  g.audio.jumpIn(bc.root.position);
   const brute = g.jumpIn('brute', 'wake', 'Mawbreaker', ahead.clone().add(v(0, -40, 0)), luck.pos, { skill: 0.6, playerBias: 0.2 });
   if (brute.ai instanceof AIPilot) brute.ai.forcedTarget = halcyon;
   const pack: Ship[] = [brute];
-  for (let i = 0; i < 3; i++) pack.push(g.jumpIn('fang', 'wake', 'Wake Fang', ahead.clone().add(v(-140 + i * 140, 90, 120)), luck.pos, { skill: 0.65, playerBias: 0.55, flares: 2 }));
-  for (let i = 0; i < 6; i++) pack.push(g.jumpIn('drone', 'wake', 'Wake drone', ahead.clone().add(v((i % 3) * 50 - 50, 140 + Math.floor(i / 3) * 40, 60)), luck.pos, { skill: 0.45, playerBias: 0.4 }));
-  const daceHunter = pack[1].ai;
+  pack.push(...launchFrom(g, carrier, ['raider', 'raider', 'fang', 'raider', 'fang', 'raider', 'fang', 'raider'], 'wake', 'Wake raider', { skill: 0.55, playerBias: 0.6, tactic: 'swarm', missiles: 3 }));
+  for (let i = 0; i < 12; i++) pack.push(g.jumpIn('drone', 'wake', 'Wake drone', player.pos.clone().add(v((i % 4) * 60 - 90, 120 + Math.floor(i / 4) * 40, -500)), player.pos, { skill: 0.45, playerBias: 0.7 }));
+  const daceHunter = pack[2].ai;
   if (daceHunter instanceof AIPilot) daceHunter.forcedTarget = dace;
-  await g.say('vey', 'Nice little caravan. Shame about the escort.');
-  await g.say('dace', 'That is a gunship. Mara, run! Burn for the rocks!');
+  await g.say('dace', 'That is a battlecruiser. And a carrier. Where does a pirate get a battlecruiser? Mara, run! Burn for the rocks!');
   await g.say('tamsin', 'Burning! All haulers, everything you have!');
   g.objective = 'Protect the caravan';
   const start = g.missionTime;
@@ -131,26 +162,26 @@ export async function runPrologue(g: Game): Promise<void> {
   let halcyonDown = false;
   await g.until(() => {
     g.objective = `Protect the caravan · ${alive(caravan)} of 3 ships`;
-    if (!daceDown && (g.missionTime > start + 16 || !dace.alive)) {
+    if (!daceDown && (g.missionTime > start + 14 || !dace.alive)) {
       daceDown = true;
       void (async () => {
         if (dace.alive) {
           await g.say('dace', 'I am hit, I am hit! Rook, I cannot shake him!');
           if (dace.alive) {
             dace.damageScale = 1;
-            g.onShipHit(dace, 1e6, pack[1], dace.pos.clone(), 'missile');
+            g.onShipHit(dace, 1e6, pack[2], dace.pos.clone(), 'missile');
           }
         }
         await g.say('tamsin', 'Dace! Dace, answer me!');
       })().catch(() => undefined);
     }
-    if (!halcyonDown && g.missionTime > start + 30) {
+    if (!halcyonDown && g.missionTime > start + 26) {
       halcyonDown = true;
       if (halcyon.alive) g.onShipHit(halcyon, 1e6, brute, halcyon.pos.clone(), 'missile');
       void g.say('tamsin', 'Halcyon is gone. Oh, God. Rook, get them off the Luck!').catch(() => undefined);
     }
     // ends when the Kite is crippled, or the fight has gone on long enough that it would have been
-    return player.hull <= player.hullFloor + 0.5 || g.missionTime > start + 75;
+    return player.hull <= player.hullFloor + 0.5 || g.missionTime > start + 70;
   });
 
   // --- crippled ---------------------------------------------------------------------------------
@@ -167,6 +198,8 @@ export async function runPrologue(g: Game): Promise<void> {
   await g.say('tamsin', 'Rook, they are boarding us. If you can still fly, get out of here. Rook?');
   for (const s of caravan) if (s.alive) (s.ai as RoutePilot).hold = true;
   await g.wait(3);
+  g.armCapital(bc, false);
+  g.armCapital(carrier, false);
   g.retreat(pack.filter((s) => s.alive && s !== brute));
   if (luck.alive) g.jumpOut(luck);
   if (brute.alive) g.jumpOut(brute);
@@ -181,4 +214,103 @@ export async function runPrologue(g: Game): Promise<void> {
   await g.wait(1.5);
   g.missionFlags.prologue = 'done';
   g.endMission('victory');
+}
+
+/**
+ * The flight introduction, if you asked for it: Dace talks you through flying, fighting and the
+ * ship's systems one step at a time, each step done by doing it.
+ */
+async function flightSchool(g: Game, player: Ship, dace: Ship): Promise<void> {
+  const pad = () => g.input.device === 'gamepad';
+  const key = (a: Parameters<typeof g.input.label>[0]) => g.input.label(a);
+  const fwd = () => player.forward(new THREE.Vector3());
+  const step = async (objective: string, hint: string, done: () => boolean, timeout = 60) => {
+    g.objective = `Flight school · ${objective}`;
+    g.hint(hint, 12);
+    const until = g.missionTime + timeout;
+    await g.until(() => done() || g.missionTime > until);
+    g.audio.blip(1500, 0.08, 0.08);
+    await g.wait(0.8);
+  };
+  const gateRun = async (dist: number, label: string, hint: string, extra: () => boolean = () => true) => {
+    const at = player.pos.clone().addScaledVector(fwd(), dist).add(v(0, 40, 0));
+    const gate = makeGate(at, fwd(), 22);
+    g.addDecor(gate);
+    g.waypoints = [{ name: label, pos: at, color: '#ffd36b' }];
+    let seen = false;
+    await step(label, hint, () => {
+      if (extra()) seen = true;
+      return player.pos.distanceTo(at) < 26 && seen;
+    }, 90);
+    gate.visible = false;
+    g.waypoints = [];
+  };
+  dace.ai = null;
+  await g.say('dace', 'Rook, before we set off. Mara wants me to run you through the Kite. Humour me.');
+
+  await gateRun(
+    350,
+    'fly through the gate',
+    pad()
+      ? 'Right stick steers. Left stick: up and down is throttle, left and right is roll'
+      : `${g.input.settings.mouseMode === 'aim' ? 'Move the mouse to aim: the ship turns to follow the circle' : 'The mouse steers'}. ${key('throttleUp')} and ${key('throttleDown')} set the throttle, ${key('rollLeft')} and ${key('rollRight')} roll`,
+  );
+  await g.say('dace', 'Good. Now open her up. Boost to the next gate.');
+  await gateRun(700, 'boost to the gate', pad() ? 'Hold A to boost. It burns energy, the purple bar' : `Hold ${key('boost')} to boost. It burns energy, the purple bar`, () => player.boosting);
+  await g.say('dace', 'Now the trick that keeps you alive. Slide: you keep your momentum and point the nose anywhere.');
+  let slid = 0;
+  await step(
+    'slide and turn',
+    pad() ? 'Hold LT to slide, and turn while you hold it' : `Hold ${key('slide')} to slide, and turn while you hold it`,
+    () => {
+      if (player.sliding) slid += 1 / 60;
+      return slid > 1.5;
+    },
+  );
+
+  // targets: three drones, hulks with the guns pulled out
+  await g.say('dace', 'Guns. I put out three dead drones for you. Target one, lead it, and shoot.');
+  const targets: Ship[] = [];
+  for (let i = 0; i < 3; i++) {
+    const s = g.spawnShip('drone', 'wake', 'Practice drone', player.pos.clone().addScaledVector(fwd(), 450).add(v(i * 60 - 60, 30 + i * 15, 0)), player.pos, { speed: 0 });
+    s.ai = null;
+    targets.push(s);
+  }
+  await step(
+    'shoot the practice drones',
+    pad()
+      ? 'Y: target nearest · RT: fire · aim at the yellow diamond: it leads the target'
+      : `${key('targetNearest')}: target nearest · ${key('fire')}: fire · aim at the yellow diamond: it leads the target`,
+    () => targets.every((s) => !s.alive),
+    120,
+  );
+  await g.say('dace', 'Missiles next. This one moves. Keep it in your sights until the lock tone, then fire.');
+  const mover = g.spawnShip('drone', 'wake', 'Practice drone', player.pos.clone().addScaledVector(fwd(), 600).add(v(0, 60, 0)), player.pos, { speed: 30 });
+  const c0 = mover.pos.clone();
+  mover.ai = new RoutePilot([c0.clone().add(v(200, 0, 0)), c0.clone().add(v(200, 0, 200)), c0.clone().add(v(0, 0, 200)), c0.clone(), c0.clone().add(v(200, 0, 0))], 0.4, 40);
+  await step(
+    'lock on and fire a missile',
+    pad() ? 'Target it, keep it in your sights until the lock tone, then RB fires a missile' : `Target it, keep it in your sights until the lock tone, then ${key('missile')} fires a missile`,
+    () => !mover.alive,
+    90,
+  );
+  if (mover.alive) g.onShipHit(mover, 1e6, null, mover.pos.clone(), 'missile');
+  await g.say('dace', 'If someone does that to you, drop a flare. You have two built in, and they come back. Try one.');
+  const flares = player.flares;
+  await step('drop a flare', pad() ? 'Press B to drop a flare' : `Press ${key('flares')} to drop a flare`, () => player.flares < flares);
+  await g.say('dace', 'Power. Send it to shields, guns or engines when you need it, and back to balanced after.');
+  const power = player.power;
+  await step('change your power setting', pad() ? 'D-pad cycles power: balanced, shields, guns, engines' : `${key('powerBalanced')}: balanced · ${key('powerShields')}: shields · ${key('powerGuns')}: guns · ${key('powerEngines')}: engines`, () => player.power !== power);
+  await g.say('dace', 'Last one. The scanner shows you everyone out here, friend or foe. Find me with it.');
+  await step(
+    'scan the area',
+    pad() ? 'Press the scan button to step through everything nearby' : `${key('scan')}: step through everything in the system · ${key('scanTarget')}: target what you scanned · ${key('matchSpeed')}: match its speed`,
+    () => g.scanReadout !== null,
+  );
+  await g.wait(2);
+  const dai = new AIPilot(g, 0.55);
+  dai.playerBias = 0;
+  dace.ai = dai;
+  g.objective = '';
+  await g.say('dace', 'That is everything I know. Well, everything useful. Let us catch up with Mara.');
 }

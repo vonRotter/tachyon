@@ -526,7 +526,7 @@ export class AudioEngine {
       this.lockTimer -= dt;
       if (this.lockTimer <= 0) {
         this.toneOsc.frequency.setValueAtTime(900, t);
-        this.toneGain.gain.setValueAtTime(0.05, t);
+        this.toneGain.gain.setValueAtTime(0.03, t);
         this.toneGain.gain.setValueAtTime(0, t + 0.04);
         this.lockTimer = 0.14;
       }
@@ -534,7 +534,7 @@ export class AudioEngine {
     }
     if (this.lockState === 'locked' && s.active) {
       this.toneOsc.frequency.setTargetAtTime(1400, t, 0.01);
-      toneTarget = 0.04;
+      toneTarget = 0.024;
     }
     this.toneGain.gain.setTargetAtTime(toneTarget, t, 0.02);
   }

@@ -549,7 +549,7 @@ export class Hud {
     const kinds = p.cls.launchers ? [...new Set(p.cls.launchers.map((l) => short[l.kind]))] : [short[p.cls.missile?.kind ?? 'seeker']];
     const parts: string[] = [];
     if (p.cls.missiles > 0 && kinds.length) parts.push(`${kinds.join('/')}  ${Math.floor(p.missiles + 1e-6)}/${p.cls.missiles}`);
-    if (p.equipment.has('flares')) parts.push(`FLARES  ${p.flares}`);
+    parts.push(`FLARES  ${p.flares}`);
     if (p.equipment.has('shieldCell')) parts.push(p.shieldCellTimer > 0 ? `CELL  ${Math.ceil(p.shieldCellTimer)}s` : 'CELL  READY');
     g.fillText(parts.join('   ·   '), x, y + 106);
 

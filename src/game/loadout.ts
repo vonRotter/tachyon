@@ -213,7 +213,7 @@ export const EQUIPMENT: Record<EquipmentId, EquipmentType> = {
   flares: {
     id: 'flares',
     name: 'Flare dispenser',
-    description: 'Ten flares per sortie. Each one has a good chance to pull a missile off you.',
+    description: 'Ten more flares per sortie on top of the two built-in ones that recharge. Each one has a good chance to pull a missile off you.',
     price: 6000,
   },
   shieldCell: {
@@ -340,7 +340,7 @@ export function defect(c: Campaign, to: Side): string[] {
   }
   if (!c.ships.length) {
     c.ships = ['kite'];
-    c.fits.kite = newFit('kite');
+    c.fits.kite = newFit('kite', true);
   }
   if (!c.ships.includes(c.activeShip)) c.activeShip = c.ships[0];
   c.allegiance = to;
@@ -349,12 +349,15 @@ export function defect(c: Campaign, to: Side): string[] {
   return taken;
 }
 
-/** The fit a hull comes with from the yard: stock weapons, no upgrades. */
-export function newFit(shipId: string): ShipFit {
+/**
+ * The fit a hull comes with from the yard: empty weapon slots and no upgrades. `armed` gives it
+ * its stock weapons instead (loaners and gifts).
+ */
+export function newFit(shipId: string, armed = false): ShipFit {
   const cls = SHIP_CLASSES[shipId];
   const slots = cls.weaponSlots ?? 2;
   const weapons: (string | null)[] = [];
-  for (let i = 0; i < slots; i++) weapons.push(cls.defaultWeapons?.[i] ?? null);
+  for (let i = 0; i < slots; i++) weapons.push(armed ? (cls.defaultWeapons?.[i] ?? null) : null);
   return { upgrades: {}, weapons, equipment: [] };
 }
 
@@ -367,7 +370,8 @@ export function newCampaign(): Campaign {
     activeShip: 'kite',
     ships: [],
     fits: {},
-    inventory: {},
+    // what was salvaged from the Kite you lost in the prologue
+    inventory: { pulse: 1, seeker: 1 },
     equipment: [],
     completed: {},
     flags: {},
@@ -394,7 +398,7 @@ export function migrateCampaign(raw: OldCampaign | null): Campaign {
   c.inventory = { ...(c.inventory ?? {}) };
   for (const s of c.ships) {
     const old = (c.fits[s] ?? {}) as OldFit;
-    const fit = newFit(s);
+    const fit = newFit(s, true);
     fit.upgrades = old.upgrades ?? {};
     fit.equipment = old.equipment ?? [];
     if (Array.isArray(old.weapons)) {
@@ -437,6 +441,16 @@ export interface Fitted {
 }
 
 /** Applies upgrades and weapons to a ship class, returning the stats the ship flies with. */
+/**
+ * Speed and turn rate win fights, so the slow hulls you fly get more hull, shields and missiles
+ * to make up for it: up to +50% for the most sluggish (the Bulwark and Halberd), nothing for the
+ * nimble ones. Only player fits get it; the same hulls flown by the AI keep their stock numbers.
+ */
+export function heavyHullBonus(cls: ShipClass): number {
+  const agility = (cls.maxSpeed / 110) * (cls.yawRate / 1.5);
+  return 1 + Math.min(0.5, Math.max(0, (1 - agility) * 1.5));
+}
+
 export function fitShip(shipId: string, fit: ShipFit): { cls: ShipClass; fitted: Fitted } {
   const base = SHIP_CLASSES[shipId];
   const tier = (id: UpgradeId) => Math.min(MAX_TIER, fit.upgrades[id] ?? 0);
@@ -468,10 +482,11 @@ export function fitShip(shipId: string, fit: ShipFit): { cls: ShipClass; fitted:
       launchers.push({ ...w.spec, cost: w.cost, lockTime: w.spec.lockTime * (equipment.has('targeting') ? 0.55 : 1) });
     }
   }
+  const heavy = heavyHullBonus(base);
   const cls: ShipClass = {
     ...base,
-    hull: Math.round(base.hull * (1 + 0.18 * tier('armour'))),
-    shields: Math.round(base.shields * (1 + 0.15 * tier('shields'))),
+    hull: Math.round(base.hull * heavy * (1 + 0.18 * tier('armour'))),
+    shields: Math.round(base.shields * heavy * (1 + 0.15 * tier('shields'))),
     shieldRegen: base.shieldRegen * (1 + 0.1 * tier('shields')),
     maxSpeed: base.maxSpeed * eng,
     boostSpeed: base.boostSpeed * eng,
@@ -486,7 +501,7 @@ export function fitShip(shipId: string, fit: ShipFit): { cls: ShipClass; fitted:
     mounts,
     launchers,
     missile: launchers[0],
-    missiles: Math.round(base.missiles * (equipment.has('magazine') ? 1.5 : 1)),
+    missiles: Math.round(base.missiles * heavy * (equipment.has('magazine') ? 1.5 : 1)),
   };
   return { cls, fitted: { shipId, weapons: [...fit.weapons], equipment } };
 }

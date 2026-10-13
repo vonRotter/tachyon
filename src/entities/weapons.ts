@@ -358,7 +358,8 @@ export class MissileSystem {
         }
         const angle = m.dir.angleTo(aim);
         // the seeker looks along the nose, not along the direction of travel
-        if (angle > 1.6 && m.age > 0.5) {
+        // AI stock has a narrower seeker: a hard break across its nose at the last moment shakes it
+        if (angle > (m.owner.isPlayer ? 1.6 : 1.05) && m.age > 0.5) {
           m.target = null; // target left the seeker's field of view
           m.decoy = null;
         } else if (angle > 1e-4) {

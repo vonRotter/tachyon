@@ -98,7 +98,7 @@ export const FACTIONS: Record<FactionId, FactionInfo> = {
   rose: {
     id: 'rose',
     name: 'The Scarlet Baron',
-    hudColor: '#ff6a8a',
+    hudColor: '#c89bff',
     palette: {
       primary: '#b3122e',
       secondary: '#f2e8d2',
@@ -175,21 +175,33 @@ export function shipPalette(faction: FactionId, maker?: FactionId): { palette: P
   return { palette: { ...FACTIONS.player.palette, ...(FACTION_DESIGN[maker]?.livery ?? {}) }, key: `player-${maker}` };
 }
 
-/** Mission-set overrides on top of the default: the Red Wake against everyone. */
-const overrides = new Map<string, boolean>();
-const pairKey = (a: FactionId, b: FactionId): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
+/**
+ * Who is fighting whom, as a lookup table: the default (the Red Wake against everyone) with
+ * mission-set overrides on top. `hostile` runs for every bolt against every ship each physics
+ * step, so it must be a couple of array reads, not a string key and a map lookup.
+ */
+const FACTION_IDS = Object.keys(FACTIONS) as FactionId[];
+const FACTION_COUNT = FACTION_IDS.length;
+const FACTION_INDEX = Object.fromEntries(FACTION_IDS.map((f, i) => [f, i])) as Record<FactionId, number>;
+const relations = new Uint8Array(FACTION_COUNT * FACTION_COUNT);
+
+function setPair(a: FactionId, b: FactionId, value: boolean): void {
+  const ia = FACTION_INDEX[a];
+  const ib = FACTION_INDEX[b];
+  const v = a !== b && value ? 1 : 0;
+  relations[ia * FACTION_COUNT + ib] = v;
+  relations[ib * FACTION_COUNT + ia] = v;
+}
 
 export function hostile(a: FactionId, b: FactionId): boolean {
-  if (a === b) return false;
-  const o = overrides.get(pairKey(a, b));
-  if (o !== undefined) return o;
-  return (a === 'wake') !== (b === 'wake');
+  return relations[FACTION_INDEX[a] * FACTION_COUNT + FACTION_INDEX[b]] === 1;
 }
 
 export function setHostile(a: FactionId, b: FactionId, value: boolean): void {
-  overrides.set(pairKey(a, b), value);
+  setPair(a, b, value);
 }
 
 export function resetRelations(): void {
-  overrides.clear();
+  for (const a of FACTION_IDS) for (const b of FACTION_IDS) setPair(a, b, (a === 'wake') !== (b === 'wake'));
 }
+resetRelations();

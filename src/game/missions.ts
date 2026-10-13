@@ -225,16 +225,16 @@ export const MISSIONS: MissionDef[] = [
   },
   {
     id: 'civ-courier',
-    name: 'Odd job: Hot Cargo',
+    name: 'Odd job: The Ring Run',
     location: 'Kestrel Station',
     map: 'kestrel',
-    briefing: 'A cold-chain serum for Kestrel\'s hospital deck, and its cooler is failing. Fly ten gates round the station against the clock. Bonus for every second to spare.',
-    pay: 4000,
+    briefing: 'The dock crews\' monthly race round Kestrel: over and under the spinning habitat ring, through the rock field, and through the Combine battlecruiser\'s hangar tunnel. Three rivals. A small fee for starting; the purse is 6,000 for first, 3,000 for second, 1,500 for third.',
+    pay: 1500,
     run: (g) => runCourier(g),
     repeatable: true,
     kind: 'job',
     available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
-    victoryTitle: 'Delivered cold',
+    victoryTitle: 'Across the line',
   },
   {
     id: 'civ-rescue',
@@ -290,6 +290,12 @@ export const CAMPAIGN_PATHS: Record<'combine' | 'drift' | 'none', string[]> = {
 
 export function campaignPath(c: Campaign): string[] {
   return CAMPAIGN_PATHS[c.allegiance === 'combine' || c.allegiance === 'drift' ? c.allegiance : 'none'];
+}
+
+/** The last chapter of your side's story (the hangar and the mission start say so). */
+export function isFinale(m: MissionDef, c: Campaign): boolean {
+  const path = campaignPath(c);
+  return path.length > 1 && path[path.length - 1] === m.id;
 }
 
 /** The next story contract you have not flown, if any. */

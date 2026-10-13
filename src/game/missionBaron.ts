@@ -98,6 +98,7 @@ export async function runBaronRobbery(g: Game): Promise<void> {
   const rp = new RoutePilot(route, 0.6, 150);
   liner.ai = rp;
   player.placeAt(v(2500, 380, -2050), route[0], 50);
+  g.followArena(liner);
   g.setMusicIntensity(0.25);
   g.objective = 'Escort the liner Aurelian Dawn';
   await g.say('strand', 'Pilot, this is Lady Imelda Strand. My late husband\'s collection is aboard, and I would very much like it to arrive somewhere other than a pirate\'s parlour. Do keep up.');
@@ -106,16 +107,19 @@ export async function runBaronRobbery(g: Game): Promise<void> {
   const ahead = liner.pos.clone().add(v(-500, 80, 400));
   const baron = spawnBaron(g, ahead, liner.pos);
   const buds = spawnRosebuds(g, ahead.clone().add(v(0, -40, 60)), liner.pos);
-  for (const s of [baron, ...buds]) s.ai = null;
+  // they come out of the jump and ease off, polite as you like, a little way from the liner
+  for (const s of [baron, ...buds]) {
+    s.ai = new RoutePilot([s.pos.clone().lerp(liner.pos, 0.35)], 0.35, 40);
+  }
   g.setMusicIntensity(0.5);
   await g.say('baron', 'Aurelian Dawn, good afternoon! Baron Rafe Delacourt, at your service, and at your hatch. Nobody need be hurt today. I require only the Strand collection, and perhaps a moment of Her Ladyship\'s company.');
   await g.say('strand', 'You are a thief, sir.');
   await g.say('baron', 'Madam, I am a collector. Like your late husband. We merely disagree about the paperwork.');
   await g.say('baron', 'And you, in the little ship. I have no quarrel with you. Hold your fire and you will see how civilised a robbery can be. Fire, and we shall dance.');
   g.hint('Hold your fire and let him take the cargo, or open fire and fight him off', 9);
-  // the Rosebuds come alongside and start unloading
-  buds.forEach((s, i) => s.placeAt(liner.pos.clone().add(v(i * 40 - 40, 40, 0)), liner.pos.clone().add(v(0, 0, -100)), 0));
-  baron.placeAt(liner.pos.clone().add(v(0, 90, 120)), liner.pos, 0);
+  // the Rosebuds fly in alongside to start unloading; the Baron keeps watch above
+  buds.forEach((s, i) => (s.ai = new RoutePilot([liner.pos.clone().add(v(i * 40 - 40, 60, 80)), liner.pos.clone().add(v(i * 40 - 40, 40, 0))], 0.5, 25)));
+  baron.ai = new RoutePilot([liner.pos.clone().add(v(0, 90, 120))], 0.5, 30);
   let fight = false;
   g.resetFriendlyFire(30);
   g.onBetrayal = (f) => {
@@ -196,28 +200,99 @@ export async function runBaronDuel(g: Game, c: Campaign): Promise<void> {
 
   if (choice === 'duel') {
     const baron = spawnBaron(g, duelSpot.clone().add(v(-400, 60, -300)), player.pos);
-    baron.damageScale = 0.55;
+    baron.damageScale = 0.4;
+    // the Rosebuds came to watch, not to fight: they hold off at a respectful distance
+    const buds = spawnRosebuds(g, duelSpot.clone().add(v(500, 260, 400)), duelSpot);
+    for (const s of buds) {
+      s.ai = new RoutePilot([s.pos.clone().lerp(duelSpot, 0.2)], 0.3, 40);
+      s.invulnerable = true;
+    }
     await g.say('baron', 'You came! And alone, I see. Then this is a proper morning. Guns only, contractor. Missiles are for people who do not trust their hands.');
+    await g.say('petal', 'We are only here to watch. And to collect the pieces. Of you.');
     await g.say('baron', 'On my mark. Three. Two. One. En garde!');
+    // the Rosebuds stay out of it (and out of your target list) unless you cheat
     g.setRelation('rose', 'player', true);
     g.setMusicIntensity(1);
-    g.objective = 'Duel the Scarlet Baron · guns only';
     const missilesAtStart = player.missiles;
     let cheated = false;
-    let buds: Ship[] = [];
+    const cheat = () => {
+      if (cheated || player.missiles >= missilesAtStart) return;
+      cheated = true;
+      for (const s of buds) {
+        s.invulnerable = false;
+        const ai = new AIPilot(g, 0.6);
+        ai.tactic = 'flanker';
+        ai.playerBias = 0.9;
+        s.ai = ai;
+      }
+      void (async () => {
+        await g.say('baron', 'A missile? Oh, contractor. How very disappointing. Rosebuds!');
+        await g.say('petal', 'Never trust a man who brings a launcher to a duel.');
+      })().catch(() => undefined);
+    };
+    // banter as the hits land, never more than one line every few seconds
+    let banterAt = g.missionTime + 8;
+    let lastPlayer = player.hull + player.shields;
+    let lastBaron = baron.hull + baron.shields;
+    const banter = (line: () => Promise<void>) => {
+      if (g.missionTime < banterAt) return;
+      banterAt = g.missionTime + 14;
+      void line().catch(() => undefined);
+    };
+    const watch = () => {
+      cheat();
+      const p = player.hull + player.shields;
+      const b = baron.hull + baron.shields;
+      if (lastPlayer - p > 40) banter(() => g.say('baron', 'Touché! Do keep up.'));
+      else if (lastBaron - b > 25) banter(() => g.say('baron', 'Ha! You have been practising.'));
+      lastPlayer = p;
+      lastBaron = b;
+    };
+
+    // round one: the opening exchange
     await g.until(() => {
-      if (!cheated && player.missiles < missilesAtStart) {
-        cheated = true;
-        buds = spawnRosebuds(g, baron.pos.clone().add(v(0, 80, 200)), player.pos);
-        void (async () => {
-          await g.say('baron', 'A missile? Oh, contractor. How very disappointing. Rosebuds!');
-          await g.say('petal', 'Never trust a man who brings a launcher to a duel.');
-        })().catch(() => undefined);
+      g.objective = 'Duel the Scarlet Baron · guns only';
+      watch();
+      return frac(baron) < 0.7;
+    });
+
+    // the joust: he breaks off, gives you room, and comes at you head on
+    stand(baron);
+    g.setMusicIntensity(0.5);
+    await g.say('baron', 'Hold! Too much circling. Let us do this the old way. I will give you room. Turn, and come at me head on.');
+    g.objective = 'The joust · turn and meet him head on';
+    g.hint('He is breaking off to turn for a head-on pass. Face him and hold your nerve', 7);
+    const away = baron.pos.clone().sub(player.pos).setY(0).normalize();
+    const mark = player.pos.clone().addScaledVector(away, 900).add(v(0, 40, 0));
+    baron.ai = new RoutePilot([mark], 1, 80);
+    baron.controls.fire = false;
+    const turnBy = g.missionTime + 20;
+    await g.until(() => {
+      cheat();
+      return baron.pos.distanceTo(mark) < 120 || g.missionTime > turnBy;
+    });
+    await g.say('petal', 'Lances up! Three. Two. One!');
+    baron.invulnerable = false;
+    baron.damageScale = 0.32;
+    baron.flares = 3;
+    const sharp = new AIPilot(g, 0.92);
+    sharp.tactic = 'swarm';
+    sharp.playerBias = 1;
+    baron.ai = sharp;
+    g.setMusicIntensity(1);
+    let passed = false;
+    await g.until(() => {
+      g.objective = passed ? 'Duel the Scarlet Baron · guns only' : 'The joust';
+      watch();
+      if (!passed && baron.pos.distanceTo(player.pos) < 120) {
+        passed = true;
+        void g.say('baron', 'Ha! Now that is what I call a morning. No more holding back, contractor.').catch(() => undefined);
+        sharp.tactic = 'flanker';
       }
       return frac(baron) < 0.3;
     });
     stand(baron);
-    sweep(g, buds);
+    if (cheated) sweep(g, buds);
     g.missionFlags.duel = cheated ? 'missile' : 'fair';
     g.setMusicIntensity(0.4);
     await g.say('baron', 'Enough! Enough. Beautifully flown. I yield, contractor. My life is yours, to keep or to spend.');
@@ -227,9 +302,12 @@ export async function runBaronDuel(g: Game, c: Campaign): Promise<void> {
     if (outcome === 'spared') {
       await g.say('baron', 'Mercy. How terribly unfashionable of you. I owe you a life, contractor, and a Delacourt always pays his debts.');
       g.jumpOut(baron);
+      g.retreat(buds);
       g.missionFlags.baron2 = 'spared';
     } else {
       await g.say('baron', 'Ha! Well flown. Well flown indeed. Do tell the Patrol I said hello.');
+      await g.say('petal', 'Baron! Rosebuds, get his pod. We will remember this, Rook.');
+      g.retreat(buds);
       await g.say('okafor', 'We have his pod. The Scarlet Baron is in a Patrol cell, and the bounty is yours, contractor.');
       g.bonusPay = 30000;
       g.missionFlags.baron2 = 'downed';
@@ -291,6 +369,7 @@ export async function runBaronHeist(g: Game, c: Campaign): Promise<void> {
   );
   barge.damageScale = 0.5;
   player.placeAt(barge.pos.clone().add(v(200, 120, 300)), route[0], 40);
+  g.followArena(barge);
   g.setMusicIntensity(0.3);
   g.objective = enemy ? 'Escort the treasury barge Gilded Cage' : 'Meet the Baron';
 
@@ -315,6 +394,8 @@ export async function runBaronHeist(g: Game, c: Campaign): Promise<void> {
   } else {
     if (c.flags.baron2 === 'downed') await g.say('baron', 'Rook! You will be pleased to hear that no Patrol cell holds a Delacourt for long. No hard feelings. You beat me fairly, and I am a great admirer of fairness, in others.');
     else await g.say('baron', 'Rook, my friend. You spared my life, so I thought I would make it worth the sparing.');
+    // a heist needs the vault in one piece
+    barge.hullFloor = 60;
     await g.say('baron', 'That barge is the Gilded Cage, carrying the Reach\'s taxes home to people who never earned them. Ride with me and half the vault is yours.');
     await g.say('petal', 'He means it. He always splits fair. It is very annoying.');
     await g.until(() => rp.progress >= 0.25);
@@ -359,14 +440,23 @@ export async function runBaronHeist(g: Game, c: Campaign): Promise<void> {
       }
       escorts.push(g.jumpIn('sunspear', 'combine', 'Treasury gunship Sunspear', barge.pos.clone().add(v(-300, 120, 400)), barge.pos, { skill: 0.6, playerBias: side === 'joined' ? 0.5 : 0.2, tactic: 'standoff' }));
       void g.say('strand', 'Gilded Cage, Treasury. A gunship is with you. Hold on.').catch(() => undefined);
+      // the barge goes dead in space when her engines are shot out, but the escorts fight on
+      let crippled = false;
       await g.until(() => {
-        g.objective = `Take the Gilded Cage · ${alive(escorts)} escorts left`;
-        return alive(escorts) === 0 || frac(barge) < 0.35;
+        if (!crippled && frac(barge) < 0.35) {
+          crippled = true;
+          rp.hold = true;
+          barge.invulnerable = true;
+          void g.say('petal', 'Her engines are out! She is dead in space. Now the escorts.').catch(() => undefined);
+        }
+        g.objective = `Take the Gilded Cage · ${alive(escorts)} escorts left${crippled ? ' · the barge is dead in space' : ''}`;
+        return alive(escorts) === 0;
       });
       rp.hold = true;
       barge.invulnerable = true;
-      await g.say('petal', 'She is dead in space. Opening the vault.');
-      await g.wait(8);
+      await g.say('baron', 'And that is the last of them. Rosebuds, the vault, if you please. Gently. It is older than all of us.');
+      await g.say('petal', 'Opening the vault.');
+      await g.wait(6);
       await g.say('baron', side === 'joined' ? 'Rook, you are a natural. Half the vault, as promised. Come and see the Rookery some time. Bring an appetite.' : 'Not a shot fired, and still you get a share. Call it a fee for the pleasure of your company.');
       sweep(g, [baron, ...buds]);
       g.bonusPay = side === 'joined' ? 25000 : 8000;

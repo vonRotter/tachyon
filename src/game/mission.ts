@@ -76,8 +76,9 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
         : `${g.input.settings.mouseMode === 'aim' ? 'Mouse: aim, the ship flies to the circle' : 'Mouse: steer'} · ${key('throttleUp')}/${key('throttleDown')}: throttle · ${key('rollLeft')}/${key('rollRight')}: roll · ${key('boost')}: boost · ${key('fire')}: fire · Esc: options`,
       9,
     );
-    await g.say('varga', 'Rook, Kestrel Control. Your docking slot got bumped. A Combine carrier came in unannounced and took the whole east cradle.');
-    await g.say('varga', "Hold near the hub. And please don't scratch my paint.");
+    await g.say('varga', 'Rook, Kestrel Control. Good to see you flying again after the Ashfall. First sortie in the new ship, so take it easy out there.');
+    await g.say('juno', 'Juno here. I towed you in, so I have a stake in you. Stay near the hub.');
+    await g.say('varga', "Your docking slot got bumped, too. A Combine carrier came in unannounced and took the whole east cradle. Hold near the hub, and please don't scratch my paint.");
     g.hint(
       pad()
         ? 'Hold LT to SLIDE: keep your momentum and turn to aim anywhere'
@@ -131,11 +132,12 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
   if (checkpoint <= 3) {
     g.checkpoint = 3;
     g.setMusicIntensity(0.9);
-    await g.say('vey', 'Who IS that pilot? Fine. Mawbreaker, bring the big guns.');
+    await g.say('vey', 'That pilot again? The one we left drifting in the Ashfall? Fine. Mawbreaker, finish what you started.');
     const brute = g.jumpIn('brute', 'wake', 'Mawbreaker', v(-900, -300, -1300), hub, { skill: 0.6, playerBias: 0.4 });
     const escorts = raiderWave(g, 3, Math.PI * 1.35, -0.15, [0.55, 0.7], 2, ['Wake Hunter'], 1);
     g.objective = 'Destroy the gunship Mawbreaker';
     await g.say('varga', 'That is a gunship! Rook, Juno, Pike. Stop it before it reaches the station!');
+    await g.say('juno', 'That is the one that hit your caravan, Rook. Want to settle it?');
     g.hint('Gunship turrets track you. Stay on its tail, use the station for cover', 7);
     await g.until(() => !brute.alive);
     g.objective = '';

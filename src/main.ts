@@ -1,7 +1,7 @@
 import './style.css';
 import { Game, type Difficulty } from './game/game';
 import { DEATH_FEE, defect, fitShip, migrateCampaign, missionPayout, newCampaign, newFit, type Campaign, type Side } from './game/loadout';
-import { dealBoard, isSide, missionById, nextStory, type MissionDef } from './game/missions';
+import { dealBoard, isFinale, isSide, missionById, nextStory, type MissionDef } from './game/missions';
 import { SHIP_CLASSES } from './entities/shipClasses';
 import { Shop } from './ui/shop';
 import { detectQuality, type QualityLevel } from './core/quality';
@@ -48,7 +48,7 @@ const settings = load<Settings>('veil.settings', {
   voiceVolume: 1,
   musicVolume: 0.6,
   sfxVolume: 0.9,
-  glow: 1,
+  glow: 0.7,
   invertMouse: false,
   invertPad: false,
   sensitivity: 1,
@@ -58,6 +58,12 @@ const settings = load<Settings>('veil.settings', {
 });
 // the old browser-TTS toggle is now `tts`
 delete (settings as Partial<Settings> & { voice?: boolean }).voice;
+// the glare default came down; settings still on the old default follow it
+const glowDefaults = settings as Settings & { glowV2?: boolean };
+if (!glowDefaults.glowV2) {
+  if (settings.glow === 1) settings.glow = 0.7;
+  glowDefaults.glowV2 = true;
+}
 let campaign: Campaign = migrateCampaign(load<Partial<Campaign> | null>('veil.campaign', null));
 const saveCampaign = () => save('veil.campaign', campaign);
 
@@ -316,6 +322,7 @@ function openHangar(): void {
 // --- Session flow ---------------------------------------------------------------------------
 function begin(m: MissionDef, checkpoint: number): void {
   mission = m;
+  if (m.id !== 'prologue') game.tutorial = false;
   startAudio();
   closeAllMenus();
   show('title', false);
@@ -326,8 +333,9 @@ function begin(m: MissionDef, checkpoint: number): void {
   const c = campaign;
   game.missionRunner = (g, cp) => m.run(g, cp, c);
   // the prologue is flown in a borrowed Kite, before you own anything
-  game.playerFit = m.id === 'prologue' ? fitShip('kite', newFit('kite')) : fitShip(campaign.activeShip, campaign.fits[campaign.activeShip]);
+  game.playerFit = m.id === 'prologue' ? fitShip('kite', newFit('kite', true)) : fitShip(campaign.activeShip, campaign.fits[campaign.activeShip]);
   game.startMission(checkpoint);
+  if (isFinale(m, campaign) && checkpoint === 0) game.hint(`FINAL MISSION · ${m.name}`, 6);
   game.input.requestPointerLock();
 }
 
@@ -350,10 +358,20 @@ for (const [id, hardcore] of [
     campaign.hardcore = hardcore;
     saveCampaign();
     show('new-run', false);
-    begin(missionById('prologue'), 0);
+    show('tutorial-ask', true);
   });
 }
 $('run-cancel').addEventListener('click', () => show('new-run', false));
+for (const [id, want] of [
+  ['tutorial-yes', true],
+  ['tutorial-no', false],
+] as const) {
+  $(id).addEventListener('click', () => {
+    show('tutorial-ask', false);
+    game.tutorial = want;
+    begin(missionById('prologue'), 0);
+  });
+}
 
 /** After the prologue: who you are now, and what you have left. */
 function showStory(): void {
@@ -477,7 +495,8 @@ game.onMissionEnd = (result) => {
     .toString()
     .padStart(2, '0');
   // bounties are paid either way; the contract only on success, reduced on repeat runs
-  const pay = missionPayout(campaign, mission.id, result === 'victory' ? mission.pay + game.bonusPay : 0, game.bounties, mission.repeatable);
+  // bounties carried over from a checkpoint were paid when that attempt failed
+  const pay = missionPayout(campaign, mission.id, result === 'victory' ? mission.pay + game.bonusPay : 0, game.bounties - game.bountiesCarried, mission.repeatable);
   campaign.credits += pay.total;
   for (const id of game.seenClasses) if (!campaign.seen.includes(id)) campaign.seen.push(id);
   let confiscated: string[] = [];
@@ -490,7 +509,7 @@ game.onMissionEnd = (result) => {
       else if (k === 'gift') {
         if (!campaign.ships.includes(v)) {
           campaign.ships.push(v);
-          campaign.fits[v] = newFit(v);
+          campaign.fits[v] = newFit(v, true);
         }
       }
       else campaign.flags[k] = v;
@@ -560,7 +579,8 @@ game.onMissionEnd = (result) => {
   const choice = $('debrief-choice');
   choice.innerHTML = '';
   const over = campaign.dead;
-  $('retry').style.display = result === 'victory' || over ? 'none' : '';
+  // hardcore has no checkpoints: a failed mission starts over from the beginning
+  $('retry').style.display = result === 'victory' || over || campaign.hardcore ? 'none' : '';
   $('restart2').style.display = result === 'victory' || over ? 'none' : '';
   $('to-hangar').textContent = over ? 'Start a new campaign' : 'Return to hangar';
   if (over) $('debrief-title').textContent = 'Rook is gone';

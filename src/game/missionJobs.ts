@@ -88,6 +88,12 @@ export async function runConvoy(g: Game): Promise<void> {
     pilots.push(rp);
   }
   player.placeAt(v(2700, 420, -2800), route[0], 70);
+  // the mission area is wherever the convoy is
+  g.followArena(convoy[0]);
+  g.onKill((s) => {
+    const other = convoy.find((c) => c.alive);
+    if (s === convoy[0] && other) g.followArena(other);
+  });
   g.setMusicIntensity(0.3);
   g.objective = 'Escort the convoy to Vantage';
   await g.say('okafor', 'Contractor, the Patrol is stretched thin today, so this one is yours. Two container ships for Vantage, carrying spares for the array. The Wake know they are coming.');

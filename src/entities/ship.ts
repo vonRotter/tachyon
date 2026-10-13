@@ -118,6 +118,8 @@ export class Ship {
   invulnerable = false;
   /** Multiplier on incoming damage (story wingmen are a little tougher than they look). */
   damageScale = 1;
+  /** Seconds towards the next built-in flare. */
+  flareCharge = 0;
   /** Scripted: hits never take the hull below this (the prologue's losing fight). */
   hullFloor = 0;
   target: Ship | null = null;

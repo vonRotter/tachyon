@@ -912,6 +912,16 @@ button:disabled {
   color: #ffd36b;
 }
 
+.campaign-pip.final {
+  border-color: #ff6a4d;
+  color: #ff6a4d;
+  font-weight: 700;
+}
+
+.final-note {
+  color: #ff9a7a;
+}
+
 .contract-group {
   font-size: 12px;
   letter-spacing: 0.08em;

@@ -23,7 +23,7 @@ import {
   type ShipFit,
 } from '../game/loadout';
 import { DATABASE, DB_CATEGORIES, dbVisible, type DbEntry } from '../game/database';
-import { MISSIONS, briefingText, campaignPath, missionById, nextStory, offered, sideLocked, type MissionDef } from '../game/missions';
+import { MISSIONS, briefingText, campaignPath, isFinale, missionById, nextStory, offered, sideLocked, type MissionDef } from '../game/missions';
 import { SIDE_PER_CHAPTER } from '../game/loadout';
 import type { FactionId } from '../entities/factions';
 
@@ -92,8 +92,10 @@ export class Shop {
       b.disabled = !c.started && b.dataset.tab !== 'ships';
     }
     const launch = $('hangar-launch') as HTMLButtonElement;
-    launch.disabled = !c.started || this.tab === 'database';
-    launch.textContent = this.tab === 'database' ? 'Leave the database to launch' : 'Launch';
+    const unarmed = c.started && !(c.fits[c.activeShip]?.weapons ?? []).some((w) => w);
+    launch.disabled = !c.started || this.tab === 'database' || unarmed;
+    const finalLaunch = c.started && isFinale(missionById(this.selectedMission), c) && !c.completed[this.selectedMission];
+    launch.textContent = this.tab === 'database' ? 'Leave the database to launch' : unarmed ? 'Fit a weapon to launch' : finalLaunch ? 'Launch the final mission' : 'Launch';
     const list = $('shop-list');
     list.innerHTML = '';
     if (!c.started) this.renderStartPick(list);
@@ -171,7 +173,7 @@ export class Shop {
   private renderStartPick(list: HTMLElement): void {
     const c = this.campaign;
     list.appendChild(
-      el('p', 'tab-note', `Choose your first ship. You have ${cr(START_BUDGET)}: whatever the ship does not cost, you keep for upgrades, weapons and equipment.`),
+      el('p', 'tab-note', `Choose your first ship. You have ${cr(START_BUDGET)}: whatever the ship does not cost, you keep for upgrades, weapons and equipment. Hulls come unarmed; the pulse laser and seeker launcher salvaged from your old Kite are fitted to whichever you choose, if it can carry them.`),
     );
     list.appendChild(el('p', 'tab-note', 'Only the independent yards will sell to a pilot nobody has hired yet. Faction yards open up once you work for a faction.'));
     for (const id of PLAYER_SHIPS.filter((s) => (SHIP_CLASSES[s].maker ?? 'kestrel') === 'kestrel' && SHIP_CLASSES[s].forSale !== false && SHIP_CLASSES[s].price <= START_BUDGET)) {
@@ -188,6 +190,14 @@ export class Shop {
             if (!c.unlimited) c.credits = left;
             c.ships = [id];
             c.fits = { [id]: newFit(id) };
+            // the guns salvaged from the prologue's Kite go straight onto the new hull
+            const fit = c.fits[id];
+            for (let i = 0; i < fit.weapons.length; i++) {
+              const w = Object.keys(c.inventory).find((k) => (c.inventory[k] ?? 0) > 0 && canMount(id, k));
+              if (!w) break;
+              fit.weapons[i] = w;
+              c.inventory[w]--;
+            }
             c.activeShip = id;
             c.started = true;
             this.viewShip = id;
@@ -512,7 +522,7 @@ export class Shop {
     const names = viewFit.weapons.map((w) => (w ? (weaponInfo(w)?.name ?? '—') : 'empty'));
     const slots = cls.equipSlots ?? 2;
     const lines = [
-      `Weapons: ${names.join(', ')}`,
+      owned ? `Weapons: ${names.join(', ')}` : `Comes unarmed: ${viewFit.weapons.length} weapon slots`,
       `Equipment (${viewFit.equipment.length}/${slots}): ${viewFit.equipment.map((e) => EQUIPMENT[e].name).join(', ') || 'none'}`,
     ];
     for (const l of lines) fitEl.appendChild(el('div', '', l));
@@ -615,7 +625,10 @@ export class Shop {
     }
   }
 
-  /** Where you are in the story: one pip per chapter of your side's path. */
+  /**
+   * Where you are in the story: the chapters you have flown and the next one. What lies beyond
+   * stays hidden, except that the last chapter is announced as the final mission.
+   */
   private campaignStrip(): HTMLElement {
     const c = this.campaign;
     const path = campaignPath(c);
@@ -627,13 +640,15 @@ export class Shop {
     const next = nextStory(c);
     for (const id of path) {
       const m = missionById(id);
+      if (!c.completed[id] && next?.id !== id && !c.unlimited) continue;
       const state = c.completed[id] ? 'done' : next?.id === id ? 'next' : 'later';
-      const pip = el('span', `campaign-pip ${state}`, m.name);
-      row.appendChild(pip);
+      const final = isFinale(m, c) && !c.completed[id];
+      row.appendChild(el('span', `campaign-pip ${state}${final ? ' final' : ''}`, final ? `Final mission: ${m.name}` : m.name));
     }
     if (path.length === 1) row.appendChild(el('span', 'campaign-pip later', 'Where you land decides the rest'));
     strip.appendChild(row);
-    if (done) strip.appendChild(el('p', 'tab-note', 'Every contract can be flown again, at reduced pay.'));
+    if (done) strip.appendChild(el('p', 'tab-note', 'The story is over. The job board, and anything left of the Baron\'s business, still pay.'));
+    else if (next && isFinale(next, c)) strip.appendChild(el('p', 'tab-note final-note', 'This is the last chapter. Whatever you still want to fit or buy, do it now.'));
     if (c.unlimited) {
       // test mode: every contract is listed, and the side can be switched to try both paths
       const tools = el('div', 'campaign-pips');
@@ -661,13 +676,14 @@ export class Shop {
     const done = this.campaign.completed[m.id] ?? 0;
     // flown contracts fold down to one line unless selected
     const brief = (done || m.repeatable) && m.id !== this.selectedMission ? '' : briefingText(m, this.campaign);
-    const card = this.card(`${m.name} · ${m.location}`, brief, {
+    const final = isFinale(m, this.campaign) && !done;
+    const card = this.card(`${final ? 'FINAL MISSION · ' : ''}${m.name} · ${m.location}`, brief, {
       status: done && !m.repeatable ? `FLOWN ×${done} · ${cr(Math.round(m.pay * 0.4))}+` : `${done ? `×${done} · ` : ''}${cr(m.pay)}+`,
       active: m.id === this.selectedMission,
     });
     card.addEventListener('click', () => {
       this.selectedMission = m.id;
-      this.renderMissions();
+      this.render();
     });
     return card;
   }
