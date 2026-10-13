@@ -52,7 +52,10 @@ export async function runLastLight(g: Game, checkpoint: number, c: Campaign): Pr
   g.setRelation('drift', 'player', true);
   g.friendlyFireLimit = 400;
 
-  const dawn = g.spawnCapital('battlecruiser', 'combine', 'dawn', 'Sovereign Dawn', v(0, 220, 3100), v(0, 100, 0), { armed: true, skill: 0.5 });
+  // from the start you ride in aboard the Dawn, and she comes out of the jump with you in her hangar
+  const ride = checkpoint === 0;
+  const dawnAt = v(0, 220, 3100);
+  const dawn = g.spawnCapital('battlecruiser', 'combine', 'dawn', 'Sovereign Dawn', ride ? v(0, 280, 4500) : dawnAt, v(0, 100, 0), { armed: true, skill: 0.5 });
   const patience = g.spawnCapital('battlecruiser', 'drift', 'patience', 'Long Patience', v(250, 60, 1050), v(250, 60, 3000), { armed: true, skill: 0.5 });
   const resolute = g.spawnCapital('destroyer', 'combine', 'resolute', 'Resolute', v(-500, 160, 2700), v(-300, 100, 1200), { armed: true, skill: 0.5 });
   resolute.goal = v(-350, 120, 1700);
@@ -74,16 +77,19 @@ export async function runLastLight(g: Game, checkpoint: number, c: Campaign): Pr
     g.spawnShip('sabre', 'combine', i === 0 ? 'Lt. Vale' : `Lance ${i + 1}`, v(-80 + i * 50, 240, 2700), patience.root.position, { skill: 0.6, playerBias: 0, damageScale: 0.6 }),
   );
   void wing;
-  player.placeAt(v(40, 250, 2650), patience.root.position, 90);
+  if (!ride) player.placeAt(v(40, 250, 2650), patience.root.position, 90);
   g.setMusicIntensity(0.5);
 
   const drift: Ship[] = [];
   if (checkpoint === 0) {
+    await g.rideIn(dawn, dawnAt, async () => {
+      await g.say('quell', 'All hands, Sovereign Dawn coming out of the jump. Haven bearing zero-zero-zero. Launch crews, stand by.');
+      await g.say('tessaine', 'This ends today, Rook. The Drift have gathered everything they have left at Haven, behind the Long Patience. Silence her guns and Sorrel will come to the table.');
+      if (c.flags.dawn === 'saved') await g.say('tessaine', 'You saved my ship at Kestrel. Today you finish what that started.');
+      else if (c.flags.kestrel === 'seized') await g.say('tessaine', 'Kestrel is under our protection now. Haven is the last place they can run to.');
+      if (c.flags.records === 'broadcast') await g.say('vale', 'Since that broadcast went out, half our contractors have walked. It is just us, Commander.');
+    });
     g.objective = 'Break the Drift screen';
-    await g.say('tessaine', 'This ends today, Rook. The Drift have gathered everything they have left at Haven, behind the Long Patience. Silence her guns and Sorrel will come to the table.');
-    if (c.flags.dawn === 'saved') await g.say('tessaine', 'You saved my ship at Kestrel. Today you finish what that started.');
-    else if (c.flags.kestrel === 'seized') await g.say('tessaine', 'Kestrel is under our protection now. Haven is the last place they can run to.');
-    if (c.flags.records === 'broadcast') await g.say('vale', 'Since that broadcast went out, half our contractors have walked. It is just us, Commander.');
     await g.say('sorrel', 'Long Patience to all Drift. They have come to our home. Launch everything.');
     g.setMusicIntensity(0.9);
     drift.push(...launchFrom(g, patience, ['gannet', 'gannet', 'bulwark', 'gannet', 'fang'], 'drift', 'Drift defender', { skill: 0.6, playerBias: 0.5, tactic: 'flanker', missiles: 4 }));
@@ -194,7 +200,10 @@ export async function runBastion(g: Game, checkpoint: number, c: Campaign): Prom
   g.setRelation('kestrel', 'combine', true);
   g.friendlyFireLimit = 400;
 
-  const patience = g.spawnCapital('battlecruiser', 'drift', 'patience', 'Long Patience', v(0, 160, 2700), v(0, 60, 0), { armed: true, skill: 0.5 });
+  // from the start you ride in aboard the Long Patience
+  const ride = checkpoint === 0;
+  const patienceAt = v(0, 160, 2700);
+  const patience = g.spawnCapital('battlecruiser', 'drift', 'patience', 'Long Patience', ride ? v(0, 220, 4100) : patienceAt, v(0, 60, 0), { armed: true, skill: 0.5 });
   const dawn = g.spawnCapital('battlecruiser', 'combine', 'dawn', 'Sovereign Dawn', v(700, 100, 700), v(0, 160, 2700), { armed: true, skill: 0.55 });
   // the shield: a pale dome round the core while the pylons stand
   const dome = new THREE.Mesh(
@@ -221,7 +230,7 @@ export async function runBastion(g: Game, checkpoint: number, c: Campaign): Prom
     allies.push(g.spawnShip('warden', 'kestrel', 'Pike', v(-190, 210, 2440), B('center'), { skill: 0.6, playerBias: 0, damageScale: 0.6 }));
   }
   for (const s of allies) s.missiles = Math.min(s.missiles, 4);
-  player.placeAt(v(40, 230, 2300), B('center'), 90);
+  if (!ride) player.placeAt(v(40, 230, 2300), B('center'), 90);
   g.setMusicIntensity(0.5);
 
   const enemies: Ship[] = [];
@@ -230,10 +239,13 @@ export async function runBastion(g: Game, checkpoint: number, c: Campaign): Prom
   };
 
   if (checkpoint === 0) {
+    await g.rideIn(patience, patienceAt, async () => {
+      await g.say('magpie', 'Long Patience, out of the jump. Bastion dead ahead. Every hand to a gun.');
+      await g.say('sorrel', 'This is where the Combine runs the Reach from, Rook. Bastion. Its shield is fed by four pylons at the ends of the arms. Bring them down and the batteries are ours to break.');
+      if (c.flags.records === 'broadcast') await g.say('sorrel', 'Since the broadcast, their own contractors have been walking off. Bastion is half-crewed today. It will never be weaker.');
+      if (c.flags.kestrel === 'free') await g.say('juno', 'Kestrel militia, with you, Rook. You stood by us. We stand by you.');
+    });
     g.objective = 'Bring down the shield pylons';
-    await g.say('sorrel', 'This is where the Combine runs the Reach from, Rook. Bastion. Its shield is fed by four pylons at the ends of the arms. Bring them down and the batteries are ours to break.');
-    if (c.flags.records === 'broadcast') await g.say('sorrel', 'Since the broadcast, their own contractors have been walking off. Bastion is half-crewed today. It will never be weaker.');
-    if (c.flags.kestrel === 'free') await g.say('juno', 'Kestrel militia, with you, Rook. You stood by us. We stand by you.');
     if (c.flags.dawn === 'burned') await g.say('tessaine', 'The pilot who burned my hangar. I have been waiting for you, Rook.');
     else await g.say('tessaine', 'Mother Sorrel. You have brought a battlecruiser to a fortress. Sovereign Dawn, launch all wings.');
     g.setMusicIntensity(0.9);

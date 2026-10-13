@@ -937,6 +937,57 @@ export class Game implements CombatContext {
     });
   }
 
+  /**
+   * Mission API: the carrier ride. You sit parked in `cap`'s hangar while she comes out of the
+   * jump and closes on `to`, watching the system slide past the hangar mouth while `talk` (the
+   * briefing) plays; then the catapult throws you out. Takes at least `seconds`.
+   */
+  async rideIn(cap: CapitalShip, to: THREE.Vector3, talk: () => Promise<void>, seconds = 16): Promise<void> {
+    const p = this.player;
+    const dock = cap.docks[0];
+    if (!p || !dock) {
+      await talk();
+      return;
+    }
+    const start = this.missionTime;
+    cap.goal = to.clone();
+    cap.speed = cap.root.position.distanceTo(to) / seconds;
+    this.fx.jumpIn(cap.root.position, cap.forward(), FACTIONS[cap.faction].palette.engine);
+    this.audio.jumpIn(cap.root.position);
+    const pad = dock.pad.clone().add(new THREE.Vector3(0, 5, 0));
+    const out = dock.outward.clone();
+    const at = new THREE.Vector3();
+    const look = new THREE.Vector3();
+    let riding = true;
+    const follow = () => {
+      cap.toWorld(pad, at);
+      look.copy(out).transformDirection(cap.root.matrixWorld).multiplyScalar(200).add(at);
+      p.placeAt(at, look, 0);
+    };
+    p.held = true;
+    p.invulnerable = true;
+    p.controls.throttle = 0;
+    follow();
+    this.aimQuat.copy(p.quat);
+    this.camQuat.copy(p.quat);
+    this.onFrame(() => {
+      if (riding && p.alive) follow();
+    });
+    await talk();
+    await this.until(() => {
+      const left = Math.ceil(seconds - (this.missionTime - start));
+      if (left > 0) this.objective = `Aboard the ${cap.name} · launch in ${left} s`;
+      return left <= 0;
+    });
+    cap.speed = 0;
+    cap.goal = null;
+    riding = false;
+    follow();
+    p.invulnerable = false;
+    this.objective = '';
+    this.catapult(p);
+  }
+
   /** Mission API: fade the view to black (with an optional caption) or back. */
   fade(on: boolean, text = ''): void {
     document.getElementById('fade')?.classList.toggle('on', on);

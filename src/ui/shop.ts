@@ -23,11 +23,12 @@ import {
   type ShipFit,
 } from '../game/loadout';
 import { DATABASE, DB_CATEGORIES, dbVisible, type DbEntry } from '../game/database';
-import { MISSIONS, briefingText, campaignPath, isFinale, locationOf, missionById, nextStory, offered, sideLocked, type MissionDef } from '../game/missions';
+import { MISSIONS, briefingText, campaignPath, isFinale, locationOf, mapOf, missionById, nextStory, offered, sideLocked, type MissionDef } from '../game/missions';
+import { GATES, HOMES, SYSTEMS, gateState, route, systemById } from '../game/starmap';
 import { SIDE_PER_CHAPTER } from '../game/loadout';
 import type { FactionId } from '../entities/factions';
 
-type Tab = 'ships' | 'upgrades' | 'weapons' | 'equipment' | 'database';
+type Tab = 'ships' | 'upgrades' | 'weapons' | 'equipment' | 'database' | 'map';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const cr = (n: number): string => `${n.toLocaleString('en-US')} cr`;
@@ -59,6 +60,8 @@ export class Shop {
   private dbEntry = DATABASE[0];
   private dbFaction: FactionId = DATABASE[0].operators[0];
   onLaunch: (missionId: string) => void = () => {};
+  /** Star map: fly to the other side's home and ask to join them. */
+  onDefect: (to: 'combine' | 'drift') => void = () => {};
 
   constructor(private campaign: Campaign) {
     this.viewShip = campaign.activeShip;
@@ -103,6 +106,7 @@ export class Shop {
     else if (this.tab === 'upgrades') this.renderUpgrades(list);
     else if (this.tab === 'weapons') this.renderWeapons(list);
     else if (this.tab === 'equipment') this.renderEquipment(list);
+    else if (this.tab === 'map') this.renderMap(list);
     else this.renderDatabase(list);
     this.renderStats();
     this.renderMissions();
@@ -586,6 +590,81 @@ export class Shop {
       fitEl.appendChild(row);
     }
     this.onShowEntry(e, this.dbFaction);
+  }
+
+  // --- star map ------------------------------------------------------------------------------
+
+  /** The Reach: systems, gates (open, closed to you, or opened for a mission) and the way there. */
+  private renderMap(list: HTMLElement): void {
+    const c = this.campaign;
+    const m = missionById(this.selectedMission);
+    const bound = mapOf(m, c);
+    const W = 460;
+    const H = 330;
+    const px = (x: number) => W / 2 + x * 70;
+    const py = (y: number) => 165 - (y - 0.5) * 72;
+    const path = route(c, c.at, bound, bound);
+    const onPath = (a: string, b: string) => !!path && path.some((s, i) => i > 0 && ((path[i - 1] === a && s === b) || (path[i - 1] === b && s === a)));
+    let svg = `<svg viewBox="0 0 ${W} ${H}" class="starmap" role="img" aria-label="Map of the Reach">`;
+    for (const g of GATES) {
+      const a = systemById(g.a);
+      const b = systemById(g.b);
+      const st = gateState(g, c, bound);
+      const colour = st.state === 'open' ? '#5fe8ff' : st.state === 'temporary' ? '#ffd36b' : '#ff5a6a';
+      const dash = st.state === 'open' ? '' : st.state === 'temporary' ? '8 5' : '2 6';
+      svg += `<line x1="${px(a.x)}" y1="${py(a.y)}" x2="${px(b.x)}" y2="${py(b.y)}" stroke="${colour}" stroke-width="${onPath(g.a, g.b) ? 4 : 2}" stroke-dasharray="${dash}" opacity="${onPath(g.a, g.b) ? 1 : 0.6}"/>`;
+    }
+    for (const s of SYSTEMS) {
+      const colour = s.holder ? FACTIONS[s.holder].hudColor : '#aab0c8';
+      svg += `<circle cx="${px(s.x)}" cy="${py(s.y)}" r="9" fill="${colour}" stroke="#0b0d18" stroke-width="2"/>`;
+      if (s.id === c.at) svg += `<circle cx="${px(s.x)}" cy="${py(s.y)}" r="15" fill="none" stroke="#ffffff" stroke-width="2"/>`;
+      if (s.id === bound) svg += `<circle cx="${px(s.x)}" cy="${py(s.y)}" r="20" fill="none" stroke="#ffd36b" stroke-width="2" stroke-dasharray="4 3"/>`;
+      svg += `<text x="${px(s.x)}" y="${py(s.y) + 26}" text-anchor="middle" fill="#e8ecf8" font-size="12">${s.name}</text>`;
+    }
+    svg += '</svg>';
+    const map = el('div', 'starmap-wrap');
+    map.innerHTML = svg;
+    list.appendChild(map);
+    list.appendChild(el('p', 'tab-note', 'White ring: where you are docked. Gold ring: your selected contract. Gates: solid cyan open, gold dashed open for that contract only, red dotted closed to you.'));
+    const here = systemById(c.at);
+    list.appendChild(el('p', 'tab-note', `Docked at ${here.name}. ${here.blurb}`));
+    const dest = systemById(bound);
+    list.appendChild(
+      el(
+        'p',
+        'tab-note',
+        bound === c.at
+          ? `${m.name} is right here.`
+          : path
+            ? `${m.name} is at ${dest.name}: ${path.length - 1} ${path.length === 2 ? 'jump' : 'jumps'} (${path.map((s) => systemById(s).name).join(' → ')}). Launch and choose whether to fly there or jump straight in.`
+            : `${m.name} is at ${dest.name}, and every way there is closed to you. You will be jumped straight in.`,
+      ),
+    );
+    for (const g of GATES) {
+      const st = gateState(g, c, bound);
+      if (st.state === 'open') continue;
+      list.appendChild(el('p', `tab-note gate-${st.state}`, `${systemById(g.a).name} – ${systemById(g.b).name}: ${st.state === 'closed' ? 'closed' : 'open for now'}. ${st.why}`));
+    }
+    // changing sides by flying away
+    const side = c.allegiance === 'combine' || c.allegiance === 'drift' ? c.allegiance : null;
+    if (side && (c.completed['cold-guns'] ?? 0) > 0 && nextStory(c) && !c.dead) {
+      const to = side === 'combine' ? 'drift' : 'combine';
+      const home = HOMES[to];
+      const way = route(c, c.at, home, undefined, home);
+      list.appendChild(el('div', 'contract-group', 'Change sides'));
+      list.appendChild(
+        el(
+          'p',
+          'tab-note',
+          `Fly to ${systemById(home).name} and ${to === 'drift' ? 'ask the Drift Union for sanctuary' : 'offer your services to the Helion Combine'}. The ${FACTIONS[side].name} take back every hull their yards built, their gates close to you, and there is no way back.`,
+        ),
+      );
+      const row = el('div', 'card-actions');
+      row.appendChild(
+        this.button(way ? `Fly to ${systemById(home).name} (${way.length - 1} ${way.length === 2 ? 'jump' : 'jumps'})` : 'No way through', () => this.onDefect(to), { disabled: !way || !c.fits[c.activeShip]?.weapons.some((w) => w) }),
+      );
+      list.appendChild(row);
+    }
   }
 
   // --- missions ------------------------------------------------------------------------------

@@ -77,6 +77,22 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   that recovers you and the repairs, and you retry from a checkpoint with the hull, missiles,
   bounties and bonuses you had when you reached it. On hardcore you have one life: die, and the
   campaign is over; a failed mission starts again from the beginning (no checkpoints).
+- **Star map and travel.** The Reach is seven systems joined by jump gates (hangar, *Star map*
+  tab). Some gates are closed to you: the Red Wake keep the Gallows shut, Drift pickets turn
+  Combine pilots away from Haven, and Bastion's gate flags Drift transponders. Some are
+  temporary: a contract in a closed system opens a fleet jump corridor for that contract, and the
+  Rookery's gate opens only when the Baron invites you. When a contract is in another system,
+  launching asks whether to *fly there* (each leg is a short flight from the station to the gate;
+  about one in three has Wake gate-jackers waiting, with bounties) or *jump straight in*. After a
+  mission you stay docked in that system, unless every gate out is closed to you, in which case
+  you are ferried back to Kestrel.
+- **Changing sides by flying away.** Between chapters, the star map offers a flight to the other
+  side's home (Haven or Bastion) to ask them in. They let you through their gate, your old side
+  takes back every hull its yards built, and there is no way back. The dramatic switch during
+  the Accord still exists too.
+- **Carrier ride.** The finales start with you parked in your flagship's hangar as she comes out
+  of the jump and closes on the target, the system sliding past the hangar mouth while the
+  briefing plays; then the catapult throws you out.
 - **Story contracts are flown once.** Odd jobs come from a job board of three that is dealt
   again after each story chapter, and you have time for two side activities (odd jobs or the
   Baron's arc) before the next chapter will not wait.

@@ -1,7 +1,10 @@
+import * as THREE from 'three';
 import './style.css';
 import { Game, type Difficulty } from './game/game';
 import { DEATH_FEE, defect, fitShip, migrateCampaign, missionPayout, newCampaign, newFit, type Campaign, type Side } from './game/loadout';
 import { dealBoard, isFinale, isSide, mapOf, missionById, nextStory, type MissionDef } from './game/missions';
+import { GATES, HOMES, gateState, route, systemById } from './game/starmap';
+import { runAsylum, runTransit } from './game/missionTravel';
 import { SHIP_CLASSES } from './entities/shipClasses';
 import { Shop } from './ui/shop';
 import { detectQuality, type QualityLevel } from './core/quality';
@@ -298,7 +301,92 @@ shop.onShowEntry = (entry, faction) => {
   if (entry.show.kind === 'capital') game.hangar.showCapital(entry.show.capital, faction);
   else game.hangar.showShipAs(SHIP_CLASSES[entry.show.classId], faction);
 };
-shop.onLaunch = (id) => begin(missionById(id), 0);
+shop.onLaunch = (id) => launch(missionById(id));
+shop.onDefect = (to) => {
+  const home = HOMES[to];
+  const way = route(campaign, campaign.at, home, undefined, home);
+  if (!way) return;
+  travel(way, () => begin(asylumMission(to, way[way.length - 2] ?? 'kestrel'), 0));
+};
+
+// --- travel -----------------------------------------------------------------------------------
+/** A leg of travel: fly from the station to the gate and jump. Not a contract. */
+const transitMission = (from: string, to: string, ambush: boolean): MissionDef => ({
+  id: 'transit',
+  name: `Transit to ${systemById(to).name}`,
+  location: systemById(from).name,
+  map: from,
+  briefing: '',
+  pay: 0,
+  run: (g) => runTransit(g, from, to, ambush),
+  available: () => false,
+  victoryTitle: 'Jumped',
+});
+const asylumMission = (to: 'combine' | 'drift', from: string): MissionDef => ({
+  id: 'asylum',
+  name: to === 'drift' ? 'Sanctuary' : 'New colours',
+  location: systemById(HOMES[to]).name,
+  map: HOMES[to],
+  briefing: '',
+  pay: 0,
+  run: (g) => runAsylum(g, to, from),
+  available: () => false,
+  victoryTitle: to === 'drift' ? 'You fly with the Drift Union now' : 'You fly for the Helion Combine now',
+});
+/** Where you end up after a mission there: in that system, unless every gate out is closed to you, in which case you are ferried back to Kestrel. */
+function dockAfter(system: string): string {
+  return GATES.some((g) => (g.a === system || g.b === system) && gateState(g, campaign).state !== 'closed') ? system : 'kestrel';
+}
+/** Travel in progress: the systems still to fly through, and what happens on arrival. */
+let journey: { path: string[]; leg: number; then: () => void } | null = null;
+let arrivedFrom: string | null = null;
+
+function travel(path: string[], then: () => void): void {
+  journey = { path, leg: 0, then };
+  nextLeg();
+}
+
+function nextLeg(): void {
+  const j = journey;
+  if (!j) return;
+  if (j.leg >= j.path.length - 1) {
+    journey = null;
+    campaign.at = j.path[j.path.length - 1];
+    arrivedFrom = j.path[j.path.length - 2] ?? null;
+    saveCampaign();
+    j.then();
+    return;
+  }
+  const from = j.path[j.leg];
+  const to = j.path[j.leg + 1];
+  j.leg++;
+  // the Wake work the gates: about one leg in three has company
+  begin(transitMission(from, to, Math.random() < 0.35), 0);
+}
+
+/** Launching a contract somewhere else: fly there through the gates, or jump straight in. */
+function launch(m: MissionDef): void {
+  const dest = mapOf(m, campaign);
+  const way = route(campaign, campaign.at, dest, dest);
+  if (!way || way.length < 2) {
+    begin(m, 0);
+    return;
+  }
+  $('travel-text').textContent = `${m.name} is at ${systemById(dest).name}. You are docked at ${systemById(campaign.at).name}: ${way.length - 1} ${way.length === 2 ? 'jump' : 'jumps'} by gate (${way.map((s) => systemById(s).name).join(' → ')}).`;
+  $('travel-fly').textContent = `Fly there (${way.length - 1} ${way.length === 2 ? 'jump' : 'jumps'})`;
+  show('travel-ask', true);
+  $('travel-fly').onclick = () => {
+    show('travel-ask', false);
+    travel(way, () => begin(m, 0));
+  };
+  $('travel-jump').onclick = () => {
+    show('travel-ask', false);
+    campaign.at = dest;
+    saveCampaign();
+    begin(m, 0);
+  };
+}
+$('travel-cancel').addEventListener('click', () => show('travel-ask', false));
 
 function startAudio(): void {
   game.audio.init();
@@ -335,6 +423,13 @@ function begin(m: MissionDef, checkpoint: number): void {
   // the prologue is flown in a borrowed Kite, before you own anything
   game.playerFit = m.id === 'prologue' ? fitShip('kite', newFit('kite', true)) : fitShip(campaign.activeShip, campaign.fits[campaign.activeShip]);
   game.startMission(checkpoint);
+  if (arrivedFrom && m.id !== 'transit' && checkpoint === 0) {
+    // you came through the gate: a flash of the jump on arrival
+    const p = game.player;
+    if (p) game.fx.jumpIn(p.pos, p.forward(new THREE.Vector3()), '#7fe9ff');
+    game.hint(`Arrived from ${systemById(arrivedFrom).name}`, 3);
+  }
+  arrivedFrom = null;
   if (isFinale(m, campaign) && checkpoint === 0) game.hint(`FINAL MISSION · ${m.name}`, 6);
   game.input.requestPointerLock();
 }
@@ -478,6 +573,17 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 game.onMissionEnd = (result) => {
+  if (mission.id === 'transit' && result === 'victory') {
+    // a leg flown: bounties for anything that tried to stop you, then the next gate
+    campaign.credits += campaign.unlimited ? 0 : game.bounties;
+    for (const id of game.seenClasses) if (!campaign.seen.includes(id)) campaign.seen.push(id);
+    saveCampaign();
+    nextLeg();
+    return;
+  }
+  if (mission.id === 'transit') journey = null;
+  else if (mission.id === 'asylum') campaign.at = mapOf(mission, campaign);
+  else if (mission.id !== 'prologue') campaign.at = dockAfter(mapOf(mission, campaign));
   if (mission.id === 'prologue') {
     // no pay, no fee, no debrief: it always ends adrift
     void result;
@@ -580,8 +686,9 @@ game.onMissionEnd = (result) => {
   choice.innerHTML = '';
   const over = campaign.dead;
   // hardcore has no checkpoints: a failed mission starts over from the beginning
-  $('retry').style.display = result === 'victory' || over || campaign.hardcore ? 'none' : '';
-  $('restart2').style.display = result === 'victory' || over ? 'none' : '';
+  const travelling = mission.id === 'transit' || mission.id === 'asylum';
+  $('retry').style.display = result === 'victory' || over || campaign.hardcore || travelling ? 'none' : '';
+  $('restart2').style.display = result === 'victory' || over || travelling ? 'none' : '';
   $('to-hangar').textContent = over ? 'Start a new campaign' : 'Return to hangar';
   if (over) $('debrief-title').textContent = 'Rook is gone';
   const note = document.createElement('p');

@@ -479,6 +479,7 @@ button.primary {
 .hangar-left {
   left: 16px;
   width: min(400px, 40vw);
+  overflow-x: hidden;
 }
 
 .hangar-right {
@@ -494,6 +495,7 @@ button.primary {
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 12px;
   position: sticky;
@@ -505,9 +507,11 @@ button.primary {
 
 .tabs button {
   flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
-  padding: 8px 4px;
-  font-size: 14px;
+  padding: 7px 4px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .tabs button.on {
@@ -909,6 +913,22 @@ button:disabled {
 
 .campaign-pip.next {
   border-color: #ffd36b;
+  color: #ffd36b;
+}
+
+.starmap-wrap svg {
+  width: 100%;
+  height: auto;
+  background: radial-gradient(ellipse at center, rgba(40, 60, 110, 0.35), rgba(5, 6, 14, 0.6));
+  border: 1px solid rgba(127, 233, 255, 0.25);
+  border-radius: 6px;
+}
+
+.gate-closed {
+  color: #ff8a8a;
+}
+
+.gate-temporary {
   color: #ffd36b;
 }
 

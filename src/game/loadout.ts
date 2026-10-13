@@ -307,6 +307,8 @@ export interface Campaign {
   board: string[];
   /** Side activities flown since the last story chapter (they are capped while the story waits). */
   sideDone: number;
+  /** The system you are docked in (see game/starmap.ts). */
+  at: string;
 }
 
 /** What dying costs on a standard campaign: the tug that recovers you, and the repairs. */
@@ -381,6 +383,7 @@ export function newCampaign(): Campaign {
     dead: false,
     board: [],
     sideDone: 0,
+    at: 'kestrel',
   };
 }
 
@@ -420,6 +423,7 @@ export function migrateCampaign(raw: OldCampaign | null): Campaign {
   c.seen = [...(c.seen ?? [])];
   c.board = [...(c.board ?? [])];
   c.sideDone = c.sideDone ?? 0;
+  c.at = c.at ?? 'kestrel';
   c.hardcore = c.hardcore ?? false;
   c.dead = c.dead ?? false;
   // saves from before standing existed: count the faction contracts already flown
