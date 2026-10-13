@@ -469,10 +469,10 @@ button.primary {
 }
 
 .tabs button {
-  flex: 1;
+  flex: 1 1 auto;
   margin: 0;
   padding: 8px 4px;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .tabs button.on {
@@ -773,4 +773,58 @@ button:disabled {
 
 .card-actions .lock-note:first-child {
   margin-left: 0;
+}
+
+/* ship database */
+.db-card {
+  cursor: pointer;
+  padding: 7px 12px;
+}
+
+.db-card .card-title {
+  font-size: 15px;
+}
+
+.db-card .card-status {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: normal;
+  text-align: right;
+}
+
+.db-fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.db-value {
+  text-align: right;
+}
+
+.db-blurb {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--muted);
+  margin: 8px 0;
+}
+
+.db-paint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.db-paint button {
+  font-size: 13px;
+  padding: 4px 8px;
+  margin: 0;
+}
+
+.db-paint button.on {
+  background: rgba(255, 255, 255, 0.14);
 }

@@ -21,9 +21,11 @@ import {
   type EquipmentId,
   type ShipFit,
 } from '../game/loadout';
+import { DATABASE, DB_CATEGORIES, type DbEntry } from '../game/database';
 import { MISSIONS, type MissionDef } from '../game/missions';
+import type { FactionId } from '../entities/factions';
 
-type Tab = 'ships' | 'upgrades' | 'weapons' | 'equipment';
+type Tab = 'ships' | 'upgrades' | 'weapons' | 'equipment' | 'database';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const cr = (n: number): string => `${n.toLocaleString('en-US')} cr`;
@@ -50,6 +52,10 @@ export class Shop {
 
   onChange: () => void = () => {};
   onShowShip: (shipId: string) => void = () => {};
+  /** Database tab: show an entry on the turntable in a faction's paint. */
+  onShowEntry: (entry: DbEntry, faction: FactionId) => void = () => {};
+  private dbEntry = DATABASE[0];
+  private dbFaction: FactionId = DATABASE[0].operators[0];
   onLaunch: (missionId: string) => void = () => {};
 
   constructor(private campaign: Campaign) {
@@ -85,10 +91,10 @@ export class Shop {
     else if (this.tab === 'ships') this.renderShips(list);
     else if (this.tab === 'upgrades') this.renderUpgrades(list);
     else if (this.tab === 'weapons') this.renderWeapons(list);
-    else this.renderEquipment(list);
+    else if (this.tab === 'equipment') this.renderEquipment(list);
+    else this.renderDatabase(list);
     this.renderStats();
     this.renderMissions();
-    this.onShowShip(this.viewShip);
   }
 
   // --- helpers -------------------------------------------------------------------------------
@@ -429,6 +435,10 @@ export class Shop {
   // --- stats panel ---------------------------------------------------------------------------
 
   private renderStats(): void {
+    if (this.tab === 'database' && this.campaign.started) {
+      this.renderEntry();
+      return;
+    }
     const c = this.campaign;
     const viewId = this.preview?.shipId ?? this.viewShip;
     const cls = SHIP_CLASSES[viewId];
@@ -486,6 +496,57 @@ export class Shop {
     ];
     for (const l of lines) fitEl.appendChild(el('div', '', l));
     this.onShowShip(viewId);
+  }
+
+  // --- database ------------------------------------------------------------------------------
+
+  private renderDatabase(list: HTMLElement): void {
+    list.appendChild(el('p', 'tab-note', 'Everything you can meet in the Reach. Select an entry to put it on the turntable.'));
+    for (const cat of DB_CATEGORIES) {
+      list.appendChild(el('div', 'tab-head', cat));
+      for (const e of DATABASE.filter((d) => d.category === cat)) {
+        const card = this.card(e.name, '', { status: e.operators.map((f) => FACTIONS[f].name).join(' · '), active: this.dbEntry === e });
+        card.classList.add('db-card');
+        card.addEventListener('click', () => {
+          this.dbEntry = e;
+          this.dbFaction = e.operators[0];
+          this.render();
+        });
+        list.appendChild(card);
+      }
+    }
+  }
+
+  private renderEntry(): void {
+    const e = this.dbEntry;
+    $('ship-name').textContent = e.name;
+    $('ship-desc').textContent = e.category;
+    const root = $('ship-stats');
+    root.innerHTML = '';
+    for (const [k, v] of e.facts) {
+      const row = el('div', 'db-fact');
+      row.appendChild(el('span', 'stat-label', k));
+      row.appendChild(el('span', 'db-value', v));
+      root.appendChild(row);
+    }
+    const fitEl = $('ship-fit');
+    fitEl.innerHTML = '';
+    fitEl.appendChild(el('p', 'db-blurb', e.blurb));
+    if (e.operators.length > 1) {
+      const row = el('div', 'db-paint');
+      row.appendChild(el('span', 'stat-label', 'Flown by'));
+      for (const f of e.operators) {
+        const b = this.button(FACTIONS[f].name, () => {
+          this.dbFaction = f;
+          this.renderEntry();
+        });
+        b.classList.toggle('on', f === this.dbFaction);
+        b.style.borderColor = FACTIONS[f].hudColor;
+        row.appendChild(b);
+      }
+      fitEl.appendChild(row);
+    }
+    this.onShowEntry(e, this.dbFaction);
   }
 
   // --- missions ------------------------------------------------------------------------------

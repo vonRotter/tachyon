@@ -3,7 +3,10 @@ import { SeededRandom, clamp, dampFactor } from '../core/math';
 import { StructureBuilder, v3 } from '../world/builder';
 import { FACTIONS, shipPalette } from '../entities/factions';
 import { getShipModel } from '../entities/models';
+import type { FactionId } from '../entities/factions';
 import type { ShipClass } from '../entities/shipClasses';
+import { buildCapitalHull, CAPITAL_INFO, STYLES, type CapitalKind } from '../world/capitals';
+import { CollisionWorld } from '../world/colliders';
 
 /**
  * The hangar between missions: a lit bay inside the station with the selected ship hovering on
@@ -17,6 +20,8 @@ export class Hangar {
   private readonly turntable = new THREE.Group();
   private display: THREE.Group | null = null;
   private displayKey = '';
+  /** True when the displayed model owns its geometry (and must free it). */
+  private displayOwned = false;
   private readonly spot: THREE.SpotLight;
   private readonly field: THREE.Mesh;
   private time = 0;
@@ -171,14 +176,52 @@ export class Hangar {
   showShip(cls: ShipClass, owned = true): void {
     const maker = cls.maker ?? 'kestrel';
     const paint = owned || maker === 'kestrel' ? shipPalette('player', maker) : shipPalette(maker);
+    this.showPainted(cls, paint);
+  }
+
+  /** Database view: a ship in a given faction's paint. */
+  showShipAs(cls: ShipClass, faction: FactionId): void {
+    this.showPainted(cls, shipPalette(faction));
+  }
+
+  private showPainted(cls: ShipClass, paint: ReturnType<typeof shipPalette>): void {
     const key = `${cls.model}:${paint.key}`;
     if (key === this.displayKey) return;
-    if (this.display) this.turntable.remove(this.display);
     const m = getShipModel(cls.model, paint.palette, paint.key);
-    this.display = m.group;
+    this.setDisplay(m.group, key, false);
+    this.targetDist = clamp(cls.radius * 7.5 + 8, 12, 60);
+  }
+
+  /** Database view: a capital ship, shrunk to a turntable model about 18 m long. */
+  showCapital(kind: CapitalKind, faction: FactionId): void {
+    const key = `capital:${kind}:${faction}`;
+    if (key === this.displayKey) return;
+    const style = { ...(STYLES[faction] ?? STYLES.combine), id: 'db', name: CAPITAL_INFO[kind].label };
+    const hull = buildCapitalHull(kind, new CollisionWorld(), new THREE.Matrix4(), style);
+    const model = new THREE.Group();
+    model.add(hull.group);
+    // centre it on the turntable
+    const box = new THREE.Box3().setFromObject(hull.group);
+    const size = box.getSize(new THREE.Vector3());
+    hull.group.position.copy(box.getCenter(new THREE.Vector3())).negate();
+    model.scale.setScalar(18 / Math.max(size.x, size.z, 1));
+    this.setDisplay(model, key, true);
+    this.targetDist = 36;
+  }
+
+  private setDisplay(group: THREE.Group, key: string, owned: boolean): void {
+    if (this.display) {
+      this.turntable.remove(this.display);
+      // capital models are built per view; ship models share cached geometry
+      if (this.displayOwned)
+        this.display.traverse((o) => {
+          if (o instanceof THREE.Mesh) o.geometry.dispose();
+        });
+    }
+    this.display = group;
     this.displayKey = key;
-    this.turntable.add(m.group);
-    this.targetDist = cls.radius * 7.5 + 8;
+    this.displayOwned = owned;
+    this.turntable.add(group);
   }
 
   setShadows(on: boolean): void {

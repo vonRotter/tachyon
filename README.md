@@ -46,6 +46,9 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 
   Locked hulls can still be browsed and previewed in their yard's paint. Ships you own keep your
   colours with their yard's trim.
+- **Ship database** in the hangar: every fighter, gunship, capital ship, civilian hull and
+  installation in the Reach, with facts, a description, and a turntable model you can repaint
+  in each operator's colours.
 - **Test cheat:** Ctrl+P toggles unlimited credits and opens every yard.
 - **Credits** come from contract pay plus a bounty per kill. Repeat runs of a mission pay 40%.
   The campaign (credits, ships, fits, faction choice) is saved in `localStorage`.

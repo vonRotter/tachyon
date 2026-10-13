@@ -270,6 +270,10 @@ window.addEventListener('keydown', (e) => {
 const shop = new Shop(campaign);
 shop.onChange = saveCampaign;
 shop.onShowShip = (id) => game.hangar.showShip(SHIP_CLASSES[id], campaign.ships.includes(id));
+shop.onShowEntry = (entry, faction) => {
+  if (entry.show.kind === 'capital') game.hangar.showCapital(entry.show.capital, faction);
+  else game.hangar.showShipAs(SHIP_CLASSES[entry.show.classId], faction);
+};
 shop.onLaunch = (id) => begin(missionById(id), 0);
 
 function startAudio(): void {
