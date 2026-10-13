@@ -149,14 +149,19 @@ export function buildGallows(world: CollisionWorld): StructureResult & { spinner
   b.strut(shelf.clone().add(v3(40, -3, -30)), v3(-380, 60, 20), 3, rust);
   for (let i = 0; i < 6; i++) beacons.push({ position: shelf.clone().add(v3(-40 + i * 16, 5, 34)), color: new THREE.Color('#ffb020'), phase: i, kind: 'chase' });
 
-  // mounting plates for the gun turrets on top of the girder
+  // mounting plates for the gun turrets on top of and under the girder
   for (const [x, z] of [
     [-250, 0],
     [-20, 22],
     [250, -22],
+    [160, 0],
   ]) {
     b.box(v3(x, h + 3.5, z), v3(18, 2, 18), dark);
     b.box(v3(x, h + 4.6, z), v3(16, 0.3, 0.6), '#ff3050', { glow: 1.6, collide: false });
+  }
+  for (const x of [-120, 100]) {
+    b.box(v3(x, -h - 3.5, 0), v3(18, 2, 18), dark);
+    b.box(v3(x, -h - 4.6, 0), v3(16, 0.3, 0.6), '#ff3050', { glow: 1.6, collide: false });
   }
 
   // lit strips along the inside of the girder, like the towers at Kestrel
@@ -268,6 +273,12 @@ export function buildGallows(world: CollisionWorld): StructureResult & { spinner
       turret3: v3(-170, -194, 0),
       turret4: shelf.clone().add(v3(20, 10, 0)),
       turret5: rockB.clone().add(v3(-120, 150, 60)),
+      turret6: v3(-120, -h - 11, 0),
+      turret7: v3(100, -h - 11, 0),
+      turret8: ref.clone().add(v3(28, 46, 28)),
+      turret9: shelf.clone().add(v3(-30, 10, 0)),
+      turret10: rockB.clone().add(v3(-120, 150, -60)),
+      turret11: v3(160, 42, 0),
       yard: rockB.clone().add(v3(-120, 170, 0)),
     },
   };

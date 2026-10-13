@@ -600,6 +600,15 @@ button:disabled {
   background: rgba(255, 255, 255, 0.1);
 }
 
+.stat-max {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--accent);
+  opacity: 0.22;
+}
+
 .stat-fill {
   position: absolute;
   left: 0;
@@ -666,4 +675,32 @@ button:disabled {
     overflow-y: auto;
     padding-top: 58px;
   }
+}
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 20px);
+  padding: 10px 18px;
+  background: var(--panel);
+  border: 1px solid var(--accent2);
+  color: #ffd36b;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#toast.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.slot-card {
+  cursor: pointer;
 }

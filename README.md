@@ -25,10 +25,15 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 
 ## What is in the game
 
-- **Hangar and shop** between missions. Your ship hovers on a turntable in a station bay (drag
-  to look around). Buy and switch between five ships (Kite, Warden, Lancer, Corsair, Halberd),
-  install three tiers of six upgrades per ship, and buy gun types, missile types and equipment
-  that you can move between ships. Hovering anything previews it on the stat bars.
+- **Hangar and shop** between missions. A new campaign starts with 80,000 cr and a choice of
+  first ship; whatever it does not cost is yours to spend. Your ship hovers on a turntable in a
+  station bay (drag to look around). Five ships (Kite, Warden, Lancer, Corsair, Halberd) differ
+  in hull, shields, speed, turn rate, weapon slots, equipment slots, energy and missile magazine.
+  Upgrades (three tiers of six systems) stay with the hull they are installed on. Each weapon
+  slot takes a gun or a missile launcher (launchers only on ships with a magazine); weapons you
+  remove go to storage and can be fitted to any ship. Hovering anything previews it on the stat
+  bars, and a faint bar shows each stat with every upgrade installed.
+- **Test cheat:** Ctrl+P toggles unlimited credits.
 - **Credits** come from contract pay plus a bounty per kill. Repeat runs of a mission pay 40%.
   The campaign (credits, ships, fits, faction choice) is saved in `localStorage`.
 - **Weapons.** Pulse, rapid, mass driver and scatter guns. Seeker missiles, unguided rocket
@@ -40,8 +45,16 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   once you are inside and slow enough. Kestrel Station has a hangar on its hub, and the Combine
   carrier lands you inside its hangar tunnel.
 - **Mission "Cold Guns"** at Kestrel Station: three Red Wake raider waves ending with a gunship,
-  radio drama between the station, the Helion Combine carrier and the Drift Union, docking, and a
-  closing choice of which faction to meet. Checkpoints let you retry a wave after dying.
+  radio drama between the station, the Helion Combine and the Drift Union. You choose a side by
+  where you land: Kestrel's bay 1 (Drift Union) or the Sovereign Dawn (Combine). Checkpoints let
+  you retry a wave after dying.
+- **Mission "Launch Order"** (Combine side) at the Gallows, a Red Wake base: wait in the
+  carrier's hangar tunnel while flights catapult out ahead of you, silence twelve turrets and a
+  comms relay, then decide the fate of the habitat module. The surrendered Wake fight again if
+  you fire on their homes, and fight beside you if you turn on the Combine.
+- **Enemy tactics differ by faction:** the Red Wake swarm you at close range, Combine pilots hold
+  off at about 600 m and break away before you can close, and Drift pilots work round to your
+  flank.
 - **Arcade flight with slide.** Hold slide to keep your momentum while you spin to aim anywhere.
   The velocity marker on the HUD shows where you are actually going.
 - **Flying through structures.** The station has a habitat ring, braced spokes, solar wings and
@@ -92,7 +105,7 @@ table below lists the defaults.
 |---|---|---|
 | Pitch / yaw | Mouse aim: point the circle, the ship follows (**X** recentres). Virtual stick available in Options | Right stick |
 | Roll (the camera rolls with the ship) | Q / E | Left stick X |
-| Throttle | W / S (**Z** matches target speed) | Left stick Y (L3 matches speed) |
+| Throttle | W / S (**Z** matches target speed). Below zero it reverses at a quarter of top speed; it stops at zero first, so press S again to back up | Left stick Y (L3 matches speed) |
 | Strafe | A / D, R / F | D-pad |
 | Boost | Shift | A / Cross |
 | Slide | Space (hold) | LT / L2 (hold) |

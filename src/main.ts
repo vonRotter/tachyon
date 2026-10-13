@@ -1,6 +1,6 @@
 import './style.css';
 import { Game } from './game/game';
-import { fitShip, migrateCampaign, missionPayout, type Campaign } from './game/loadout';
+import { fitShip, migrateCampaign, missionPayout, newCampaign, type Campaign } from './game/loadout';
 import { missionById, type MissionDef } from './game/missions';
 import { SHIP_CLASSES } from './entities/shipClasses';
 import { Shop } from './ui/shop';
@@ -306,6 +306,36 @@ function begin(m: MissionDef, checkpoint: number): void {
 }
 
 $('launch').addEventListener('click', () => openHangar());
+$('new-campaign').addEventListener('click', () => {
+  if (campaign.started && !window.confirm('Start a new campaign? Your ships, credits and story progress will be lost.')) return;
+  campaign = newCampaign();
+  saveCampaign();
+  openHangar();
+});
+
+// --- Test cheat: Ctrl+P toggles unlimited credits --------------------------------------------
+const toastEl = $('toast');
+let toastTimer = 0;
+function toast(text: string): void {
+  toastEl.textContent = text;
+  toastEl.classList.add('visible');
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => toastEl.classList.remove('visible'), 2600);
+}
+window.addEventListener(
+  'keydown',
+  (e) => {
+    if (!(e.ctrlKey && e.code === 'KeyP')) return;
+    // also stops the browser's print dialog and the pause key
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    campaign.unlimited = !campaign.unlimited;
+    saveCampaign();
+    shop.setCampaign(campaign);
+    toast(campaign.unlimited ? 'Test mode: unlimited credits ON (Ctrl+P to turn off)' : 'Test mode: unlimited credits OFF');
+  },
+  true,
+);
 $('resume').addEventListener('click', () => game.resume());
 $('restart').addEventListener('click', () => begin(mission, 0));
 $('restart2').addEventListener('click', () => begin(mission, 0));
@@ -377,32 +407,14 @@ game.onMissionEnd = (result) => {
   const choice = $('debrief-choice');
   choice.innerHTML = '';
   $('retry').style.display = result === 'victory' ? 'none' : '';
-  if (result === 'victory' && mission.id === 'cold-guns') {
-    const options: [Campaign['allegiance'], string, string][] = [
-      ['combine', 'Dock with the Sovereign Dawn', 'Commander Tessaine and the Helion Combine. Money, ships and questions you are told not to ask.'],
-      ['drift', 'Meet Mother Sorrel', 'The Drift Union. Fewer credits, more friends, and a story about that carrier.'],
-    ];
-    const note = document.createElement('p');
-    for (const [id, title, desc] of options) {
-      const b = document.createElement('button');
-      b.innerHTML = `${title}<small>${desc}</small>`;
-      if (campaign.allegiance === id) b.classList.add('chosen');
-      b.addEventListener('click', () => {
-        campaign.allegiance = id;
-        saveCampaign();
-        for (const el of choice.querySelectorAll('button')) el.classList.remove('chosen');
-        b.classList.add('chosen');
-        note.textContent = 'Choice recorded. Your next contracts will follow from it.';
-      });
-      choice.appendChild(b);
-    }
-    note.textContent = `Credits: ${campaign.credits.toLocaleString()} cr. Two offers are waiting.`;
-    choice.appendChild(note);
-  } else {
-    const note = document.createElement('p');
-    note.textContent = `Credits: ${campaign.credits.toLocaleString()} cr.`;
-    choice.appendChild(note);
-  }
+  const note = document.createElement('p');
+  const sides: Record<string, string> = {
+    combine: 'You landed on the Sovereign Dawn. You fly for the Helion Combine now.',
+    drift: 'You landed at Kestrel and sat down with Mother Sorrel. You fly with the Drift Union now.',
+  };
+  const side = result === 'victory' ? game.missionFlags.allegiance : undefined;
+  note.textContent = `${side ? `${sides[side]} ` : ''}Credits: ${campaign.unlimited ? '∞ (test mode)' : `${campaign.credits.toLocaleString()} cr`}.`;
+  choice.appendChild(note);
   show('debrief', true);
 };
 

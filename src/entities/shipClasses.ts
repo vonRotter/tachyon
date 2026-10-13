@@ -47,6 +47,8 @@ export interface MissileSpec {
   /** Blast radius for splash damage (0 = direct hit only). */
   blast: number;
   scale: number;
+  /** Magazine rounds used per trigger pull (player launchers). */
+  cost?: number;
 }
 
 export const DEFAULT_MISSILE: MissileSpec = {
@@ -86,6 +88,14 @@ export interface ShipClass {
   missiles: number;
   /** Missile type; AI ships use DEFAULT_MISSILE with slower motors. */
   missile?: MissileSpec;
+  /** Player ships: weapon slots (each takes a gun or, if the ship carries missiles, a launcher). */
+  weaponSlots?: number;
+  /** What a newly bought hull comes with. */
+  defaultWeapons?: string[];
+  /** Fitted guns, one per gun slot (set by the loadout, player ships only). */
+  mounts?: GunSpec[];
+  /** Fitted missile launchers (set by the loadout). */
+  launchers?: MissileSpec[];
   price: number;
   /** Equipment slots (player ships). */
   equipSlots?: number;
@@ -129,7 +139,9 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     missiles: 8,
     equipSlots: 2,
     description: 'Light interceptor. Quick, forgiving and cheap to fix. Two equipment slots.',
-    price: 0,
+    weaponSlots: 3,
+    defaultWeapons: ['pulse', 'pulse', 'seeker'],
+    price: 10000,
   },
   lancer: {
     id: 'lancer',
@@ -152,9 +164,11 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     energyRegen: 18,
     boostDrain: 26,
     gun: { damage: 14, cooldown: 0.11, boltSpeed: 680, energyCost: 1.6, range: 950 },
-    missiles: 12,
+    missiles: 14,
     equipSlots: 3,
     description: 'Heavy fighter with long-barrelled guns and a deep missile bay. Slower to turn, hard to kill.',
+    weaponSlots: 4,
+    defaultWeapons: ['pulse', 'pulse', 'seeker', 'seeker'],
     price: 42000,
   },
   raider: {
@@ -203,10 +217,12 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     energyRegen: 18,
     boostDrain: 20,
     gun: { damage: 7, cooldown: 0.1, boltSpeed: 700, energyCost: 1.1, range: 850 },
-    missiles: 4,
+    missiles: 0,
     equipSlots: 2,
     description: 'Ring-drive skimmer from the Kestrel militia yards. Tiny, light and very quick on its feet. It will not take much punishment.',
     bounty: 900,
+    weaponSlots: 2,
+    defaultWeapons: ['pulse', 'pulse'],
     price: 22000,
   },
 
@@ -234,7 +250,9 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     missiles: 8,
     equipSlots: 3,
     description: 'Racing-bred striker with three gun mounts. The fastest thing you can legally buy out here.',
-    price: 68000,
+    weaponSlots: 3,
+    defaultWeapons: ['pulse', 'pulse', 'seeker'],
+    price: 58000,
   },
   halberd: {
     id: 'halberd',
@@ -257,10 +275,12 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     energyRegen: 22,
     boostDrain: 26,
     gun: { damage: 13, cooldown: 0.1, boltSpeed: 700, energyCost: 1.5, range: 980 },
-    missiles: 16,
+    missiles: 20,
     equipSlots: 4,
     description: 'Four guns, a torpedo-rated bay and armour like a bulkhead. Built to take on gunships.',
-    price: 115000,
+    weaponSlots: 4,
+    defaultWeapons: ['pulse', 'pulse', 'seeker', 'seeker'],
+    price: 75000,
   },
   sabre: {
     id: 'sabre',

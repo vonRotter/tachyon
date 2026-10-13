@@ -117,6 +117,17 @@ export class Docking {
 
   private readonly f: Frame = { pad: new THREE.Vector3(), outward: new THREE.Vector3(), up: new THREE.Vector3() };
 
+  /** World positions of every open port's outer gate, for HUD markers before clearance. */
+  openPorts(): { name: string; pos: THREE.Vector3 }[] {
+    if (!this.allowed || this.active) return [];
+    return this.ports
+      .filter((p) => this.allowed?.has(p.id))
+      .map((p) => {
+        const f = this.frame(p, { pad: new THREE.Vector3(), outward: new THREE.Vector3(), up: new THREE.Vector3() });
+        return { name: p.name, pos: f.pad.clone().addScaledVector(f.outward, p.mouth + 60) };
+      });
+  }
+
   /** Nearest allowed port within range, or null. */
   nearest(pos: THREE.Vector3, range = 6000): DockSpec | null {
     let best: DockSpec | null = null;

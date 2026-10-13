@@ -22,6 +22,8 @@ export interface HudData {
   time: number;
   gamepad: boolean;
   dock: DockGuide | null;
+  /** Open docks before clearance is requested. */
+  docks: { name: string; pos: THREE.Vector3 }[];
 }
 
 const _v = new THREE.Vector3();
@@ -302,6 +304,7 @@ export class Hud {
     this.statusPanel(d);
     this.radar(d);
     if (d.dock) this.dockGuide(d, d.dock);
+    for (const port of d.docks) this.dockMarker(d, port);
 
     // objective & hint
     g.textAlign = 'center';
@@ -317,6 +320,40 @@ export class Hud {
       g.font = `700 18px ${FONT}`;
       g.fillStyle = '#ff9a3c';
       g.fillText('LEAVING THE OPERATIONS AREA. TURN BACK', this.w / 2, this.h * 0.34);
+    }
+  }
+
+  /** A faint marker for an open dock you have not asked to land at yet. */
+  private dockMarker(d: HudData, port: { name: string; pos: THREE.Vector3 }): void {
+    const g = this.ctx;
+    const sp = this.project(port.pos, d.camera);
+    g.strokeStyle = 'rgba(95,232,255,0.8)';
+    g.fillStyle = 'rgba(95,232,255,0.85)';
+    g.lineWidth = 1.5;
+    if (sp && sp.x > 30 && sp.x < this.w - 30 && sp.y > 30 && sp.y < this.h - 30) {
+      const r = 10;
+      g.beginPath();
+      g.moveTo(sp.x, sp.y - r);
+      g.lineTo(sp.x + r, sp.y);
+      g.lineTo(sp.x, sp.y + r);
+      g.lineTo(sp.x - r, sp.y);
+      g.closePath();
+      g.stroke();
+      g.font = `600 12px ${FONT}`;
+      g.textAlign = 'center';
+      g.fillText(`${port.name.toUpperCase()}  ${Math.round(port.pos.distanceTo(d.player.pos))} m`, sp.x, sp.y + 24);
+    } else {
+      const e = this.edge(port.pos, d.camera);
+      g.save();
+      g.translate(e.x, e.y);
+      g.rotate(e.a);
+      g.beginPath();
+      g.moveTo(12, 0);
+      g.lineTo(-5, -8);
+      g.lineTo(-5, 8);
+      g.closePath();
+      g.stroke();
+      g.restore();
     }
   }
 
@@ -437,9 +474,10 @@ export class Hud {
     g.textAlign = 'left';
     g.font = `600 12px ${FONT}`;
     g.fillStyle = 'rgba(255,255,255,0.7)';
-    const kind = p.cls.missile?.kind ?? 'seeker';
-    const missileName = { seeker: 'SEEKER', rocket: 'ROCKETS', swarm: 'SWARM', torpedo: 'TORPEDO' }[kind];
-    const parts = [`${missileName}  ${p.missiles}`];
+    const short = { seeker: 'SEEKER', rocket: 'ROCKETS', swarm: 'SWARM', torpedo: 'TORPEDO' } as const;
+    const kinds = p.cls.launchers ? [...new Set(p.cls.launchers.map((l) => short[l.kind]))] : [short[p.cls.missile?.kind ?? 'seeker']];
+    const parts: string[] = [];
+    if (p.cls.missiles > 0 && kinds.length) parts.push(`${kinds.join('/')}  ${Math.floor(p.missiles + 1e-6)}/${p.cls.missiles}`);
     if (p.equipment.has('flares')) parts.push(`FLARES  ${p.flares}`);
     if (p.equipment.has('shieldCell')) parts.push(p.shieldCellTimer > 0 ? `CELL  ${Math.ceil(p.shieldCellTimer)}s` : 'CELL  READY');
     g.fillText(parts.join('   ·   '), x, y + 106);
@@ -454,7 +492,17 @@ export class Hud {
     g.fillStyle = 'rgba(255,255,255,0.7)';
     g.fillText('M/S', rx, this.h - 66);
     const tw = 160;
-    this.bar(rx - tw, this.h - 50, tw, 8, p.controls.throttle, '#4dfcd2');
+    if (p.controls.throttle >= 0) this.bar(rx - tw, this.h - 50, tw, 8, p.controls.throttle, '#4dfcd2');
+    else {
+      // reverse: an amber bar growing from the left, against a quarter-length scale
+      this.bar(rx - tw, this.h - 50, tw, 8, 0, '#4dfcd2');
+      g.fillStyle = '#ffb347';
+      g.fillRect(rx - tw, this.h - 50, tw * (-p.controls.throttle / 0.25) * 0.25, 8);
+      g.font = `700 12px ${FONT}`;
+      g.fillText('REVERSE', rx, this.h - 34);
+      g.font = `600 12px ${FONT}`;
+      g.fillStyle = 'rgba(255,255,255,0.7)';
+    }
     g.fillText('THROTTLE', rx - tw - 8, this.h - 46);
     const tags: string[] = [];
     if (p.boosting) tags.push('BOOST');

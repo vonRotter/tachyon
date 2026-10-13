@@ -54,8 +54,9 @@ export async function runLaunchOrder(g: Game, checkpoint: number): Promise<void>
 
   // The base: turrets, the relay on the mast, the habitat module under the girder
   const turrets: Ship[] = [];
+  let betrayed = false;
   if (checkpoint <= 1) {
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 12; i++) {
       turrets.push(g.spawnShip('turret', 'wake', 'Gun turret', P(`turret${i}`).clone(), P('center'), { turret: true, skill: 0.55, playerBias: 0.5 }));
     }
   }
@@ -98,28 +99,32 @@ export async function runLaunchOrder(g: Game, checkpoint: number): Promise<void>
     await g.say('tessaine', 'Rook. The Red Wake has nested in that rig for six years. Today it ends. Turrets first, then the comms mast. Nothing transmits out of the Gallows. Nothing.');
     await g.say('vale', 'Lance lead on the cat. Let us go to work.');
 
-    const calls: [number, string][] = [
-      [0, 'Lance one, cleared. Go.'],
-      [1, 'Lance two, go.'],
-      [2, 'Lance three, go.'],
-      [3, 'Sabre one, cleared. Go.'],
-      [4, 'Sabre two, go.'],
-      [5, 'Sabre three, go.'],
-      [6, 'Sabre four, go.'],
-      [7, 'Sabre five, go.'],
+    // flights go out together, a row of three catapults at a time; Rook goes with the last row
+    const groups: [number[], string][] = [
+      [[0, 1, 2], 'Lance flight, you are cleared. Go, go, go.'],
+      [[3, 4, 5], 'Sabre one through three, cleared. Go.'],
     ];
-    for (const [i, line] of calls) {
-      g.objective = `Wait for launch clearance · ${queue.length - i} ahead of you`;
-      void g.say('quell', line);
-      await g.wait(1.4);
+    let ahead = queue.length;
+    for (const [ids, line] of groups) {
+      g.objective = `Wait for launch clearance · ${ahead} ahead of you`;
+      await g.say('quell', line);
+      for (const i of ids) {
+        g.catapult(queue[i]);
+        const ai = queue[i].ai as AIPilot | null;
+        if (ai) ai.patrolPoint.copy(P('center'));
+        await g.wait(0.25);
+      }
+      ahead -= ids.length;
+      await g.wait(2.5);
+    }
+    g.objective = 'Launch!';
+    await g.say('quell', 'Sabre four, Sabre five and Rook, you are on the catapults. Hands off the stick until I say.');
+    await g.say('quell', 'Launch in three. Two. One. Go!');
+    for (const i of [6, 7]) {
       g.catapult(queue[i]);
       const ai = queue[i].ai as AIPilot | null;
       if (ai) ai.patrolPoint.copy(P('center'));
-      await g.wait(1.6);
     }
-    g.objective = 'Launch!';
-    await g.say('quell', 'Rook, you are on the catapult. Hands off the stick until I say.');
-    await g.say('quell', 'Launch in three. Two. One. Go!');
     g.catapult(player);
     g.setMusicIntensity(0.6);
     await g.wait(2);
@@ -146,10 +151,10 @@ export async function runLaunchOrder(g: Game, checkpoint: number): Promise<void>
       g.objective = `Destroy the turrets (${alive(turrets)} left)`;
       if (!reinforced && alive(turrets) <= 3) {
         reinforced = true;
-        void (async () => {
+        (async () => {
           await g.say('vey', 'Hunters, launch. Everything we have.');
           wakeWave(3, 3, 'Wake Hunter');
-        })();
+        })().catch(() => undefined);
       }
       return alive(turrets) === 0;
     });
@@ -175,8 +180,35 @@ export async function runLaunchOrder(g: Game, checkpoint: number): Promise<void>
   g.checkpoint = 3;
   g.setMusicIntensity(0.4);
   habitat.invulnerable = false;
-  // the base is beaten: what Wake fighters remain break off
-  for (const s of g.ships) if (s.faction === 'wake' && !s.cls.anchored && s.alive) g.jumpOut(s);
+  // the base is beaten and the Wake surrender: their last fighters fall back to guard the habitat
+  // and hold fire, but they will fight again for it, or for whoever stands up for it
+  const guards: Ship[] = [];
+  for (let i = 0; i < 3; i++) {
+    guards.push(g.spawnShip('raider', 'wake', 'Nest guard', P('habitat').clone().add(v(-80 + i * 80, -70, 120)), P('habitat'), { skill: 0.55, playerBias: 0.6 }));
+  }
+  g.setRelation('wake', 'player', false);
+  g.setRelation('wake', 'combine', false);
+  for (const s of g.ships) {
+    const ai = s.faction === 'wake' && s.alive ? (s.ai as AIPilot | null) : null;
+    if (ai && ai.patrolPoint) ai.patrolPoint.copy(P('habitat'));
+    if (s.faction === 'wake') s.target = null;
+  }
+  let wakeAtPlayer = false;
+  let wakeAtCombine = false;
+  const watchHabitat = () => {
+    const by = habitat.lastAttacker;
+    if (by?.isPlayer && !wakeAtPlayer && !betrayed) {
+      wakeAtPlayer = true;
+      g.setRelation('wake', 'player', true);
+      void g.say('vey', 'You are shooting at our homes! Wake, defend the Nest!');
+    } else if (by && by.faction === 'combine' && !wakeAtCombine) {
+      wakeAtCombine = true;
+      g.setRelation('wake', 'combine', true);
+    }
+    return false;
+  };
+  // runs for the rest of the mission; an aborted mission rejects it, which is fine
+  g.until(watchHabitat).catch(() => undefined);
   await g.say('nessa', 'This is the habitat module! There are forty families in here. We surrender. Please, hold your fire!');
   await g.say('tessaine', 'Rook. The habitat. Burn it.');
   await g.say('vale', 'Commander, those are civilians.');
@@ -184,7 +216,6 @@ export async function runLaunchOrder(g: Game, checkpoint: number): Promise<void>
   g.objective = 'Your call: destroy the habitat, or refuse';
   g.hint('Shoot the habitat to follow orders. Hold your fire to refuse. You can also turn your guns on the Combine.', 9);
 
-  let betrayed = false;
   g.resetFriendlyFire(160);
   g.onBetrayal = (f) => {
     if (f === 'combine') betrayed = true;
@@ -223,6 +254,9 @@ export async function runLaunchOrder(g: Game, checkpoint: number): Promise<void>
     // Rook turned on the Combine to protect the habitat
     g.missionFlags.gallows = 'defended';
     g.setRelation('combine', 'player', true);
+    // the Wake take your side
+    g.setRelation('wake', 'player', false);
+    g.setRelation('wake', 'combine', true);
     for (const s of wing) {
       const ai = s.ai as AIPilot | null;
       if (ai && s.alive) {
@@ -234,15 +268,18 @@ export async function runLaunchOrder(g: Game, checkpoint: number): Promise<void>
     await g.say('vale', 'Rook! What are you doing?');
     await g.say('tessaine', 'All wings: the contractor is hostile. Bring that ship down.');
     await g.say('nessa', 'Someone is shooting at the Combine! Thank you, pilot, whoever you are!');
+    void g.say('vey', 'Whoever you are, pilot, the Wake has your back. Guards, with them!');
     g.objective = 'Survive. Protect the habitat';
     await g.wait(10);
     await g.say('sorrel', 'Rook? Mother Sorrel. We heard Vey on the open band. Hold on, the Long Patience is jumping in to take those people off.');
     const center = P('center');
+    g.setRelation('combine', 'drift', true);
+    // the Drift came to take the Wake's families off, so nobody here shoots at them
+    g.setRelation('wake', 'drift', false);
     const drift: Ship[] = [];
     for (let i = 0; i < 4; i++) {
       drift.push(g.jumpIn('kite', 'drift', 'Drift escort', center.clone().add(v(400 - i * 60, 250, -700)), center, { skill: 0.6, playerBias: 0 }));
     }
-    g.setRelation('combine', 'drift', true);
     await g.until(() => alive(wing) === 0 || g.missionTime > deadline + 140 || !habitat.alive);
     g.objective = '';
     if (habitat.alive) {

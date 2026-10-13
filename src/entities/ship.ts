@@ -123,6 +123,10 @@ export class Ship {
 
   gunTimer = 0;
   gunSide = 0;
+  /** Per-slot cooldowns for player weapon fits. */
+  readonly mountTimers: number[] = [];
+  /** Next launcher to fire (player fits rotate through them). */
+  launcherIndex = 0;
   missileTimer = 0;
   lastDamageTime = -99;
   lastAttacker: Ship | null = null;
@@ -289,7 +293,8 @@ export class Ship {
     if (!c.slide) {
       // Forward speed is driven by a thrust-limited motor; sideways velocity is bled off by the
       // flight computer at a finite rate ("grip"), so hard turns carve with some slip.
-      const targetSpeed = (wantsBoost ? cls.boostSpeed : clamp(c.throttle, 0, 1) * cls.maxSpeed) * pw.speed;
+      // negative throttle backs up (the player's throttle goes down to -0.25)
+      const targetSpeed = (wantsBoost ? cls.boostSpeed : clamp(c.throttle, -0.25, 1) * cls.maxSpeed) * pw.speed;
       const along = this.vel.dot(_fwd);
       const thrustAccel = wantsBoost ? cls.boostSpeed * 0.55 : cls.maxSpeed * 0.6;
       const brakeAccel = cls.maxSpeed * 0.75;
@@ -321,6 +326,7 @@ export class Ship {
     }
     if (this.shieldCellTimer > 0) this.shieldCellTimer -= dt;
     if (this.gunTimer > 0) this.gunTimer -= dt;
+    for (let i = 0; i < this.mountTimers.length; i++) if (this.mountTimers[i] > 0) this.mountTimers[i] -= dt;
     if (this.missileTimer > 0) this.missileTimer -= dt;
   }
 

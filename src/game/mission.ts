@@ -141,17 +141,25 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
     for (const e of escorts) g.jumpOut(e);
     await g.wait(1.5);
     await g.say('tessaine', 'Impressive flying, Rook. The Combine pays well for talent, and better for discretion. Dock with the Sovereign Dawn. We should talk.');
-    await g.say('sorrel', 'Rook. Before you go to them, come see me. Ask yourself why a Combine carrier went quiet the moment the Wake arrived.');
-    await g.say('varga', "Your slot's open, Rook. They're both waiting for you. Choose carefully. Out here, choices stick.");
-    g.objective = 'Dock at Kestrel Station, bay 1';
+    await g.say('sorrel', 'Rook. Before you go to them, come see me. I am aboard Kestrel, bay one. Ask yourself why a Combine battlecruiser went quiet the moment the Wake arrived.');
+    await g.say('varga', "Your slot's open, Rook. Bay one is ours, the Dawn's hangar is theirs. Choose carefully. Out here, choices stick.");
+    // the choice is where you land
+    g.objective = 'Choose your side: dock at Kestrel bay 1 (Drift Union) or the Sovereign Dawn (Helion Combine)';
     g.hint(
-      pad() ? 'Press X to request docking clearance, then fly through the gates' : `Press ${key('dock')} to request docking clearance, then fly through the gates`,
-      8,
+      pad()
+        ? 'Fly to either dock and press X for clearance. Where you land is your answer'
+        : `Fly to either dock and press ${key('dock')} for clearance. Where you land is your answer`,
+      9,
     );
-    await g.say('varga', 'Bay one is the hangar on the hub, above the spokes. Follow the gates in and keep it under forty-five.');
-    await g.dock(['kestrel.bay1']);
+    const port = await g.dock(['kestrel.bay1', 'carrier.hangar']);
     g.objective = '';
-    await g.say('varga', 'Clamps are on. Welcome to Kestrel, Rook.');
+    if (port === 'carrier.hangar') {
+      g.missionFlags.allegiance = 'combine';
+      await g.say('quell', 'Welcome aboard the Sovereign Dawn, Rook. The Commander will see you now.');
+    } else {
+      g.missionFlags.allegiance = 'drift';
+      await g.say('sorrel', 'You came. Sit down, Rook. Let me tell you about that battlecruiser.');
+    }
     await g.wait(0.5);
     g.endMission('victory');
   }

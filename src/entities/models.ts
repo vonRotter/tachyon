@@ -64,8 +64,28 @@ function kite(p: Palette): ShipModel {
     ],
     p.primary,
   );
-  b.sphere(v3(0, 1.0, -1.1), 1, p.canopy, { ...NO, detail: 2, scale: v3(1.0, 0.75, 1.9) });
-  b.torus(v3(0, 0.62, -1.1), 1.02, 0.1, p.accent, { quat: new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2), radial: 4, tubular: 20 });
+  // cockpit: a faceted teardrop canopy sunk into the pod, with a frame spine and a cheek sill
+  b.hull(
+    [
+      v3(0, 0.7, -3.3),
+      v3(0.62, 0.78, -2.2),
+      v3(-0.62, 0.78, -2.2),
+      v3(0.78, 0.86, -0.9),
+      v3(-0.78, 0.86, -0.9),
+      v3(0, 1.62, -1.3),
+      v3(0, 1.5, -0.1),
+      v3(0.5, 1.0, 0.7),
+      v3(-0.5, 1.0, 0.7),
+      v3(0, 1.2, 0.9),
+    ],
+    p.canopy,
+    1.1,
+  );
+  b.strut(v3(0, 1.66, -1.5), v3(0, 1.55, 0.1), 0.07, '#2b2f45', { ...NO, sides: 4 });
+  b.strut(v3(-0.7, 1.2, -0.95), v3(0.7, 1.2, -0.95), 0.06, '#2b2f45', { ...NO, sides: 4 });
+  b.hullMirrored(plate([v3(0.72, 0.62, -2.6), v3(0.88, 0.7, 0.6), v3(1.02, 0.5, 0.6), v3(0.86, 0.42, -2.6)], SIDEN, 0.08), p.accent);
+  // headrest fairing behind the canopy, flowing into the spine
+  b.hull([v3(0.45, 0.9, 0.5), v3(-0.45, 0.9, 0.5), v3(0, 1.35, 0.8), v3(0.3, 0.95, 2.4), v3(-0.3, 0.95, 2.4), v3(0, 1.1, 2.6)], p.primary);
   // tail spine tapering back to a stinger
   b.hull([v3(0.7, 0.2, 1.6), v3(-0.7, 0.2, 1.6), v3(0, 0.95, 1.6), v3(0, -0.6, 1.6), v3(0.25, 0.3, 6.2), v3(-0.25, 0.3, 6.2), v3(0, 0.55, 6.4), v3(0, 0.05, 6.4)], p.secondary);
   b.box(v3(0, 1.0, 2.6), v3(0.18, 0.12, 2.6), p.accent, { ...NO, glow: 1.4 });

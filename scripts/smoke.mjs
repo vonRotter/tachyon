@@ -48,6 +48,9 @@ await page.screenshot({ path: `${OUT}01-title.png` });
 await page.click('#launch');
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}02-hangar.png` });
+// new campaign: take the cheapest ship
+await page.click('#shop-list .card button');
+await page.waitForTimeout(300);
 await page.click('#hangar-launch');
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}02-launch.png` });

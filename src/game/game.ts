@@ -17,12 +17,12 @@ import type { Beacon, Spinner } from '../world/structures';
 import { LOCATIONS, type Location } from '../world/locations';
 import { Effects } from '../fx/effects';
 import { POWER, Ship, type PowerMode } from '../entities/ship';
-import { DEFAULT_MISSILE, SHIP_CLASSES, type ShipClass } from '../entities/shipClasses';
+import { DEFAULT_MISSILE, SHIP_CLASSES, type GunSpec, type MissileSpec, type ShipClass } from '../entities/shipClasses';
 import type { Fitted } from './loadout';
 import { Hangar } from './hangar';
 import { DockPilot, Docking, type DockGuide } from './docking';
 import { FACTIONS, hostile, resetRelations, setHostile, type FactionId } from '../entities/factions';
-import { AIPilot, TurretAI, WaypointPilot } from '../entities/ai';
+import { AIPilot, FACTION_TACTICS, TurretAI, WaypointPilot, type Tactic } from '../entities/ai';
 import { Instructor } from '../entities/instructor';
 import { BoltSystem, MissileSystem, type CombatContext } from '../entities/weapons';
 import { Hud } from '../ui/hud';
@@ -51,7 +51,12 @@ export interface SpawnOptions {
   damageScale?: number;
   /** Fixed gun emplacement AI instead of a pilot. */
   turret?: boolean;
+  /** Fighting style; defaults by faction (Wake swarm, Combine stand off, Drift flank). */
+  tactic?: Tactic;
 }
+
+/** Lowest throttle setting: reverse at a quarter of top speed. */
+const REVERSE_THROTTLE = -0.25;
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -116,6 +121,8 @@ export class Game implements CombatContext {
   /** Smoothed angular velocity of the aim direction (world space, rad/s). */
   private readonly aimRate = new THREE.Vector3();
   private readonly prevAimDir = new THREE.Vector3(0, 0, -1);
+  /** Throttle is parked at zero until the throttle-down key is pressed again. */
+  private stopDetent = false;
   /** Seconds the aim frame keeps following the ship's roll after Q/E is released. */
   private rollFollow = 0;
   /** Camera offset driven by the ship's acceleration: it swings out in turns and on boost. */
@@ -415,6 +422,7 @@ export class Game implements CombatContext {
       ship.ai = new TurretAI(this, opts.skill ?? 0.5, opts.playerBias ?? 0.4);
     } else if (opts.skill !== undefined) {
       const ai = new AIPilot(this, opts.skill);
+      ai.tactic = opts.tactic ?? FACTION_TACTICS[faction] ?? 'swarm';
       ai.playerBias = opts.playerBias ?? 0.5;
       ai.patrolPoint.copy(this.points['station.hub'] ?? this.points['gallows.center'] ?? this.location.arena.center);
       ship.ai = ai;
@@ -688,7 +696,14 @@ export class Game implements CombatContext {
     c.slide = f.slide;
     c.fire = f.fire;
     c.missile = f.missile;
-    c.throttle = clamp(c.throttle + f.throttleDelta * dt * 0.8, 0, 1);
+    // throttle runs down into reverse (a quarter of top speed); it pauses at a full stop so a
+    // held key does not back you up by accident
+    const next = clamp(c.throttle + f.throttleDelta * dt * 0.8, REVERSE_THROTTLE, 1);
+    if (f.throttleDelta >= 0) this.stopDetent = false;
+    if (c.throttle > 0 && next <= 0 && f.throttleDelta < 0) {
+      c.throttle = 0;
+      this.stopDetent = true;
+    } else if (!(this.stopDetent && next < 0)) c.throttle = next;
     const cap = Docking.approachThrottle(this.dockGuide, p);
     if (cap !== null && f.throttleDelta <= 0) c.throttle = Math.min(c.throttle, cap);
     if (this.input.pressed('matchSpeed') && p.target) {
@@ -758,21 +773,43 @@ export class Game implements CombatContext {
   }
 
   private fireGuns(ship: Ship): void {
-    const gun = ship.cls.gun;
+    const mounts = ship.cls.mounts;
+    if (mounts && mounts.length) {
+      // player fits: every gun slot cycles on its own, from its own hardpoint
+      let sound = true;
+      for (let i = 0; i < mounts.length; i++) {
+        if ((ship.mountTimers[i] ?? 0) > 0) continue;
+        const hp = ship.model.guns[i % ship.model.guns.length];
+        if (this.fireBolt(ship, mounts[i], hp, sound)) {
+          ship.mountTimers[i] = mounts[i].cooldown * POWER[ship.power].gunRate;
+          sound = false;
+        }
+      }
+      return;
+    }
+    if (ship.gunTimer > 0) return;
+    const hp = ship.model.guns[ship.gunSide % ship.model.guns.length];
+    if (this.fireBolt(ship, ship.cls.gun, hp, true)) {
+      ship.gunSide++;
+      ship.gunTimer = ship.cls.gun.cooldown * POWER[ship.power].gunRate;
+    }
+  }
+
+  /** One shot (or one scatter blast) from a hardpoint. Returns false if it could not fire. */
+  private fireBolt(ship: Ship, gun: GunSpec, gunLocal: THREE.Vector3, sound: boolean): boolean {
     const pw = POWER[ship.power];
     const cost = gun.energyCost * pw.gunCost;
-    if (ship.gunTimer > 0 || ship.energy < cost) return;
+    if (ship.energy < cost || gun.damage <= 0) return false;
     ship.forward(_v);
-    const gunLocal = ship.model.guns[ship.gunSide++ % ship.model.guns.length];
     const origin = ship.toWorld(gunLocal, _v2).clone();
     const dir = _v3;
     const t = ship.target;
     if (gun.turretArc !== undefined) {
-      if (!t || !t.alive) return;
+      if (!t || !t.alive) return false;
       _n.subVectors(t.pos, origin);
       const ti = interceptTime(_n, _relVel.subVectors(t.vel, ship.vel), gun.boltSpeed);
       dir.copy(t.pos).addScaledVector(t.vel, Math.max(ti, 0)).sub(origin).normalize();
-      if (dir.angleTo(_v) > gun.turretArc) return;
+      if (dir.angleTo(_v) > gun.turretArc) return false;
     } else {
       dir.copy(ship.pos).addScaledVector(_v, 450).sub(origin).normalize();
       if (ship.isPlayer && t && t.alive && this.hasLead) {
@@ -788,7 +825,6 @@ export class Game implements CombatContext {
       dir.z += rand(-spread, spread);
       dir.normalize();
     }
-    ship.gunTimer = gun.cooldown * pw.gunRate;
     ship.energy -= cost;
     if (ship.isPlayer) {
       this.shake = Math.max(this.shake, 0.1);
@@ -816,19 +852,36 @@ export class Game implements CombatContext {
       color0: new THREE.Color(palette.bolt).multiplyScalar(3),
       color1: new THREE.Color(palette.bolt),
     });
-    const kind: LaserKind = ship.isPlayer
-      ? gun.sound && gun.sound !== 'pulse'
-        ? gun.sound
-        : 'player'
-      : gun.turretArc !== undefined
-        ? 'heavy'
-        : ship.faction === 'wake'
-          ? 'enemy'
-          : 'ally';
-    this.audio.laser(ship.isPlayer ? null : origin, kind);
+    if (sound) {
+      const kind: LaserKind = ship.isPlayer
+        ? gun.sound && gun.sound !== 'pulse'
+          ? gun.sound
+          : 'player'
+        : gun.turretArc !== undefined
+          ? 'heavy'
+          : ship.faction === 'wake'
+            ? 'enemy'
+            : 'ally';
+      this.audio.laser(ship.isPlayer ? null : origin, kind);
+    }
+    return true;
+  }
+
+  /** Lock time of the quickest guided launcher, or 0 when nothing fitted needs a lock. */
+  private lockTimeFor(ship: Ship): number {
+    const launchers = ship.cls.launchers;
+    if (launchers) {
+      const guided = launchers.filter((l) => l.lockTime > 0).map((l) => l.lockTime);
+      return guided.length ? Math.min(...guided) : 0;
+    }
+    return (ship.cls.missile ?? DEFAULT_MISSILE).lockTime;
   }
 
   private fireMissile(ship: Ship): void {
+    if (ship.cls.launchers) {
+      this.fireLauncher(ship, ship.cls.launchers);
+      return;
+    }
     if (ship.missiles <= 0) return;
     const spec = ship.cls.missile ?? DEFAULT_MISSILE;
     const guided = spec.lockTime > 0;
@@ -851,6 +904,28 @@ export class Game implements CombatContext {
         4,
       );
     }
+  }
+
+  /**
+   * Player launchers take turns: the missile key fires the next launcher that can fire right
+   * now (unguided ones always can; guided ones need the lock). All share one magazine.
+   */
+  private fireLauncher(ship: Ship, launchers: MissileSpec[]): void {
+    if (ship.missileTimer > 0) return;
+    const target = ship.target && ship.target.alive ? ship.target : null;
+    for (let k = 0; k < launchers.length; k++) {
+      const i = (ship.launcherIndex + k) % launchers.length;
+      const spec = launchers[i];
+      const cost = spec.cost ?? 1;
+      if (ship.missiles < cost - 1e-6) continue;
+      if (spec.lockTime > 0 && (!target || this.lockProgress < 1)) continue;
+      ship.missiles -= cost;
+      ship.missileTimer = spec.refire;
+      ship.launcherIndex = i + 1;
+      for (let n = 0; n < spec.salvo; n++) this.missiles.launch(ship, spec.lockTime > 0 ? target : null, this, spec, n, spec.salvo);
+      return;
+    }
+    this.audio.blip(300, 0.1, 0.1);
   }
 
   private collide(ship: Ship, normal: THREE.Vector3): void {
@@ -1007,7 +1082,7 @@ export class Game implements CombatContext {
       }
       p.forward(_v2);
       const angle = _v2.angleTo(_v.normalize());
-      const lockTime = (p.cls.missile ?? DEFAULT_MISSILE).lockTime;
+      const lockTime = this.lockTimeFor(p);
       if (lockTime > 0 && p.missiles > 0 && dist < 1600 && angle < 0.24) this.lockProgress = Math.min(1, this.lockProgress + dt / lockTime);
       else this.lockProgress = Math.max(0, this.lockProgress - dt * 2.5);
     } else this.lockProgress = 0;
@@ -1314,6 +1389,7 @@ export class Game implements CombatContext {
         time: this.time,
         gamepad: this.input.device === 'gamepad',
         dock: this.dockGuide,
+        docks: this.docking.openPorts(),
       });
     } else this.hud.clear();
   }

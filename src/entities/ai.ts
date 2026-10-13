@@ -26,6 +26,16 @@ const WORLD_UP = new THREE.Vector3(0, 1, 0);
 type State = 'attack' | 'evade' | 'extend' | 'patrol';
 
 /**
+ * How a pilot fights:
+ * - swarm: close in and turn-fight at knife range (the Red Wake)
+ * - standoff: shoot from long range and break away before the target can close (Combine)
+ * - flanker: work round to the target's side or tail before committing (Drift)
+ */
+export type Tactic = 'swarm' | 'standoff' | 'flanker';
+
+export const FACTION_TACTICS: Partial<Record<string, Tactic>> = { wake: 'swarm', combine: 'standoff', drift: 'flanker', kestrel: 'swarm' };
+
+/**
  * AI pilot: pursuit with lead, evasive jinks, overshoot extension and sphere-cast obstacle
  * avoidance. It flies through the same geometry under the same flight model as the player, so
  * dragging it through a lattice tower is a legitimate way to shake it.
@@ -45,6 +55,9 @@ export class AIPilot {
   playerBias = 0.5;
   /** Scripted target that overrides normal target selection while it lives. */
   forcedTarget: Ship | null = null;
+  tactic: Tactic = 'swarm';
+  /** Flankers pick a side of the target to come in from. */
+  private readonly flankSide = Math.random() < 0.5 ? -1 : 1;
   /** Optional anchor; with no hostiles the pilot circles it. */
   readonly patrolPoint = new THREE.Vector3();
 
@@ -139,10 +152,19 @@ export class AIPilot {
           this.enterEvade(ship, ship.lastAttacker ? ship.lastAttacker.pos : t.pos);
         }
       }
-      if (this.state === 'attack' && dist < 45 + ship.radius * 3 && _fwd.dot(_rel) > 0) {
+      // break-off distance: swarmers pass at knife range, standoff pilots never let you close
+      const breakAt = this.tactic === 'standoff' && !t.cls.anchored ? 420 + this.skill * 120 : 45 + ship.radius * 3;
+      if (this.state === 'attack' && dist < breakAt && _fwd.dot(_rel) > 0) {
         this.state = 'extend';
-        this.stateTimer = rand(1.4, 2.4);
-        this.jinkDir.copy(_fwd).addScaledVector(_tmp.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)), 0.8).normalize();
+        if (this.tactic === 'standoff') {
+          // run out wide and come round again for another long-range pass
+          this.stateTimer = rand(2.2, 3.2);
+          _tmp2.crossVectors(_rel, WORLD_UP).normalize().multiplyScalar(this.flankSide);
+          this.jinkDir.copy(_rel).normalize().negate().addScaledVector(_tmp2, 1.2).normalize();
+        } else {
+          this.stateTimer = rand(1.4, 2.4);
+          this.jinkDir.copy(_fwd).addScaledVector(_tmp.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)), 0.8).normalize();
+        }
       }
 
       if (this.state === 'evade') {
@@ -163,12 +185,25 @@ export class AIPilot {
         this.state = 'attack';
         if (this.hasLOS) _desired.copy(_aim);
         else _desired.subVectors(this.lastSeen, ship.pos).normalize();
+        if (this.tactic === 'flanker' && dist > 420 && !t.cls.anchored) {
+          // aim for a point off the target's flank and behind it, then turn in
+          t.forward(_tmp);
+          _tmp2.crossVectors(_tmp, WORLD_UP).normalize().multiplyScalar(this.flankSide * 260);
+          _desired.copy(t.pos).addScaledVector(_tmp, -220).add(_tmp2).sub(ship.pos).normalize();
+        }
         const facing = _fwd.dot(_aim);
         const angle = Math.acos(clamp(facing, -1, 1));
         if (dist > 700) boost = ship.energy > 40;
         if (angle > 1.0) throttle = 0.55; // cut speed to tighten the turn
         else if (dist < 260 && facing > 0.7) throttle = clamp(t.speed / cls.maxSpeed + 0.05, 0.35, 1);
         else throttle = 1;
+        // standoff pilots ease off once in range, to stay out there and keep shooting
+        if (this.tactic === 'standoff' && angle < 0.5 && !t.cls.anchored) {
+          // hold station about two thirds of gun range out: match the target's speed, plus a
+          // little to close the gap or minus a little to open it
+          const want = cls.gun.range * 0.7;
+          throttle = clamp(t.speed / cls.maxSpeed + ((dist - want) / 400) * 0.35, 0.15, 1);
+        }
 
         // gunnery: cone covers the target's angular size plus some slop for weaker pilots
         const cone =
