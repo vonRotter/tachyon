@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp, rand } from './math';
+import { Radio } from './radio';
 
 export type LaserKind = 'player' | 'enemy' | 'ally' | 'heavy';
 
@@ -12,8 +13,8 @@ interface Voice {
 }
 
 /**
- * Fully synthesised audio: nothing here loads a sample. Positional sounds use distance gain, a
- * distance lowpass and stereo pan relative to the listener's orientation.
+ * Fully synthesised audio: the only samples are the recorded radio lines (see Radio). Positional
+ * sounds use distance gain, a distance lowpass and stereo pan relative to the listener's orientation.
  */
 export class AudioEngine {
   ctx: AudioContext | null = null;
@@ -47,6 +48,10 @@ export class AudioEngine {
   readonly music = new MusicSequencer(this);
   musicVolume = 0.32;
   sfxVolume = 0.9;
+  voiceVolume = 1;
+  /** Radio dialogue playback; null until the audio context exists. */
+  radio: Radio | null = null;
+  private musicDuck = 1;
 
   init(): void {
     if (this.ctx) {
@@ -78,6 +83,13 @@ export class AudioEngine {
     this.noise = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = this.noise.getChannelData(0);
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+
+    this.radio = new Radio(ctx, this.master, this.noise, (amount) => {
+      // dip the music under speech, recover slowly afterwards
+      this.musicDuck = 1 - amount * 0.55;
+      this.musicBus.gain.setTargetAtTime(this.musicVolume * this.musicDuck, ctx.currentTime, amount ? 0.12 : 0.8);
+    });
+    this.radio.setVolume(this.voiceVolume);
 
     // engine drone
     this.engFilter = ctx.createBiquadFilter();
@@ -151,12 +163,14 @@ export class AudioEngine {
     return this.noise;
   }
 
-  setVolumes(sfx: number, music: number): void {
+  setVolumes(sfx: number, music: number, voice = this.voiceVolume): void {
     this.sfxVolume = sfx;
     this.musicVolume = music;
+    this.voiceVolume = voice;
     if (!this.ctx) return;
     this.sfx.gain.setTargetAtTime(sfx, this.ctx.currentTime, 0.05);
-    this.musicBus.gain.setTargetAtTime(music, this.ctx.currentTime, 0.05);
+    this.musicBus.gain.setTargetAtTime(music * this.musicDuck, this.ctx.currentTime, 0.05);
+    this.radio?.setVolume(voice);
   }
 
   private loopNoise(): AudioBufferSourceNode {
@@ -398,11 +412,6 @@ export class AudioEngine {
     o.connect(this.env(t, 0.004, dur)).connect(v.input);
     o.start(t);
     o.stop(t + dur + 0.02);
-  }
-
-  commsChirp(): void {
-    this.blip(1320, 0.12, 0.05);
-    window.setTimeout(() => this.blip(1760, 0.1, 0.06), 70);
   }
 
   jumpIn(pos: THREE.Vector3): void {

@@ -1,4 +1,6 @@
 import { SeededRandom } from '../core/math';
+import type { Radio, RadioBand, RadioClip } from '../core/radio';
+import voiceManifest from './voiceManifest.json';
 
 export interface Speaker {
   id: string;
@@ -8,7 +10,9 @@ export interface Speaker {
   skin: string;
   hair: string;
   seed: number;
-  /** Speech synthesis tuning. */
+  /** Whose radio sets they use: sets the transmission sound of their recorded lines. */
+  band: RadioBand;
+  /** Browser speech synthesis tuning, for lines without a recording. */
   pitch: number;
   rate: number;
   voiceHint: 'female' | 'male';
@@ -17,6 +21,7 @@ export interface Speaker {
 export const SPEAKERS: Record<string, Speaker> = {
   varga: {
     id: 'varga',
+    band: 'kestrel',
     name: 'Ilse Varga',
     title: 'Dockmaster, Kestrel Control',
     color: '#ffd84d',
@@ -29,6 +34,7 @@ export const SPEAKERS: Record<string, Speaker> = {
   },
   juno: {
     id: 'juno',
+    band: 'kestrel',
     name: 'Juno Achterberg',
     title: 'Kestrel Militia, Warden 1',
     color: '#ffd84d',
@@ -41,6 +47,7 @@ export const SPEAKERS: Record<string, Speaker> = {
   },
   pike: {
     id: 'pike',
+    band: 'kestrel',
     name: 'Tomas "Pike" Reyes',
     title: 'Kestrel Militia, Warden 2',
     color: '#ffd84d',
@@ -53,6 +60,7 @@ export const SPEAKERS: Record<string, Speaker> = {
   },
   vey: {
     id: 'vey',
+    band: 'wake',
     name: 'Kaspar Vey',
     title: 'Red Wake',
     color: '#ff3b5c',
@@ -65,6 +73,7 @@ export const SPEAKERS: Record<string, Speaker> = {
   },
   tessaine: {
     id: 'tessaine',
+    band: 'combine',
     name: 'Cmdr. Aurel Tessaine',
     title: 'Helion Combine, CHV Sovereign Dawn',
     color: '#f6f0e0',
@@ -77,6 +86,7 @@ export const SPEAKERS: Record<string, Speaker> = {
   },
   sorrel: {
     id: 'sorrel',
+    band: 'drift',
     name: 'Mother Sorrel',
     title: 'Speaker, Drift Union',
     color: '#9cff6a',
@@ -153,9 +163,37 @@ export interface Line {
   text: string;
 }
 
+/** FNV-1a of "speaker|text"; must match fnv1a() in scripts/voices/generate.py. */
+export function voiceKey(speaker: string, text: string): string {
+  let h = 0x811c9dc5;
+  for (const b of new TextEncoder().encode(`${speaker}|${text}`)) {
+    h ^= b;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+const VOICED = voiceManifest as Record<string, { speaker: string; duration: number }>;
+const voiceUrl = (key: string): string => `${import.meta.env.BASE_URL}voice/${key}.mp3`;
+
+interface Current {
+  line: Line;
+  shown: number;
+  /** Characters revealed per second. */
+  revealRate: number;
+  hold: number;
+  resolve: () => void;
+  /** Seconds left to wait for a recording to load before showing the line without it. */
+  waiting: number;
+  clip: RadioClip | null;
+}
+
 /**
  * Radio channel: one line at a time with a typewriter reveal. `say` resolves when the line has
- * had time to be read (or spoken), so mission scripts can simply `await` dialogue.
+ * had time to be read (or has been spoken), so mission scripts can simply `await` dialogue.
+ *
+ * Lines with a recording (src/ui/voiceManifest.json) play through the speaker's faction radio
+ * band; others fall back to browser speech synthesis when that is enabled.
  */
 export class Comms {
   private readonly root: HTMLElement;
@@ -164,10 +202,15 @@ export class Comms {
   private readonly titleEl: HTMLElement;
   private readonly textEl: HTMLElement;
   private readonly portraits = new Map<string, HTMLCanvasElement>();
-  private current: { line: Line; shown: number; hold: number; resolve: () => void; spoken: boolean } | null = null;
+  private current: Current | null = null;
   private readonly queue: { line: Line; resolve: () => void }[] = [];
-  voiceEnabled = false;
-  onChirp: (() => void) | null = null;
+  private paused = false;
+  /** Play recorded dialogue. */
+  voiceEnabled = true;
+  /** Speak lines that have no recording with the browser's speech synthesis. */
+  ttsEnabled = false;
+  /** Supplied by the game once audio is running. */
+  radio: () => Radio | null = () => null;
   readonly log: Line[] = [];
 
   constructor() {
@@ -184,10 +227,27 @@ export class Comms {
     });
   }
 
+  /** Starts fetching every recorded line so playback does not wait on the network. */
+  preloadVoices(): void {
+    const radio = this.radio();
+    if (!radio || !this.voiceEnabled) return;
+    for (const key of Object.keys(VOICED)) void radio.load(voiceUrl(key));
+  }
+
+  /** Pauses or resumes the current transmission with the game. */
+  setPaused(paused: boolean): void {
+    this.paused = paused;
+    if (paused) this.current?.clip?.pause();
+    else this.current?.clip?.play();
+  }
+
   clear(): void {
     for (const q of this.queue) q.resolve();
     this.queue.length = 0;
-    if (this.current) this.current.resolve();
+    if (this.current) {
+      this.current.clip?.stop();
+      this.current.resolve();
+    }
     this.current = null;
     this.root.classList.remove('visible');
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
@@ -213,36 +273,15 @@ export class Comms {
     if (!this.current) {
       const next = this.queue.shift();
       if (!next) return;
-      const s = SPEAKERS[next.line.speaker];
-      this.current = {
-        line: next.line,
-        shown: 0,
-        hold: 1.2 + next.line.text.length * 0.032,
-        resolve: next.resolve,
-        spoken: false,
-      };
-      this.log.push(next.line);
-      const g = this.portrait.getContext('2d');
-      if (g && s) {
-        g.clearRect(0, 0, this.portrait.width, this.portrait.height);
-        g.drawImage(this.portraitFor(s), 0, 0, this.portrait.width, this.portrait.height);
-      }
-      this.nameEl.textContent = s ? s.name : next.line.speaker;
-      this.nameEl.style.color = s ? s.color : '#fff';
-      this.titleEl.textContent = s ? s.title : '';
-      this.root.style.setProperty('--accent', s ? s.color : '#fff');
-      this.root.classList.add('visible');
-      this.onChirp?.();
-      if (this.voiceEnabled && s) {
-        this.current.spoken = speak(next.line.text, s, () => {
-          if (this.current && this.current.line === next.line) this.current.hold = Math.min(this.current.hold, 0.6);
-        });
-        if (this.current.spoken) this.current.hold += 4;
-      }
+      this.begin(next.line, next.resolve);
     }
     const c = this.current;
     if (!c) return;
-    c.shown += dt * 55;
+    if (c.waiting > 0) {
+      c.waiting -= dt;
+      if (c.waiting > 0) return;
+    }
+    c.shown += dt * c.revealRate;
     const n = Math.min(c.line.text.length, Math.floor(c.shown));
     this.textEl.textContent = c.line.text.slice(0, n);
     if (n >= c.line.text.length) {
@@ -252,6 +291,57 @@ export class Comms {
         this.current = null;
         if (!this.queue.length) this.root.classList.remove('visible');
       }
+    }
+  }
+
+  private begin(line: Line, resolve: () => void): void {
+    const s = SPEAKERS[line.speaker];
+    const c: Current = {
+      line,
+      shown: 0,
+      revealRate: 55,
+      hold: 1.2 + line.text.length * 0.032,
+      resolve,
+      waiting: 0,
+      clip: null,
+    };
+    this.current = c;
+    this.log.push(line);
+    const g = this.portrait.getContext('2d');
+    if (g && s) {
+      g.clearRect(0, 0, this.portrait.width, this.portrait.height);
+      g.drawImage(this.portraitFor(s), 0, 0, this.portrait.width, this.portrait.height);
+    }
+    this.nameEl.textContent = s ? s.name : line.speaker;
+    this.nameEl.style.color = s ? s.color : '#fff';
+    this.titleEl.textContent = s ? s.title : '';
+    this.textEl.textContent = '';
+    this.root.style.setProperty('--accent', s ? s.color : '#fff');
+    this.root.classList.add('visible');
+    const radio = this.radio();
+    if (!s) return;
+    radio?.chirp(s.band);
+
+    const key = voiceKey(line.speaker, line.text);
+    if (radio && this.voiceEnabled && VOICED[key]) {
+      c.waiting = 1.5;
+      void radio.load(voiceUrl(key)).then((buffer) => {
+        if (this.current !== c) return;
+        c.waiting = 0;
+        if (!buffer) return; // missing file: the line just shows as text
+        c.clip = radio.transmit(buffer, s.band, () => {
+          if (this.current === c) c.hold = Math.min(c.hold, 0.5);
+        });
+        // finish typing a little before the speaker does; hold until the transmission ends
+        c.revealRate = line.text.length / Math.max(0.6, buffer.duration * 0.85);
+        c.hold = buffer.duration + 1;
+        if (!this.paused) c.clip.play();
+      });
+    } else if (this.ttsEnabled) {
+      const spoken = speak(line.text, s, () => {
+        if (this.current === c) c.hold = Math.min(c.hold, 0.6);
+      });
+      if (spoken) c.hold += 4;
     }
   }
 }

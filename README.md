@@ -66,8 +66,8 @@ For testing, `?quality=high&dynres=0` forces a preset and disables dynamic resol
 Hull detail is generated in a shader (`src/world/hullMaterial.ts`), projected from three sides in
 object space so it stays attached to moving ships. No texture files are involved.
 - **Controls:** mouse and keyboard, plus Xbox and PlayStation gamepads (standard mapping).
-  Optional spoken radio uses the browser's built-in text-to-speech. It is off by default and the
-  voice quality depends on the operating system.
+- **Voices:** radio dialogue is pre-recorded with Kokoro-82M, an open-weight speech model, and
+  played through a different radio sound per faction (see [Radio voices](#radio-voices)).
 
 ## Controls
 
@@ -93,19 +93,46 @@ table below lists the defaults.
 
 ```
 src/
-  core/      math helpers, input (mouse/keyboard/gamepad), procedural audio and music
+  core/      math helpers, input (mouse/keyboard/gamepad), procedural audio, music and radio
   world/     analytic colliders + spatial hash, structure builder, station/carrier/asteroids, sky
   entities/  ships (flight model), ship classes (data), models, factions, weapons, AI
   fx/        particle system, explosions, sparks, trails, flashes
-  ui/        canvas HUD, comms panel with portraits and optional speech
+  ui/        canvas HUD, comms panel with portraits and recorded radio voices
   game/      Game (loop, collisions, camera, mission API) and the mission script
 scripts/
   smoke.mjs  headless Chromium run of the whole mission on autopilot, with screenshots
+  voices/    pre-renders the radio dialogue (Python, Kokoro-82M)
 ```
 
 Ship stats live in `src/entities/shipClasses.ts` as plain data, ready for a hangar and shop.
 Mission scripts are `async` functions that `await g.say(...)`, `g.wait(...)` and
 `g.until(...)` (see `src/game/mission.ts`).
+
+## Radio voices
+
+Every `say('speaker', 'text')` line is pre-rendered to `public/voice/<hash>.mp3` and listed in
+`src/ui/voiceManifest.json`. Factions differ in accent and in radio sound:
+
+| Faction | Speakers | Voice | Radio sound |
+| --- | --- | --- | --- |
+| Kestrel Station | Varga, Juno, Pike | American | Plain comms band, two-tone chirp |
+| Red Wake | Vey | Deep, slow | Overdriven and crackling, harsh buzz |
+| Helion Combine | Tessaine | British | Wide and clean, soft chime, no static |
+| Drift Union | Sorrel | British, older | Hissing old set that wavers |
+
+The filters run at playback (`src/core/radio.ts`), so the files are clean speech. Music dips
+while someone talks. After adding or changing dialogue, regenerate (needs Python 3 and ffmpeg;
+the model files, about 120 MB, download on first run):
+
+```bash
+python3 -m venv .venv-voice && .venv-voice/bin/pip install -r scripts/voices/requirements.txt
+.venv-voice/bin/python scripts/voices/generate.py
+```
+
+Lines without a recording show as text only, or are read by the browser's text-to-speech if
+that option is on. Voice casting is the `CAST` table in `scripts/voices/generate.py`.
+
+Model: Kokoro-82M by hexgrad, Apache License 2.0, via the `kokoro-onnx` package (MIT).
 
 ## Testing
 

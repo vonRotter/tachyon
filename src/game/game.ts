@@ -178,7 +178,7 @@ export class Game implements CombatContext {
     });
     this.scene.add(this.beaconMesh);
 
-    this.comms.onChirp = () => this.audio.commsChirp();
+    this.comms.radio = () => this.audio.radio;
     window.addEventListener('resize', () => this.resize());
     this.applyQuality(detectQuality(this.renderer));
   }
@@ -357,6 +357,8 @@ export class Game implements CombatContext {
     for (const w of this.waiters) w.reject(new MissionAbort());
     this.waiters = [];
     this.comms.clear();
+    this.comms.setPaused(false);
+    this.comms.preloadVoices();
     for (const s of this.ships) s.dispose(this.scene);
     this.ships = [];
     this.killListeners.length = 0;
@@ -1046,6 +1048,7 @@ export class Game implements CombatContext {
     this.state = 'paused';
     this.audio.silenceLoops();
     this.input.exitPointerLock();
+    this.comms.setPaused(true);
     if ('speechSynthesis' in window) window.speechSynthesis.pause();
     this.onPauseChange?.(true);
   }
@@ -1054,6 +1057,7 @@ export class Game implements CombatContext {
     if (this.state !== 'paused') return;
     this.state = 'playing';
     if (this.input.device === 'mouse') this.input.requestPointerLock();
+    this.comms.setPaused(false);
     if ('speechSynthesis' in window) window.speechSynthesis.resume();
     this.onPauseChange?.(false);
   }

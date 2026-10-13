@@ -7,7 +7,11 @@ import { BIND_LABELS, DEFAULT_BINDINGS, keyLabel, type BindAction, type Bindings
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
 interface Settings {
-  voice: boolean;
+  /** Recorded radio dialogue. */
+  radioVoice: boolean;
+  /** Browser text-to-speech for lines without a recording. */
+  tts: boolean;
+  voiceVolume: number;
   musicVolume: number;
   sfxVolume: number;
   glow: number;
@@ -40,7 +44,9 @@ const save = (key: string, value: unknown): void => {
 };
 
 const settings = load<Settings>('veil.settings', {
-  voice: false,
+  radioVoice: true,
+  tts: false,
+  voiceVolume: 1,
   musicVolume: 0.6,
   sfxVolume: 0.9,
   glow: 1,
@@ -50,6 +56,8 @@ const settings = load<Settings>('veil.settings', {
   quality: 'auto',
   mouseMode: 'aim',
 });
+// the old browser-TTS toggle is now `tts`
+delete (settings as Partial<Settings> & { voice?: boolean }).voice;
 const campaign = load<Campaign>('veil.campaign', { credits: 0, allegiance: null });
 
 const game = new Game($('game'), $<HTMLCanvasElement>('hud'));
@@ -62,15 +70,16 @@ function applySettings(): void {
   game.input.settings.invertPadY = settings.invertPad;
   game.input.settings.mouseSensitivity = settings.sensitivity;
   game.input.settings.mouseMode = settings.mouseMode;
-  game.comms.voiceEnabled = settings.voice;
+  game.comms.voiceEnabled = settings.radioVoice;
+  game.comms.ttsEnabled = settings.tts;
   game.audio.music.enabled = settings.musicVolume > 0;
-  game.audio.setVolumes(settings.sfxVolume, settings.musicVolume * 0.5);
+  game.audio.setVolumes(settings.sfxVolume, settings.musicVolume * 0.5, settings.voiceVolume);
   game.setGlow(settings.glow);
   save('veil.settings', settings);
 }
 
 // --- Options form ---------------------------------------------------------------------------
-const bindCheck = (id: string, key: 'voice' | 'invertMouse' | 'invertPad') => {
+const bindCheck = (id: string, key: 'radioVoice' | 'tts' | 'invertMouse' | 'invertPad') => {
   const el = $<HTMLInputElement>(id);
   el.checked = settings[key];
   el.addEventListener('change', () => {
@@ -78,7 +87,7 @@ const bindCheck = (id: string, key: 'voice' | 'invertMouse' | 'invertPad') => {
     applySettings();
   });
 };
-const bindRange = (id: string, key: 'musicVolume' | 'sfxVolume' | 'glow' | 'sensitivity') => {
+const bindRange = (id: string, key: 'musicVolume' | 'sfxVolume' | 'voiceVolume' | 'glow' | 'sensitivity') => {
   const el = $<HTMLInputElement>(id);
   el.value = String(settings[key]);
   el.addEventListener('input', () => {
@@ -86,11 +95,13 @@ const bindRange = (id: string, key: 'musicVolume' | 'sfxVolume' | 'glow' | 'sens
     applySettings();
   });
 };
-bindCheck('opt-voice', 'voice');
+bindCheck('opt-voice', 'radioVoice');
+bindCheck('opt-tts', 'tts');
 bindCheck('opt-invert-mouse', 'invertMouse');
 bindCheck('opt-invert-pad', 'invertPad');
 bindRange('opt-music-vol', 'musicVolume');
 bindRange('opt-sfx-vol', 'sfxVolume');
+bindRange('opt-voice-vol', 'voiceVolume');
 bindRange('opt-glow', 'glow');
 bindRange('opt-sens', 'sensitivity');
 const mouseModeSelect = $<HTMLSelectElement>('opt-mouse-mode');
