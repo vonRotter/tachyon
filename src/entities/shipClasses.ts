@@ -928,7 +928,7 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     equipSlots: 3,
     weaponSlots: 4,
     defaultWeapons: ['pulse', 'pulse', 'rapid', 'seeker'],
-    description: 'The Baron\'s spare: a crimson fuselage, a glowing ring cowl, three stacked wings braced with struts and twin guns over the nose. Built for one man\'s idea of a fair fight.',
+    description: 'The Baron\'s spare: a long crimson nose and a lopsided X of wings, two long ones ending in engine pods with cannon, a short gun blade and a stub fin. Built for one man\'s idea of a fair fight.',
     bounty: 4000,
     price: 0,
   },

@@ -90,7 +90,7 @@ export const DATABASE: DbEntry[] = [
   ship('fang', 'Fighters', ['wake']),
   ship('raider', 'Fighters', ['wake'], 'The Red Wake\'s disposable raider: a stubby body between two forward prongs and drooping blade wings. Cheap, numerous and flown in packs.'),
   ship('interdictor', 'Fighters', ['patrol']),
-  ship('scarlet', 'Fighters', ['rose'], 'The Scarlet Baron\'s fighter, and his Rosebuds\' too: a crimson fuselage with a glowing ring cowl, three stacked wings braced with struts, twin guns over the nose. The Baron paints a rose on his for every pilot he thought worth fighting.'),
+  ship('scarlet', 'Fighters', ['rose'], 'The Scarlet Baron\'s fighter, and his Rosebuds\' too: a long crimson nose and a lopsided X of wings: two long ones ending in engine pods with cannon, a short gun blade and a stub fin. The Baron paints a rose on his for every pilot he thought worth fighting.'),
   ship('drone', 'Fighters', ['combine', 'wake', 'drift'], 'Unmanned and tiny: a faceted core with one eye, a guard ring and three vanes. A single burst kills one, but they come in clouds and nobody grieves for them.'),
   ship('brute', 'Gunships', ['wake'], 'A Wake gunship: a slab of armour with turrets that track you all the way round. Too slow to chase you, too tough to ignore. Stay on its tail.'),
   capital('frigate', ['drift', 'combine', 'wake'], 'An arrowhead delta. Drift frigates wear rings round the spine; Combine ones are clean ivory.'),

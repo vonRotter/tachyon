@@ -154,7 +154,7 @@ export const FACTION_DESIGN: Partial<Record<FactionId, FactionDesign>> = {
   },
   rose: {
     yard: 'The Baron\'s hangar',
-    principle: 'Old-world gallantry. Stacked wings braced with struts, twin guns over the nose, crimson and cream with a gold rose.',
+    principle: 'Gallantry with a crooked smile. Lopsided X-wings with pods at the tips, a long elegant nose, crimson and cream with a gold rose.',
     doctrine: 'The best-turning hulls in the Reach, built for one pilot\'s idea of a fair fight. Never sold: given, if at all.',
     livery: { primary: '#b3122e', secondary: '#f2e8d2', accent: '#ffcf5a' },
   },

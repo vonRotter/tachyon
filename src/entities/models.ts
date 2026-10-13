@@ -1082,64 +1082,78 @@ function miner(p: Palette): ShipModel {
 }
 
 /**
- * Scarlet Rose: the Baron's fighter, a nod to a certain red triplane. A slim crimson fuselage
- * with a glowing ring cowl at the nose, three stacked wings of falling span braced with
- * interplane struts, twin guns over the cowl, a cream rose roundel, and a small tail.
+ * Scarlet Rose: the Baron's fighter. A long X-wing nose and a lopsided X of wings: the upper
+ * starboard and lower port wings are long and end in Starfury-style engine pods with a cannon
+ * along each, the upper port wing is a short gun blade and the lower starboard one a stub fin.
+ * Crimson and cream with a gold rose on the long upper wing.
  */
 function scarlet(p: Palette): ShipModel {
   const b = new StructureBuilder();
-  // fuselage, tapering to the tail
+  // long X-wing nose and body
   b.hull(
-    [v3(0.9, 0, -3.2), v3(-0.9, 0, -3.2), v3(0, 0.95, -3.2), v3(0, -0.9, -3.2), v3(1.0, 0.1, 0), v3(-1.0, 0.1, 0), v3(0, 1.1, 0), v3(0, -0.95, 0), v3(0.25, 0.25, 6.4), v3(-0.25, 0.25, 6.4), v3(0, 0.55, 6.4), v3(0, -0.05, 6.4)],
+    [v3(0, -0.1, -9.5), v3(0.55, 0.05, -5.5), v3(-0.55, 0.05, -5.5), v3(0, 0.6, -5.5), v3(0, -0.5, -5.5), v3(1.1, 0.1, 0), v3(-1.1, 0.1, 0), v3(0, 1.0, 0), v3(0, -0.85, 0)],
     p.primary,
   );
-  // ring cowl at the nose with glowing intakes behind it
-  b.cylinder(v3(0, 0, -3.9), 1.25, 1.4, p.primary, { ...NO, quat: X90, sides: 16, radiusTop: 1.05 });
-  b.torus(v3(0, 0, -4.5), 1.16, 0.16, p.accent, { radial: 5, tubular: 24 });
-  b.cylinder(v3(0, 0, -4.62), 0.9, 0.1, p.engine, { ...NO, quat: X90, sides: 16, glow: 1.4 });
-  b.cylinder(v3(0, 0, -4.7), 0.3, 0.4, DARK, { ...NO, quat: X90, sides: 8 });
-  // twin guns over the cowl
-  for (const s of [1, -1]) b.cylinder(v3(s * 0.32, 1.05, -3.6), 0.11, 2.4, DARK, { ...NO, quat: X90, sides: 6 });
-  // open cockpit with a small windscreen and a headrest
-  b.hull([v3(0, 1.0, -1.6), v3(0.5, 1.0, -1.1), v3(-0.5, 1.0, -1.1), v3(0, 1.45, -1.2)], p.canopy, 1.1);
-  b.hull([v3(0.3, 1.0, 0.2), v3(-0.3, 1.0, 0.2), v3(0, 1.5, 0.6), v3(0, 1.05, 1.6)], p.primary);
-  // three stacked wings, falling span, braced with struts
-  const wings = [
-    { y: 1.9, span: 5.4, z: -1.8, chord: 1.5 },
-    { y: 0.5, span: 4.9, z: -1.3, chord: 1.4 },
-    { y: -0.9, span: 4.4, z: -0.9, chord: 1.3 },
-  ];
-  for (const w of wings) {
-    b.bevel(v3(0, w.y, w.z), v3(w.span * 2, 0.22, w.chord), 0.08, w.y > 1 ? p.primary : p.primary, NO);
-    b.box(v3(0, w.y + 0.12, w.z + w.chord * 0.3), v3(w.span * 2 - 0.4, 0.04, 0.2), p.secondary, NO);
-  }
-  for (const s of [1, -1]) {
-    // interplane struts and the cabane over the fuselage
-    b.strut(v3(s * 4.2, -0.9, -0.9), v3(s * 4.6, 1.9, -1.8), 0.08, DARK, { ...NO, sides: 4 });
-    b.strut(v3(s * 0.5, 0.9, -1.4), v3(s * 0.7, 1.9, -1.8), 0.07, DARK, { ...NO, sides: 4 });
-    // rose roundel on the top wing
-    const c = v3(s * 3.6, 2.03, -1.8);
-    const flat = new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2);
-    b.torus(c, 0.5, 0.12, p.secondary, { quat: flat, radial: 4, tubular: 16 });
-    b.sphere(c, 0.28, p.accent, { ...NO, detail: 0, scale: v3(1, 0.3, 1) });
-    nav(b, s * 5.4, 1.9, -1.8);
-  }
-  // tailplane and fin, with a cream band round the rear fuselage
-  b.hull(plate([v3(0.3, 0.3, 5.0), v3(0.3, 0.3, 6.4), v3(2.0, 0.3, 6.6), v3(2.0, 0.3, 5.8)], UPN, 0.12), p.primary);
-  b.hull(plate([v3(-0.3, 0.3, 5.0), v3(-0.3, 0.3, 6.4), v3(-2.0, 0.3, 6.6), v3(-2.0, 0.3, 5.8)], UPN, 0.12), p.primary);
-  b.hull(plate([v3(0, 0.5, 4.6), v3(0, 0.5, 6.4), v3(0, 1.9, 6.6), v3(0, 1.7, 5.6)], SIDEN, 0.12), p.primary);
-  b.box(v3(0, 0.25, 3.4), v3(1.0, 1.05, 0.5), p.secondary, NO);
-  // engines at the tail
-  for (const s of [1, -1]) {
-    b.cylinder(v3(s * 0.45, -0.1, 6.0), 0.36, 1.2, DARK, { ...NO, quat: X90, sides: 10 });
-    b.cylinder(v3(s * 0.45, -0.1, 6.62), 0.3, 0.08, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
-  }
+  b.bevel(v3(0, 0.1, 2.6), v3(2.4, 1.9, 5.2), 0.4, p.primary, NO);
+  // cream nose stripes
+  b.hull(plate([v3(0, 0.33, -8.6), v3(0.3, 0.42, -6.2), v3(-0.3, 0.42, -6.2)], UPN, 0.04), p.secondary);
+  b.box(v3(0, 0.62, -4.4), v3(0.9, 0.06, 1.6), p.secondary, NO);
+  // framed canopy, set a little to port: even the cockpit is lopsided
+  b.hull([v3(-0.15, 0.6, -3.6), v3(0.35, 0.75, -2.4), v3(-0.65, 0.75, -2.4), v3(-0.15, 1.45, -2.0), v3(0.3, 1.2, -0.9), v3(-0.6, 1.2, -0.9)], p.canopy, 1.15);
+  b.strut(v3(-0.15, 1.47, -2.0), v3(-0.15, 1.22, -0.9), 0.06, DARK, { ...NO, sides: 4 });
+  b.hull([v3(0.4, 0.95, -0.6), v3(-0.7, 0.95, -0.6), v3(-0.15, 1.5, -0.2), v3(-0.15, 1.1, 1.6)], p.primary);
+
+  const root = v3(0, 0.1, 2.0);
+  /** A wing from the body out to `tip`, as a slab of the given chord. */
+  const wing = (tip: THREE.Vector3, chord: number, color: string) => {
+    const n = new THREE.Vector3(-tip.y, tip.x, 0).normalize();
+    b.hull(plate([root.clone().add(v3(0, 0, -chord * 0.6)), root.clone().add(v3(0, 0, chord * 0.4)), tip.clone().add(v3(0, 0, chord * 0.25)), tip.clone().add(v3(0, 0, -chord * 0.45))], n, 0.2), color);
+    return n;
+  };
+  /** Starfury-style engine pod with a cannon running forward along it. */
+  const pod = (c: THREE.Vector3) => {
+    b.cylinder(c, 0.7, 3.6, p.primary, { ...NO, quat: X90, sides: 12 });
+    b.torus(c.clone().add(v3(0, 0, -1.0)), 0.74, 0.1, p.accent, { radial: 4, tubular: 16 });
+    b.cylinder(c.clone().add(v3(0, 0, -2.0)), 0.42, 0.5, DARK, { ...NO, quat: X90, sides: 12, radiusTop: 0.28 });
+    b.cylinder(c.clone().add(v3(0, 0, 2.05)), 0.62, 0.5, DARK, { ...NO, quat: X90, sides: 12 });
+    b.cylinder(c.clone().add(v3(0, 0, 2.32)), 0.52, 0.1, p.engine, { ...NO, quat: X90, sides: 12, glow: 1.0 });
+    b.cylinder(c.clone().add(v3(0, 0.75, -3.4)), 0.12, 4.2, DARK, { ...NO, quat: X90, sides: 6 });
+    b.cylinder(c.clone().add(v3(0, 0.75, -5.55)), 0.18, 0.3, p.accent, { ...NO, quat: X90, sides: 6, glow: 1.3 });
+  };
+  // the long pair: upper starboard and lower port, swept back to their pods
+  const tipA = v3(5.6, 2.6, 3.0);
+  const tipB = v3(-5.0, -2.4, 3.2);
+  wing(tipA, 2.6, p.primary);
+  wing(tipB, 2.4, p.primary);
+  pod(tipA);
+  pod(tipB);
+  // cream leading-edge stripes on the long wings
+  b.strut(root.clone().add(v3(0.6, 0.4, -1.3)), tipA.clone().add(v3(-0.6, -0.2, -0.9)), 0.1, p.secondary, { ...NO, sides: 4 });
+  b.strut(root.clone().add(v3(-0.6, -0.4, -1.2)), tipB.clone().add(v3(0.6, 0.2, -0.8)), 0.1, p.secondary, { ...NO, sides: 4 });
+  // the gold rose on the long upper wing
+  const rose = tipA.clone().multiplyScalar(0.55).add(root.clone().multiplyScalar(0.45)).add(v3(-0.1, 0.2, -0.3));
+  const along = new THREE.Quaternion().setFromUnitVectors(v3(0, 0, 1), new THREE.Vector3(-tipA.y, tipA.x, 0).normalize());
+  b.torus(rose, 0.55, 0.12, p.secondary, { quat: along, radial: 4, tubular: 16 });
+  b.sphere(rose, 0.32, p.accent, { ...NO, detail: 0 });
+  // the short pair: a gun blade upper port, a stub fin lower starboard
+  const bladeTip = v3(-2.6, 1.9, 0.6);
+  wing(bladeTip, 1.6, p.secondary);
+  b.cylinder(bladeTip.clone().add(v3(0, 0, -1.6)), 0.14, 3.0, DARK, { ...NO, quat: X90, sides: 6 });
+  wing(v3(1.9, -1.5, 3.6), 1.4, p.primary);
+  // main engines, one big and one small, and a dorsal fin
+  b.cylinder(v3(-0.35, 0.1, 5.4), 0.75, 1.2, DARK, { ...NO, quat: X90, sides: 12 });
+  b.cylinder(v3(-0.35, 0.1, 6.02), 0.64, 0.1, p.engine, { ...NO, quat: X90, sides: 12, glow: 1.0 });
+  b.cylinder(v3(0.62, -0.3, 5.2), 0.42, 1.0, DARK, { ...NO, quat: X90, sides: 10 });
+  b.cylinder(v3(0.62, -0.3, 5.72), 0.36, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
+  b.hull(plate([v3(0, 1.0, 2.6), v3(0, 1.0, 5.0), v3(0, 2.3, 5.6), v3(0, 2.0, 4.0)], SIDEN, 0.12), p.secondary);
+  nav(b, 5.6, 3.4, 3.0);
+  nav(b, -5.0, -3.2, 3.2);
   return {
     group: b.build('scarlet', 'ship'),
-    engines: [v3(0.45, -0.1, 6.7), v3(-0.45, -0.1, 6.7)],
-    engineRadius: 0.3,
-    guns: [v3(0.32, 1.05, -4.9), v3(-0.32, 1.05, -4.9)],
-    cameraOffset: v3(0, 3.6, 14),
+    engines: [v3(-0.35, 0.1, 6.1), v3(0.62, -0.3, 5.8), tipA.clone().add(v3(0, 0, 2.4)), tipB.clone().add(v3(0, 0, 2.4))],
+    engineRadius: 0.55,
+    guns: [tipA.clone().add(v3(0, 0.75, -5.6)), tipB.clone().add(v3(0, 0.75, -5.6)), bladeTip.clone().add(v3(0, 0, -3.1))],
+    cameraOffset: v3(0, 3.8, 16),
   };
 }
 

@@ -74,8 +74,8 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   bounty hunt in the Ashfall alongside two Patrol Interdictors, a convoy run bringing container
   ships in to Vantage, and guarding Kestrel's ore barges from Wake strip-miners.
 - **Side arc: "The Scarlet Baron".** Baron Rafe Delacourt is a former Combine ace turned gentleman
-  pirate who flies a crimson fighter with three stacked wings (a nod to a certain red
-  triplane). He announces himself, never fires on the helpless or on ejected pilots, and robs
+  pirate who flies a crimson fighter with a lopsided X of wings and engine pods at the
+  tips. He announces himself, never fires on the helpless or on ejected pilots, and robs
   only those who can afford it. He transmits on an old set that crackles like a gramophone,
   with his wing of Rosebuds and the irrepressible Petal. Four parts, each ending on a choice:
   1. *A Rose for the Lady* (Vantage): he robs the liner you escort. Hold your fire and watch a
