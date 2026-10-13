@@ -22,6 +22,10 @@ export interface HullOptions {
   rock?: boolean;
   roughness?: number;
   metalness?: number;
+  /** How dark plate seams are (0..1, default 1). */
+  seams?: number;
+  /** Per-plate brightness variation (default 1). */
+  tintVariation?: number;
 }
 
 const FUNCS = /* glsl */ `
@@ -31,6 +35,8 @@ uniform float uWindows;
 uniform float uGrime;
 uniform float uDetail;
 uniform float uRock;
+uniform float uSeam;
+uniform float uTintVar;
 
 float hHash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
@@ -133,13 +139,13 @@ if (uRock > 0.5) {
   }
 }
 
-float tint = mix(1.0, 0.84 + 0.28 * hullId, max(detailFade, uRock));
+float tint = mix(1.0, 1.0 + (hullId - 0.57) * 0.28 * uTintVar, max(detailFade, uRock));
 float dirt = mix(1.0, 0.62 + 0.38 * smoothstep(0.2, 0.75, grimeN), uGrime);
 dirt *= mix(1.0, 0.85 + 0.15 * smoothstep(0.3, 0.7, streakN), uGrime);
-diffuseColor.rgb *= tint * dirt * (1.0 - hullSeam * 0.45);
+diffuseColor.rgb *= tint * dirt * (1.0 - hullSeam * 0.45 * uSeam);
 float hullRough = (hullId - 0.5) * 0.3 * detailFade + (1.0 - dirt) * 0.5 + hullSeam * 0.25;
 float hullMetal = (hullId > 0.78 ? 0.3 : 0.0) * detailFade - (1.0 - dirt) * 0.3;
-float bumpDepth = uRock > 0.5 ? 1.6 : uPanel * 0.03 * detailFade;
+float bumpDepth = uRock > 0.5 ? 1.6 : uPanel * 0.03 * detailFade * uSeam;
 vec2 hullDH = vec2(dFdx(hullHeight), dFdy(hullHeight)) * bumpDepth;
 `;
 
@@ -156,6 +162,8 @@ export function createHullMaterial(opts: HullOptions): THREE.MeshStandardMateria
     uGrime: { value: opts.grime ?? 0.6 },
     uDetail: { value: 1 },
     uRock: { value: opts.rock ? 1 : 0 },
+    uSeam: { value: opts.seams ?? 1 },
+    uTintVar: { value: opts.tintVariation ?? 1 },
   };
   mat.userData.hullUniforms = uniforms;
   mat.onBeforeCompile = (shader) => {
@@ -180,7 +188,7 @@ export function createHullMaterial(opts: HullOptions): THREE.MeshStandardMateria
       )
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += hullEmit;');
   };
-  mat.customProgramCacheKey = () => 'hull-v1';
+  mat.customProgramCacheKey = () => 'hull-v2';
   return mat;
 }
 

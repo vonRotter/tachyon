@@ -10,7 +10,7 @@ import { createHullMaterial } from './hullMaterial';
  * Hull materials add procedural plating, grime and windows (see hullMaterial.ts).
  */
 export const hullMaterials = {
-  ship: createHullMaterial({ panel: 1.1, grime: 0.35, metalness: 0.45, roughness: 0.42 }),
+  ship: createHullMaterial({ panel: 2.6, grime: 0.22, metalness: 0.4, roughness: 0.4, seams: 0.45, tintVariation: 0.35 }),
   structure: createHullMaterial({ panel: 6, windows: 0.09, grime: 0.5 }),
   rock: createHullMaterial({ panel: 10, rock: true, grime: 0.9, metalness: 0.05, roughness: 0.85 }),
 };

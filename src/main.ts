@@ -62,6 +62,7 @@ const saveCampaign = () => save('veil.campaign', campaign);
 const game = new Game($('game'), $<HTMLCanvasElement>('hud'));
 let mission: MissionDef = missionById('cold-guns');
 (window as unknown as { __game: Game }).__game = game;
+(window as unknown as { __classes: typeof SHIP_CLASSES }).__classes = SHIP_CLASSES;
 game.input.setBindings({ ...DEFAULT_BINDINGS, ...load<Partial<Bindings>>('veil.bindings', {}) });
 
 function applySettings(): void {
