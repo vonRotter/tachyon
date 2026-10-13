@@ -62,6 +62,8 @@ export async function runAccord(g: Game, checkpoint: number, side: 'combine' | '
     g.spawnShip('warden', 'kestrel', 'Pike', hub.clone().add(v(-220, 80, 340)), hub, { skill: 0.6, playerBias: 0.3, damageScale: 0.6 }),
   ];
   for (let i = 0; i < 4; i++) militia.push(g.spawnShip('wren', 'kestrel', `Wren ${i + 1}`, hub.clone().add(v(200 - i * 60, -120, 260)), hub, { skill: 0.5, playerBias: 0.3, damageScale: 0.6 }));
+  militia.push(g.spawnShip('bulldog', 'kestrel', 'Gunboat Bulldog', hub.clone().add(v(40, -60, 380)), hub, { skill: 0.55, playerBias: 0.3, damageScale: 0.8 }));
+  for (let i = 0; i < 2; i++) militia.push(g.spawnShip('drone', 'kestrel', 'Kestrel drone', hub.clone().add(v(10 + i * 60, -40, 420)), hub, { skill: 0.45, playerBias: 0.3 }));
 
   /** Sabres off the Dawn's hangar deck. */
   const launchSabres = (n: number, name: string, opts: { skill: number; playerBias: number; tactic?: 'standoff' | 'flanker' | 'swarm' }): Ship[] => {
@@ -79,6 +81,7 @@ export async function runAccord(g: Game, checkpoint: number, side: 'combine' | '
   const wakeRaid = (center: THREE.Vector3): Ship[] => {
     const out: Ship[] = [];
     for (let i = 0; i < 4; i++) out.push(g.jumpIn('raider', 'wake', 'Wake Cutter', center.clone().add(v(i * 50 - 75, (i % 2) * 30, i * 20)), hub, { skill: 0.5, playerBias: 0.5, flares: i < 2 ? 2 : 0 }));
+    out.push(g.jumpIn('fang', 'wake', 'Wake Fang', center.clone().add(v(0, -30, 60)), hub, { skill: 0.55, playerBias: 0.5, flares: 2 }));
     for (let i = 0; i < 8; i++) out.push(g.jumpIn('drone', 'wake', 'Wake drone', center.clone().add(v((i % 4) * 30 - 45, 60 + Math.floor(i / 4) * 30, -40)), hub, { skill: 0.4, playerBias: 0.4 }));
     return out;
   };

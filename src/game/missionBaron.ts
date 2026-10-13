@@ -236,7 +236,7 @@ export async function runBaronDuel(g: Game, c: Campaign): Promise<void> {
     }
   } else {
     const patrol = [0, 1, 2, 3].map((i) =>
-      g.jumpIn('interdictor', 'patrol', i === 0 ? 'Sgt. Okafor' : `Interdictor ${i + 4}`, beacon.clone().add(v(i * 60 - 90, 30, 0)), wreck, { skill: 0.65, playerBias: 0, damageScale: 0.5 }),
+      g.jumpIn(i === 0 ? 'warrant' : 'interdictor', 'patrol', i === 0 ? 'Sgt. Okafor' : `Interdictor ${i + 4}`, beacon.clone().add(v(i * 60 - 90, 30, 0)), wreck, { skill: 0.65, playerBias: 0, damageScale: 0.5 }),
     );
     await g.say('okafor', 'Good choice. Now we wait.');
     await g.wait(6);
@@ -357,6 +357,8 @@ export async function runBaronHeist(g: Game, c: Campaign): Promise<void> {
       } else {
         await g.say('baron', 'Watching from the gallery, Rook? Very well. We shall do the work, and you shall have the view.');
       }
+      escorts.push(g.jumpIn('sunspear', 'combine', 'Treasury gunship Sunspear', barge.pos.clone().add(v(-300, 120, 400)), barge.pos, { skill: 0.6, playerBias: side === 'joined' ? 0.5 : 0.2, tactic: 'standoff' }));
+      void g.say('strand', 'Gilded Cage, Treasury. A gunship is with you. Hold on.').catch(() => undefined);
       await g.until(() => {
         g.objective = `Take the Gilded Cage · ${alive(escorts)} escorts left`;
         return alive(escorts) === 0 || frac(barge) < 0.35;
@@ -442,7 +444,7 @@ export async function runBaronFinale(g: Game, c: Campaign): Promise<void> {
     g.setRelation('rose', 'player', true);
     g.setRelation('rose', 'patrol', true);
     const patrol = [0, 1, 2].map((i) =>
-      g.spawnShip('interdictor', 'patrol', i === 0 ? 'Sgt. Okafor' : `Interdictor ${i + 4}`, v(-80 + i * 60, 200, 1750), R('center'), { skill: 0.65, playerBias: 0, damageScale: 0.5 }),
+      g.spawnShip(i === 0 ? 'warrant' : 'interdictor', 'patrol', i === 0 ? 'Sgt. Okafor' : `Interdictor ${i + 4}`, v(-80 + i * 60, 200, 1750), R('center'), { skill: 0.65, playerBias: 0, damageScale: 0.5 }),
     );
     const guns = [0, 1, 2, 3].map((i) => g.spawnShip('turret', 'rose', 'Rookery gun', R(`gun${i}`).clone(), R(`gun${i}`).clone().multiplyScalar(2), { turret: true, skill: 0.5, playerBias: 0.5 }));
     const buds = spawnRosebuds(g, R('center').clone().add(v(-80, 100, 520)), player.pos);

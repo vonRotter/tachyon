@@ -200,7 +200,7 @@ export const UPGRADES: UpgradeType[] = [
 ];
 export const MAX_TIER = 3;
 
-export type EquipmentId = 'flares' | 'shieldCell' | 'repair' | 'afterburner' | 'magazine' | 'targeting' | 'dockingComputer';
+export type EquipmentId = 'flares' | 'shieldCell' | 'repair' | 'afterburner' | 'magazine' | 'targeting' | 'dockingComputer' | 'droneBay';
 
 export interface EquipmentType {
   id: EquipmentId;
@@ -251,6 +251,12 @@ export const EQUIPMENT: Record<EquipmentId, EquipmentType> = {
     name: 'Docking computer',
     description: 'Once you have clearance, press the dock key again and it flies you in. For pilots with better things to do.',
     price: 4000,
+  },
+  droneBay: {
+    id: 'droneBay',
+    name: 'Drone bay',
+    description: 'Two combat drones launch with you and fly on your wing. They go for your target and for anything shooting at you. Lost drones are replaced before the next sortie.',
+    price: 14000,
   },
 };
 

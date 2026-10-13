@@ -60,6 +60,9 @@ export class AIPilot {
   private readonly flankSide = Math.random() < 0.5 ? -1 : 1;
   /** Optional anchor; with no hostiles the pilot circles it. */
   readonly patrolPoint = new THREE.Vector3();
+  /** Wingman: fly formation on this ship, take its target, and never stray far from it. */
+  wingOf: Ship | null = null;
+  leash = 1400;
 
   constructor(
     private readonly ctx: AIContext,
@@ -68,10 +71,14 @@ export class AIPilot {
 
   private pickTarget(ship: Ship): Ship | null {
     if (this.forcedTarget?.alive) return this.forcedTarget;
+    const lead = this.wingOf?.alive ? this.wingOf : null;
+    if (lead?.target?.alive && hostile(ship.faction, lead.target.faction)) return lead.target;
     let best: Ship | null = null;
     let bestScore = Infinity;
     for (const s of this.ctx.ships) {
       if (!s.alive || s.cls.civilian || !hostile(ship.faction, s.faction)) continue;
+      // escorts are defensive: the leader's target, or whatever is shooting at the pair of them
+      if (lead && (s.pos.distanceToSquared(lead.pos) > this.leash * this.leash || (s.target !== lead && s.target !== ship))) continue;
       let score = s.pos.distanceTo(ship.pos);
       if (s.isPlayer) score *= 1 - this.playerBias * 0.6;
       if (s === ship.lastAttacker) score *= 0.6;
@@ -99,6 +106,12 @@ export class AIPilot {
       this.hasLOS = true;
       if (ship.target) this.lastSeen.copy(ship.target.pos);
     }
+    const tt = ship.target as Ship | null;
+    if (tt && this.wingOf?.alive && tt !== this.wingOf.target && tt.pos.distanceToSquared(this.wingOf.pos) > this.leash * this.leash) {
+      // the fight drifted off: back to the leader
+      ship.target = null;
+      this.retargetTimer = 2;
+    }
     const t = ship.target;
     ship.forward(_fwd);
     let throttle = 0.85;
@@ -119,7 +132,21 @@ export class AIPilot {
       if (this.stateTimer <= 0) this.state = 'attack';
     }
 
-    if (!t) {
+    if (!t && this.wingOf?.alive) {
+      this.state = 'patrol';
+      const lead = this.wingOf;
+      lead.forward(_tmp);
+      _desired
+        .copy(lead.pos)
+        .addScaledVector(_tmp, -40)
+        .add(_tmp2.set(this.flankSide * 30, 8, 0).applyQuaternion(lead.quat))
+        .sub(ship.pos);
+      const d = _desired.length();
+      if (d < 50) _desired.addScaledVector(_tmp, 60);
+      _desired.normalize();
+      throttle = clamp(lead.speed / ship.cls.maxSpeed + (d - 50) / 150, 0.15, 1);
+      boost = d > 500;
+    } else if (!t) {
       this.state = 'patrol';
       _desired.subVectors(this.patrolPoint, ship.pos);
       const d = _desired.length();

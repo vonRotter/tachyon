@@ -87,6 +87,10 @@ export async function runLastLight(g: Game, checkpoint: number, c: Campaign): Pr
     await g.say('sorrel', 'Long Patience to all Drift. They have come to our home. Launch everything.');
     g.setMusicIntensity(0.9);
     drift.push(...launchFrom(g, patience, ['gannet', 'gannet', 'bulwark', 'gannet', 'fang'], 'drift', 'Drift defender', { skill: 0.6, playerBias: 0.5, tactic: 'flanker', missiles: 4 }));
+    for (let i = 0; i < 3; i++) drift.push(g.jumpIn('drone', 'drift', 'Drift drone', v(-60 + i * 40, 160, 1500), player.pos, { skill: 0.45, playerBias: 0.4 }));
+    const ironbark = g.jumpIn('ironbark', 'drift', 'Ironbark', v(-250, 120, 1400), player.pos, { skill: 0.55, playerBias: 0.5, flares: 4 });
+    drift.push(ironbark);
+    void g.say('vale', 'Gunship off Haven, Rook! That is the Ironbark. Thin shields, thick hide, and a rack full of missiles. Mind your flares.').catch(() => undefined);
     await g.until(() => {
       g.objective = `Break the Drift screen · ${alive(drift)} left`;
       return alive(drift) === 0;
@@ -256,6 +260,8 @@ export async function runBastion(g: Game, checkpoint: number, c: Campaign): Prom
   g.setMusicIntensity(1);
   await g.say('sorrel', 'Long Patience, all batteries, fire on the fortress. Rook, the guns on the arms and the tiers. Silence them.');
   drones(10, v(-300, 200, 1000));
+  enemies.push(g.jumpIn('sunspear', 'combine', 'Sunspear', v(200, 260, 900), player.pos, { skill: 0.6, playerBias: 0.6, tactic: 'standoff', flares: 4 }));
+  void g.say('kit', 'Combine gunship! A Sunspear, guarding the batteries. Its guns reach a long way, Rook. Get in close.').catch(() => undefined);
   let broadside = g.missionTime + 20;
   let first = true;
   await g.until(() => {

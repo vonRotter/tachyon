@@ -35,6 +35,9 @@ MODEL_FILES = ["kokoro-v1.0.int8.onnx", "voices-v1.0.bin"]
 # Each faction gets its own accent and register so speakers are easy to tell apart by ear.
 # A voice is either a Kokoro voice id or a weighted blend of several.
 CAST = {
+    # The prologue's caravan crew
+    "tamsin": {"voice": "af_river", "lang": "en-us", "speed": 0.98},
+    "dace": {"voice": "am_liam", "lang": "en-us", "speed": 1.08},
     # Kestrel Station: American, plain-spoken
     "varga": {"voice": "af_heart", "lang": "en-us", "speed": 1.0},
     "juno": {"voice": "af_bella", "lang": "en-us", "speed": 1.08},

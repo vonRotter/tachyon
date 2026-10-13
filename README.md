@@ -25,6 +25,12 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 
 ## What is in the game
 
+- **Prologue, "The Tamsin Run"** (the Ashfall): before you own a ship, Rook flies escort for a
+  small independent caravan in a borrowed Kite. The first Wake raid is beaten off; the second,
+  with Vey, the Mawbreaker and a pack of Fangs, is not. The fight cannot be won or lost by dying:
+  the Kite is crippled, the caravan taken, and the Kestrel militia find you drifting. You wake on
+  Kestrel with your escort fee and the Kite's insurance, and buy your first ship. Skippable from
+  the pause menu.
 - **Hangar and shop** between missions. A new campaign starts with 40,000 cr and a choice of
   first ship (light hulls only); whatever it does not cost is yours to spend. Your ship hovers on a turntable in a
   station bay (drag to look around). Ships differ in hull, shields, speed, turn rate, weapon
@@ -49,8 +55,18 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   colours with their yard's trim. The Talon takes after the Babylon 5 Starfury (four slanted
   wings, engine pods that thrust both ways, so it strafes hard); the Wren, Kestrel's tiny
   station-defence fighter, after the Jedi starfighter. Unmanned combat drones are small, fast
-  and die to a single burst.
-- **Civilian ships:** container ships, hospital ships, cruise liners and asteroid miners, built
+  and die to a single burst; every side flies them, and you can carry two in a drone bay.
+- **Gunships** are minibosses nobody sells: one per faction, each in its yard's style. The Wake's
+  Mawbreaker (Cold Guns, the prologue, bounty jobs), the Combine's Sunspear (long-range guns and
+  fast shields; the Bastion and the Gilded Cage), the Drift's Ironbark (an armoured tanker with a
+  missile rack; Last Light), the Patrol's Warrant (Okafor's ship) and Kestrel's Bulldog (with the
+  militia at the Accord, and on ore guard). The Fang is the Wake's better fighter: it leads their
+  hunter packs from the first mission on.
+- **Battlecruisers** carry a main battery of four triple-barrelled turrets (a superfiring pair
+  forward, one aft, one under the keel) for fighting other capital ships, with point-defence
+  guns down both flanks for fighters.
+- **Civilian ships:** container ships, hospital ships, cruise liners and asteroid miners (a
+  drill cutter with crane arms, ore silos and a smelter stack), built
   with the same bevelled-block language as everything else. They fly the traffic lanes.
 - **Ship database** in the hangar: fills in as you meet ships in missions (fighters, gunships,
   capital ships, civilian hulls, installations), with facts, a description, and a turntable model
@@ -77,7 +93,8 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 - **Weapons.** Pulse, rapid, mass driver and scatter guns. Seeker missiles, unguided rocket
   pods, swarm packs and slow, heavy torpedoes.
 - **Equipment.** Flares, an emergency shield cell, repair drones, an afterburner tank, an
-  extended magazine, a targeting computer and a docking computer.
+  extended magazine, a targeting computer, a docking computer and a drone bay (two combat drones
+  fly on your wing, attack your target and anything shooting at you, and are replaced each sortie).
 - **Power routing.** Send spare power to shields, guns or engines.
 - **Docking.** Request clearance and fly the holographic gates into a bay; the clamps take over
   once you are inside and slow enough. Kestrel Station has a hangar on its hub, and the Combine
@@ -85,7 +102,7 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 - **Campaign.** Five chapters per side, shown as a progress strip above the contracts:
   Cold Guns, then Launch Order (Combine) or Flotsam (Drift), Open Channel, The Accord, and
   Last Light (Combine) or The Bastion (Drift). The next story contract is picked for you when
-  you return to the hangar; flown contracts fold down and can be replayed.
+  you return to the hangar; story contracts are flown once.
 - **Side jobs** for anyone, whichever side you fly for, paid in full every time: a Reach Patrol
   bounty hunt in the Ashfall alongside two Patrol Interdictors, a convoy run bringing container
   ships in to Vantage, and guarding Kestrel's ore barges from Wake strip-miners.

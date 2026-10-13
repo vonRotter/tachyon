@@ -36,9 +36,10 @@ export async function runBounty(g: Game): Promise<void> {
   const player = g.player as Ship;
   g.friendlyFireLimit = 250;
   const patrol = [0, 1].map((i) =>
-    g.spawnShip('interdictor', 'patrol', i === 0 ? 'Sgt. Okafor' : 'Interdictor 6', player.pos.clone().add(v(-60 - i * 50, 20, 40)), v(0, 0, -1500), { skill: 0.65, playerBias: 0, damageScale: 0.5 }),
+    g.spawnShip(i === 0 ? 'warrant' : 'interdictor', 'patrol', i === 0 ? 'Sgt. Okafor' : 'Interdictor 6', player.pos.clone().add(v(-60 - i * 50, 20, 40)), v(0, 0, -1500), { skill: 0.65, playerBias: 0, damageScale: 0.5 }),
   );
   for (const s of patrol) s.missiles = 4;
+  for (let i = 0; i < 2; i++) patrol.push(g.spawnShip('drone', 'patrol', 'Patrol drone', player.pos.clone().add(v(40 + i * 30, -20, 60)), v(0, 0, -1500), { skill: 0.45, playerBias: 0 }));
   g.setMusicIntensity(0.4);
   g.objective = 'Hunt the Wake raiders in the Ashfall';
   await g.say('okafor', 'Contractor, Okafor, Reach Patrol. The Wake have been jumping salvage crews out of the Ashfall. The bounty is posted per hull. Stay on my wing.');
@@ -136,6 +137,8 @@ export async function runOreGuard(g: Game): Promise<void> {
     return s;
   });
   player.placeAt(v(-700, 60, 300), field, 60);
+  g.spawnShip('bulldog', 'kestrel', 'Gunboat Bulldog', v(-900, 40, 420), field, { skill: 0.55, playerBias: 0, damageScale: 0.5 });
+  for (let i = 0; i < 2; i++) g.spawnShip('drone', 'kestrel', 'Kestrel drone', v(-880 + i * 40, 20, 470), field, { skill: 0.45, playerBias: 0 });
   g.setMusicIntensity(0.3);
   g.objective = 'Guard the ore barges';
   await g.say('varga', 'Rook, Kestrel Control. Wake strip-miners have been hitting our barges in the rock field. Three crews are working today. Keep them breathing.');

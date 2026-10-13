@@ -8,6 +8,7 @@ import { runOpenChannel } from './missionOpenChannel';
 import { runBastion, runLastLight } from './missionFinale';
 import { runBounty, runConvoy, runOreGuard } from './missionJobs';
 import { runCourier, runRescue, runSalvage } from './missionCivil';
+import { runPrologue } from './missionPrologue';
 import { runBaronDuel, runBaronFinale, runBaronHeist, runBaronRobbery } from './missionBaron';
 
 export interface MissionDef {
@@ -260,6 +261,19 @@ export const MISSIONS: MissionDef[] = [
     kind: 'job',
     available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
     victoryTitle: 'Salvage rights',
+  },
+  {
+    // played once, before the first ship is bought; never listed in the hangar
+    id: 'prologue',
+    name: 'The Tamsin Run',
+    location: 'The Ashfall',
+    map: 'ashfall',
+    briefing: 'Escort a small independent caravan through the edge of the Ashfall to Kestrel Station.',
+    pay: 0,
+    run: (g) => runPrologue(g),
+    available: () => false,
+    victoryTitle: 'Adrift',
+    kind: 'story',
   },
 ];
 

@@ -19,6 +19,32 @@ export interface Speaker {
 }
 
 export const SPEAKERS: Record<string, Speaker> = {
+  tamsin: {
+    id: 'tamsin',
+    band: 'kestrel',
+    name: 'Mara Tamsin',
+    title: 'Caravan master, Tamsin Freight',
+    color: '#4dfcd2',
+    skin: '#d8a888',
+    hair: '#8a5a3c',
+    seed: 137,
+    pitch: 0.95,
+    rate: 1.0,
+    voiceHint: 'female',
+  },
+  dace: {
+    id: 'dace',
+    band: 'kestrel',
+    name: 'Dace Morrow',
+    title: 'Escort pilot, Tamsin Freight',
+    color: '#4dfcd2',
+    skin: '#6a4630',
+    hair: '#2a2420',
+    seed: 149,
+    pitch: 1.05,
+    rate: 1.1,
+    voiceHint: 'male',
+  },
   varga: {
     id: 'varga',
     band: 'kestrel',

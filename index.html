@@ -15,6 +15,7 @@
   <body>
     <div id="game"></div>
     <canvas id="hud"></canvas>
+    <div id="fade"><p id="fade-text"></p></div>
 
     <div id="comms">
       <canvas width="96" height="96"></canvas>
@@ -166,11 +167,21 @@
     <div id="new-run" class="overlay">
       <div class="panel">
         <h2>New campaign</h2>
-        <p class="fineprint">How hard do you want the Reach to be?</p>
+        <p class="fineprint">How hard do you want the Reach to be? A short prologue comes first; you can skip it from the pause menu.</p>
         <div class="choice">
           <button id="run-standard" class="primary">Standard: if you die, a tug recovers you for 2,500 cr and you retry</button>
           <button id="run-hardcore">Hardcore: one life. If you die, the campaign is over</button>
           <button id="run-cancel">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="story" class="overlay">
+      <div class="panel">
+        <h2 id="story-title"></h2>
+        <div id="story-text"></div>
+        <div class="choice">
+          <button id="story-go" class="primary">Go to the shipyard</button>
         </div>
       </div>
     </div>

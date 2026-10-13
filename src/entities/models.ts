@@ -1041,41 +1041,97 @@ function liner(p: Palette): ShipModel {
 }
 
 /**
- * Asteroid miner: a squat ore barge with a drill head on a boom, a grab arm, an open ore hopper
- * and work lights. Rugged and yellow, about 70 m.
+ * Asteroid miner: a heavy industrial cutter about 75 m long. A big conical drill on a lit collar
+ * up front, two crane arms with claws (one holding a rock), ore silos ribbed in yellow along the
+ * flanks, a smelter stack glowing aft, a cab perched high on a gantry and hazard striping.
  */
 function miner(p: Palette): ShipModel {
   const b = new StructureBuilder();
   const yellow = '#f4b400';
-  b.bevel(v3(0, 0, 4), v3(22, 14, 40), 3, yellow, NO);
-  b.bevel(v3(0, 10, -12), v3(12, 7, 9), 2, '#3a3440', { ...NO, front: [0.7, 0.7] });
-  b.box(v3(0, 11, -16.6), v3(9, 2, 0.3), '#7fe0ff', { ...NO, glow: 1.4 });
-  // ore hopper, open on top, with rock in it
-  b.box(v3(0, 9, 12), v3(18, 1, 18), '#4e5466', NO);
-  for (const s of [1, -1]) b.box(v3(s * 9, 13, 12), v3(1, 8, 18), '#4e5466', NO);
-  for (let i = 0; i < 5; i++) b.sphere(v3(-5 + i * 2.5, 12 + (i % 2), 10 + (i % 3) * 3), 2.4, '#6d6a72', { ...NO, detail: 0 });
-  // drill boom and head
-  b.box(v3(0, -2, -22), v3(4, 4, 18), '#4e5466', NO);
-  b.cylinder(v3(0, -2, -34), 5, 8, '#8a8070', { ...NO, quat: X90, sides: 10, radiusTop: 1 });
-  for (let k = 0; k < 6; k++) {
-    const a = (k / 6) * Math.PI * 2;
-    b.box(v3(Math.cos(a) * 3, -2 + Math.sin(a) * 3, -35), v3(0.8, 0.8, 6), '#c8ccd6', NO);
+  const steel = '#646a80';
+  const black = '#1d2030';
+  const hot = '#ff8a3a';
+  // main body: a chunky dark spine with yellow armour plates down the sides
+  b.bevel(v3(0, 0, 2), v3(20, 16, 50), 3, steel, NO);
+  b.bevel(v3(0, 9.5, 4), v3(14, 4, 40), 1.5, '#3a3f50', { ...NO, front: [0.8, 1] });
+  for (const s of [1, -1]) b.bevel(v3(s * 10.6, -1, 0), v3(2, 12, 40), 0.8, yellow, { ...NO, front: [0.7, 0.8], back: [0.8, 0.9] });
+  // hazard stripes across the bow face
+  for (let i = -4; i <= 4; i++) {
+    const tilt = new THREE.Quaternion().setFromAxisAngle(v3(0, 0, 1), 0.7);
+    b.box(v3(i * 2.1, 0, -23.1), v3(0.9, 11, 0.3), i % 2 ? yellow : black, { ...NO, quat: tilt });
   }
-  // grab arm
-  b.strut(v3(9, -4, -6), v3(14, -10, -22), 1.4, yellow, { ...NO, sides: 6 });
-  b.strut(v3(14, -10, -22), v3(10, -12, -30), 1.1, yellow, { ...NO, sides: 6 });
-  // work lights and engines
+  // drill: a collar with a hot ring, then a big cone with spiral cutting teeth
+  b.cylinder(v3(0, 0, -25.5), 9, 4, steel, { ...NO, quat: X90, sides: 16 });
+  b.torus(v3(0, 0, -27.6), 8.4, 0.6, hot, { radial: 4, tubular: 32, glow: 2 });
+  b.cylinder(v3(0, 0, -36), 0.8, 17, '#8a8070', { ...NO, quat: X90, sides: 14, radiusTop: 7.6 });
+  for (let k = 0; k < 18; k++) {
+    const t = k / 18;
+    const a = t * Math.PI * 4;
+    const r = 7.2 - t * 6;
+    const z = -28.5 - t * 15;
+    b.box(v3(Math.cos(a) * r, Math.sin(a) * r, z), v3(1.2, 1.2, 2.4), '#c8ccd6', { ...NO, quat: new THREE.Quaternion().setFromAxisAngle(v3(0, 0, 1), a) });
+  }
+  b.sphere(v3(0, 0, -44.6), 0.9, hot, { ...NO, glow: 2.4, detail: 0 });
+  // crane arms reaching forward from the shoulders, with three-finger claws
+  const claw = (c: THREE.Vector3) => {
+    b.sphere(c, 1.6, steel, { ...NO, detail: 0 });
+    for (const a of [0, 2.1, 4.2]) b.strut(c, c.clone().add(v3(Math.cos(a) * 3.2, Math.sin(a) * 3.2, -3.6)), 0.4, '#c8ccd6', { ...NO, sides: 4 });
+  };
   for (const s of [1, -1]) {
-    b.sphere(v3(s * 11, 7, -16), 0.9, '#ffffff', { ...NO, glow: 3, detail: 0 });
-    b.cylinder(v3(s * 6, 0, 26), 3, 4, '#2b2f45', { ...NO, quat: X90, sides: 10 });
-    b.cylinder(v3(s * 6, 0, 28.1), 2.5, 0.2, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
+    const shoulder = v3(s * 10, 6, -14);
+    const elbow = v3(s * 17, 12, -24);
+    const hand = v3(s * 15, 5, -38);
+    b.sphere(shoulder, 2, black, { ...NO, detail: 0 });
+    b.strut(shoulder, elbow, 1.3, yellow, { ...NO, sides: 6 });
+    b.sphere(elbow, 1.6, black, { ...NO, detail: 0 });
+    b.strut(elbow, hand, 1, yellow, { ...NO, sides: 6 });
+    claw(hand);
+  }
+  b.sphere(v3(15, 4, -42), 3.4, '#6d6a72', { ...NO, detail: 0 });
+  b.sphere(v3(16.4, 5.6, -43), 0.9, '#3ffcff', { ...NO, glow: 1.6, detail: 0 });
+  // ore silos on the flanks, ribbed in yellow
+  for (const s of [1, -1]) {
+    const c = v3(s * 16, -3, 6);
+    b.cylinder(c, 5, 30, '#6a7084', { ...NO, quat: X90, sides: 12 });
+    for (const z of [-12, -4, 4, 12]) b.torus(c.clone().add(v3(0, 0, z)), 5.1, 0.5, yellow, { radial: 4, tubular: 20 });
+    b.cylinder(c.clone().add(v3(0, 0, -15.5)), 3.6, 1, black, { ...NO, quat: X90, sides: 12 });
+    b.strut(v3(s * 10, -3, -2), c.clone().add(v3(-s * 4, 0, -2)), 1, black, { ...NO, sides: 6 });
+    b.strut(v3(s * 10, -3, 14), c.clone().add(v3(-s * 4, 0, 14)), 1, black, { ...NO, sides: 6 });
+  }
+  // the cab, up on a gantry to starboard, with wraparound windows
+  b.strut(v3(4, 11, -8), v3(5, 18, -10), 1.2, black, { ...NO, sides: 6 });
+  b.strut(v3(-1, 11, -6), v3(3, 18, -10), 1.2, black, { ...NO, sides: 6 });
+  b.bevel(v3(4.5, 21, -11), v3(10, 6, 9), 1.5, yellow, { ...NO, front: [0.85, 0.7] });
+  b.box(v3(4.5, 22, -15.4), v3(8, 1.8, 0.3), '#7fe0ff', { ...NO, glow: 1.4 });
+  for (const s of [1, -1]) b.box(v3(4.5 + s * 4.95, 22, -11), v3(0.3, 1.8, 6), '#7fe0ff', { ...NO, glow: 1.4 });
+  b.strut(v3(2, 24, -10), v3(2, 30, -9), 0.2, black, { ...NO, sides: 4 });
+  b.sphere(v3(2, 30.3, -9), 0.5, '#ff2040', { ...NO, glow: 3, detail: 0 });
+  // smelter stack aft, glowing at the top
+  b.cylinder(v3(-4, 17, 18), 3.4, 14, black, { ...NO, sides: 10, radiusTop: 2.6 });
+  b.torus(v3(-4, 22, 18), 3.2, 0.4, yellow, { quat: new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2), radial: 4, tubular: 16 });
+  b.cylinder(v3(-4, 24.1, 18), 2.2, 0.3, hot, { ...NO, sides: 10, glow: 2.6 });
+  // floodlights on the bow and under the arms
+  for (const s of [1, -1]) {
+    b.sphere(v3(s * 8, 8.5, -22), 0.9, '#ffffff', { ...NO, glow: 3, detail: 0 });
+    b.sphere(v3(s * 7, -8, -21), 0.8, '#ffffff', { ...NO, glow: 3, detail: 0 });
+  }
+  // engines: two big and two small
+  b.bevel(v3(0, 0, 29), v3(22, 14, 6), 2, steel, NO);
+  for (const [ex, ey, r] of [
+    [6, 0, 3.6],
+    [-6, 0, 3.6],
+    [0, 5, 2],
+    [0, -5, 2],
+  ] as const) {
+    b.cylinder(v3(ex, ey, 33), r, 4, '#2b2f45', { ...NO, quat: X90, sides: 12 });
+    b.cylinder(v3(ex, ey, 35.1), r * 0.84, 0.2, p.engine, { ...NO, quat: X90, sides: 12, glow: 1.0 });
   }
   return {
     group: b.build('miner', 'ship'),
-    engines: [v3(6, 0, 28.3), v3(-6, 0, 28.3)],
-    engineRadius: 2.5,
-    guns: [v3(0, -2, -38)],
-    cameraOffset: v3(0, 26, 90),
+    engines: [v3(6, 0, 35.3), v3(-6, 0, 35.3), v3(0, 5, 35.3), v3(0, -5, 35.3)],
+    engineRadius: 2.8,
+    guns: [v3(0, 0, -45)],
+    cameraOffset: v3(0, 30, 100),
   };
 }
 
@@ -1155,7 +1211,194 @@ function scarlet(p: Palette): ShipModel {
   };
 }
 
-const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat, cannon, gannet, bulwark, fang, interdictor, talon, wren, drone, container, hospital, liner, miner, scarlet };
+/** A twin-barrel gun turret on a dome, used by the gunships. `dir` is -1 forward, 1 aft. */
+function gunDome(b: StructureBuilder, c: THREE.Vector3, r: number, color: string, under = false, dir = -1): THREE.Vector3 {
+  const up = under ? -1 : 1;
+  b.cylinder(c, r, r * 0.5, DARK, NO);
+  b.sphere(c.clone().add(v3(0, r * 0.3 * up, 0)), r * 0.8, color, { ...NO, detail: 1, scale: v3(1, 0.6, 1.1) });
+  for (const s of [1, -1]) b.cylinder(c.clone().add(v3(s * r * 0.3, r * 0.45 * up, dir * r * 1.4)), r * 0.12, r * 1.8, DARK, { ...NO, quat: X90, sides: 6 });
+  return c.clone().add(v3(0, r * 0.45 * up, dir * r * 2.4));
+}
+
+/**
+ * Sunspear (Helion Combine gunship): a long ivory wedge with a spinal lance cannon under the
+ * nose, two crescent blades sweeping forward from the hips, gold spine and two gun domes.
+ */
+function sunspear(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.bevel(v3(0, 0, 0), v3(9, 5, 34), 1.2, p.primary, { ...NO, front: [0.25, 0.4], back: [0.8, 0.9] });
+  b.bevel(v3(0, 3, 2), v3(4, 2, 24), 0.6, p.secondary, { ...NO, front: [0.3, 0.6] });
+  b.hull([v3(0, 2.6, -11), v3(1.4, 2.8, -7), v3(-1.4, 2.8, -7), v3(0, 3.8, -6), v3(1.2, 3.2, -4), v3(-1.2, 3.2, -4)], p.canopy, 1.2);
+  // spinal lance under the nose
+  b.cylinder(v3(0, -3.2, -6), 1.2, 26, DARK, { ...NO, quat: X90, sides: 10 });
+  b.cylinder(v3(0, -3.2, -19.4), 0.9, 1, p.accent, { ...NO, quat: X90, sides: 10, glow: 2 });
+  for (const z of [-14, -9, -4]) b.torus(v3(0, -3.2, z), 1.35, 0.25, p.secondary, { radial: 4, tubular: 16 });
+  // crescent blades: three swept segments a side, curling forward at the tips
+  for (const s of [1, -1]) {
+    const pts = [v3(s * 4, 0, 8), v3(s * 10, -0.5, 9), v3(s * 15, -1, 5), v3(s * 16.5, -1, -3), v3(s * 15, -0.8, -10)];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const c = pts[i + 1];
+      const w = 3.4 - i * 0.7;
+      b.hull(plate([a.clone().add(v3(0, 0, -w * 0.5)), a.clone().add(v3(0, 0, w * 0.5)), c.clone().add(v3(0, 0, (w - 0.7) * 0.5)), c.clone().add(v3(0, 0, -(w - 0.7) * 0.5))], UPN, 0.7), i % 2 ? p.secondary : p.primary);
+    }
+    b.box(v3(s * 4.6, 0.5, 0), v3(0.3, 0.6, 22), p.accent, { ...NO, glow: 1.4 });
+    nav(b, s * 15, -0.5, -10.5);
+  }
+  const g1 = gunDome(b, v3(0, 2.6, 9), 2.4, p.primary);
+  const g2 = gunDome(b, v3(0, -2.6, 4), 2.2, p.primary, true);
+  for (const ex of [-2.6, 0, 2.6]) {
+    b.cylinder(v3(ex, 0, 17.4), 1.3, 2, DARK, { ...NO, quat: X90, sides: 10 });
+    b.cylinder(v3(ex, 0, 18.45), 1.1, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
+  }
+  return {
+    group: b.build('sunspear', 'ship'),
+    engines: [v3(-2.6, 0, 18.5), v3(0, 0, 18.5), v3(2.6, 0, 18.5)],
+    engineRadius: 1.1,
+    guns: [g1, g2, v3(0, -3.2, -20)],
+    cameraOffset: v3(0, 10, 48),
+  };
+}
+
+/**
+ * Ironbark (Drift Union gunship): an old tanker section with a truss bolted along it, a ring
+ * drive round the middle, a missile rack hung to port and a gun on a boom to starboard.
+ * Mismatched plates everywhere.
+ */
+function ironbark(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.cylinder(v3(0, 0, 0), 4.6, 24, '#6a6458', { ...NO, quat: X90, sides: 12 });
+  b.sphere(v3(0, 0, -12), 4.6, '#6a6458', { ...NO, detail: 1, scale: v3(1, 1, 0.7) });
+  // mismatched armour plates bolted on at odd angles
+  const plates: [number, number, number, number, string][] = [
+    [0, 4.4, -4, 0.1, p.primary],
+    [3.6, 2.6, 4, 0.7, p.secondary],
+    [-3.8, 2.2, -2, -0.6, p.primary],
+    [0, -4.4, 6, 0.05, p.secondary],
+    [-3.4, -2.8, 7, -2.4, '#8a7a5a'],
+  ];
+  for (const [x, y, z, roll, col] of plates) b.bevel(v3(x, y, z), v3(5, 1, 8), 0.4, col, { ...NO, quat: new THREE.Quaternion().setFromAxisAngle(v3(0, 0, 1), roll) });
+  // cockpit pod hung off to starboard of the nose
+  b.sphere(v3(3.4, 2.4, -11), 1.8, p.primary, { ...NO, detail: 1 });
+  b.sphere(v3(3.6, 2.8, -12.2), 1.1, p.canopy, { ...NO, detail: 1, glow: 1.1 });
+  // open truss along the top
+  for (const s of [1, -1]) b.strut(v3(s * 2.4, 5.6, -10), v3(s * 2.4, 5.6, 10), 0.3, DARK, { ...NO, sides: 4 });
+  for (let z = -10; z <= 10; z += 4) {
+    b.strut(v3(2.4, 5.6, z), v3(-2.4, 5.6, z + 4), 0.2, DARK, { ...NO, sides: 4 });
+    b.strut(v3(2.4, 5.6, z), v3(2.4, 4.4, z), 0.2, DARK, { ...NO, sides: 4 });
+  }
+  // ring drive on four spokes
+  b.torus(v3(0, 0, 8), 9, 0.9, p.secondary, { radial: 6, tubular: 32 });
+  b.torus(v3(0, 0, 8), 9, 0.3, p.accent, { radial: 4, tubular: 32, glow: 1.4 });
+  for (let k = 0; k < 4; k++) {
+    const a = Math.PI / 4 + (k * Math.PI) / 2;
+    b.strut(v3(Math.cos(a) * 4.4, Math.sin(a) * 4.4, 8), v3(Math.cos(a) * 8.4, Math.sin(a) * 8.4, 8), 0.5, DARK, { ...NO, sides: 5 });
+  }
+  // missile rack to port
+  b.strut(v3(-4.4, 0, -2), v3(-8, -1, -2), 0.6, DARK, { ...NO, sides: 5 });
+  b.box(v3(-9.5, -1, -2), v3(3.4, 3.4, 10), p.primary, NO);
+  for (let i = 0; i < 4; i++) b.cylinder(v3(-9.5 + (i % 2 ? 0.8 : -0.8), -1 + (i < 2 ? 0.8 : -0.8), -7.1), 0.5, 0.3, '#ff6a2a', { ...NO, quat: X90, sides: 6, glow: 1.4 });
+  // gun on a boom to starboard, and one slung under the nose
+  b.strut(v3(4.4, 0.5, -4), v3(10, 2, -6), 0.6, DARK, { ...NO, sides: 5 });
+  const g1 = gunDome(b, v3(10, 2.6, -6), 2.2, p.secondary);
+  const g2 = gunDome(b, v3(0, -4.8, -6), 2, p.primary, true);
+  // two engines that do not match
+  b.cylinder(v3(-1.6, 0.6, 13.6), 2.4, 3, DARK, { ...NO, quat: X90, sides: 10 });
+  b.cylinder(v3(-1.6, 0.6, 15.15), 2.0, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
+  b.cylinder(v3(2.6, -1.4, 13), 1.4, 2.4, DARK, { ...NO, quat: X90, sides: 8 });
+  b.cylinder(v3(2.6, -1.4, 14.25), 1.2, 0.1, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.0 });
+  nav(b, 9, 0, 8);
+  nav(b, -9, 0, 8);
+  return {
+    group: b.build('ironbark', 'ship'),
+    engines: [v3(-1.6, 0.6, 15.2), v3(2.6, -1.4, 14.3)],
+    engineRadius: 1.6,
+    guns: [g1, g2, v3(-9.5, -1, -7.4)],
+    cameraOffset: v3(0, 10, 46),
+  };
+}
+
+/**
+ * Warrant (Reach Patrol gunship): broad and flat, high-visibility white with a blue belly, red
+ * and blue lightbars across the back, gun pods on the wingtips and a big glass bridge.
+ */
+function warrant(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.bevel(v3(0, 0, 0), v3(16, 5, 28), 1.4, p.primary, { ...NO, front: [0.55, 0.6] });
+  b.bevel(v3(0, -2.6, 1), v3(12, 1.6, 24), 0.6, p.secondary, { ...NO, front: [0.5, 1] });
+  b.bevel(v3(0, 3.2, -2), v3(8, 2.4, 14), 0.8, p.primary, { ...NO, front: [0.6, 0.6] });
+  b.hull([v3(0, 3, -12), v3(2.6, 3, -9), v3(-2.6, 3, -9), v3(0, 5, -8.4), v3(2.2, 4.6, -6), v3(-2.2, 4.6, -6)], p.canopy, 1.2);
+  // lightbars across the back: red to port, blue to starboard
+  for (const s of [1, -1]) {
+    b.box(v3(s * 2.2, 4.6, 2), v3(3.6, 0.6, 1.2), s > 0 ? '#3a7bff' : p.accent, { ...NO, glow: 2.6 });
+    b.box(v3(s * 7.9, 0.4, 0), v3(0.3, 0.8, 22), s > 0 ? '#3a7bff' : p.accent, { ...NO, glow: 1.8 });
+  }
+  b.box(v3(0, 2.6, -8), v3(15, 0.3, 1.2), p.secondary, NO);
+  // wings with gun pods at the tips
+  const guns: THREE.Vector3[] = [];
+  for (const s of [1, -1]) {
+    b.hull(plate([v3(s * 7, 0, -4), v3(s * 7, 0, 8), v3(s * 15, 0, 10), v3(s * 15, 0, 2)], UPN, 0.9), p.primary);
+    b.cylinder(v3(s * 15.6, 0, 3), 1.4, 12, p.secondary, { ...NO, quat: X90, sides: 10 });
+    b.cylinder(v3(s * 15.6, 0, -4.4), 0.4, 4, DARK, { ...NO, quat: X90, sides: 6 });
+    guns.push(v3(s * 15.6, 0, -6.6));
+    nav(b, s * 15.6, 1.5, 8);
+  }
+  guns.push(gunDome(b, v3(0, -3.6, -7), 2, p.primary, true));
+  for (const [ex, ey] of [
+    [-4.5, 0.6],
+    [4.5, 0.6],
+    [-1.6, -1],
+    [1.6, -1],
+  ] as const) {
+    b.cylinder(v3(ex, ey, 14.6), 1.3, 2, DARK, { ...NO, quat: X90, sides: 10 });
+    b.cylinder(v3(ex, ey, 15.65), 1.1, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
+  }
+  return {
+    group: b.build('warrant', 'ship'),
+    engines: [v3(-4.5, 0.6, 15.7), v3(4.5, 0.6, 15.7), v3(-1.6, -1, 15.7), v3(1.6, -1, 15.7)],
+    engineRadius: 1.1,
+    guns,
+    cameraOffset: v3(0, 10, 46),
+  };
+}
+
+/**
+ * Bulldog (Kestrel militia gunboat): a round-shouldered barrel of a ship on two fat nacelles
+ * with intake rings, a hoop over the back, a dorsal turret and a chin gun. Yellow and blue.
+ */
+function bulldog(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.cylinder(v3(0, 0, 1), 5, 20, p.primary, { ...NO, quat: X90, sides: 14 });
+  b.sphere(v3(0, 0, -9), 5, p.primary, { ...NO, detail: 2, scale: v3(1, 0.9, 0.9) });
+  b.box(v3(0, 0, 1), v3(10.2, 1.2, 18), p.secondary, NO);
+  b.hull([v3(0, 2.6, -12.4), v3(2.2, 3, -10), v3(-2.2, 3, -10), v3(0, 4.6, -9), v3(1.8, 4.2, -7.4), v3(-1.8, 4.2, -7.4)], p.canopy, 1.2);
+  for (const s of [1, -1]) {
+    // fat nacelles on short pylons, with intake rings
+    b.strut(v3(s * 4.4, -0.6, 2), v3(s * 8, -1.4, 2), 1, p.secondary, { ...NO, sides: 6 });
+    b.cylinder(v3(s * 9, -1.4, 3), 2.8, 15, p.primary, { ...NO, quat: X90, sides: 14 });
+    b.torus(v3(s * 9, -1.4, -4.6), 2.9, 0.5, p.secondary, { radial: 4, tubular: 20 });
+    b.cylinder(v3(s * 9, -1.4, -4.6), 2.1, 0.4, DARK, { ...NO, quat: X90, sides: 14 });
+    b.cylinder(v3(s * 9, -1.4, 10.6), 2.4, 0.3, p.engine, { ...NO, quat: X90, sides: 14, glow: 1.0 });
+    b.box(v3(s * 11.85, -1.4, 3), v3(0.3, 0.8, 10), p.accent, { ...NO, glow: 1.3 });
+    nav(b, s * 11.9, -1.4, 9);
+  }
+  // the hoop over the back
+  hoop(b, v3(0, 0.5, 8), 9.4, 0.6, 0.15, Math.PI - 0.3, p.secondary);
+  hoop(b, v3(0, 0.5, 8), 9.4, 0.18, 0.3, Math.PI - 0.6, p.accent, undefined, 1.2);
+  const g1 = gunDome(b, v3(0, 4.8, -1), 2.2, p.secondary);
+  const g2 = gunDome(b, v3(0, -4.6, -7), 1.8, p.secondary, true);
+  b.cylinder(v3(0, 0, 11.4), 3.4, 1.4, DARK, { ...NO, quat: X90, sides: 12 });
+  b.cylinder(v3(0, 0, 12.15), 2.9, 0.1, p.engine, { ...NO, quat: X90, sides: 12, glow: 1.0 });
+  return {
+    group: b.build('bulldog', 'ship'),
+    engines: [v3(0, 0, 12.2), v3(9, -1.4, 10.8), v3(-9, -1.4, 10.8)],
+    engineRadius: 2.2,
+    guns: [g1, g2],
+    cameraOffset: v3(0, 10, 44),
+  };
+}
+
+const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat, cannon, gannet, bulwark, fang, interdictor, talon, wren, drone, container, hospital, liner, miner, scarlet, sunspear, ironbark, warrant, bulldog };
 const cache = new Map<string, ShipModel>();
 
 /** Builds (once) and clones a ship model. Clones share geometry and materials. */

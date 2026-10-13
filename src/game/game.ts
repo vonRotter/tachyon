@@ -590,6 +590,17 @@ export class Game implements CombatContext {
     return ship;
   }
 
+  /** The drone bay: two drones on the player's wing. */
+  private launchEscorts(player: Ship): void {
+    for (const side of [-1, 1]) {
+      const p = player.pos.clone().add(new THREE.Vector3(side * 25, 6, 30).applyQuaternion(player.quat));
+      const d = this.spawnShip('drone', 'player', 'Your drone', p, p.clone().add(player.forward(new THREE.Vector3()).multiplyScalar(500)), { skill: 0.55, playerBias: 0, speed: 40, damageScale: 0.5 });
+      const ai = d.ai as AIPilot;
+      ai.wingOf = player;
+      ai.tactic = 'swarm';
+    }
+  }
+
   /** Civilian haulers on slow loops through the area: moving cover and something to dodge. */
   private spawnTraffic(): void {
     for (const route of this.location.traffic) {
@@ -685,6 +696,17 @@ export class Game implements CombatContext {
     });
   }
 
+  /** Escort drones left behind when a mission moves the player: bring them back on the wing. */
+  private updateEscorts(): void {
+    const p = this.player;
+    if (!p?.alive) return;
+    for (const d of this.ships) {
+      if (!d.alive || !(d.ai instanceof AIPilot) || d.ai.wingOf !== p || d.pos.distanceToSquared(p.pos) < 3000 * 3000) continue;
+      const at = p.pos.clone().add(new THREE.Vector3(d.pos.x > p.pos.x ? 25 : -25, 6, 40).applyQuaternion(p.quat));
+      d.placeAt(at, at.clone().add(p.forward(new THREE.Vector3()).multiplyScalar(500)), p.speed);
+    }
+  }
+
   private updateRetreats(): void {
     if (!this.retreating.length) return;
     this.retreating = this.retreating.filter((r) => {
@@ -768,6 +790,7 @@ export class Game implements CombatContext {
     this.scanKey = null;
     this.scanReadout = null;
     this.retreating = [];
+    this.fade(false);
     // the battlecruiser some locations are built round counts as met
     if (this.location.frames.carrier) this.seenClasses.add('capital-battlecruiser');
     this.friendlyFire.clear();
@@ -781,6 +804,7 @@ export class Game implements CombatContext {
     player.flares = player.equipment.has('flares') ? 10 : 0;
     player.controls.throttle = 0.4;
     this.player = player;
+    if (player.equipment.has('droneBay')) this.launchEscorts(player);
     this.spawnTraffic();
     this.camQuat.copy(player.quat);
     this.aimQuat.copy(player.quat);
@@ -797,6 +821,13 @@ export class Game implements CombatContext {
         if (!(e instanceof MissionAbort) && token === this.missionToken) console.error(e);
       });
     }
+  }
+
+  /** Mission API: fade the view to black (with an optional caption) or back. */
+  fade(on: boolean, text = ''): void {
+    document.getElementById('fade')?.classList.toggle('on', on);
+    const t = document.getElementById('fade-text');
+    if (t) t.textContent = text;
   }
 
   endMission(result: 'victory' | 'defeat'): void {
@@ -1559,6 +1590,7 @@ export class Game implements CombatContext {
       this.updatePlayerSystems(dt);
       this.updateScan();
       this.updateRetreats();
+      this.updateEscorts();
       // resolve waiters
       const ready = this.waiters.filter((w) => w.until());
       if (ready.length) {
@@ -1731,6 +1763,7 @@ export class Game implements CombatContext {
 
   /** Abandons the mission and returns to the orbiting title camera. */
   quitToTitle(): void {
+    this.fade(false);
     this.missionToken++;
     for (const w of this.waiters) w.reject(new MissionAbort());
     this.waiters = [];

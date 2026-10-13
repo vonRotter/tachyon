@@ -118,6 +118,8 @@ export class Ship {
   invulnerable = false;
   /** Multiplier on incoming damage (story wingmen are a little tougher than they look). */
   damageScale = 1;
+  /** Scripted: hits never take the hull below this (the prologue's losing fight). */
+  hullFloor = 0;
   target: Ship | null = null;
   ai: { update(ship: Ship, dt: number): void } | null = null;
 
@@ -359,6 +361,7 @@ export class Ship {
       }
     }
     if (amount > 0) this.hull -= amount;
+    if (this.hullFloor > 0 && this.hull < this.hullFloor) this.hull = this.hullFloor;
     if (this.hull <= 0) {
       this.hull = 0;
       this.alive = false;

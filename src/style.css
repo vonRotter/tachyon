@@ -36,6 +36,35 @@ body {
   pointer-events: none;
 }
 
+/* Scripted fade to black (the prologue); the comms panel stays visible above it */
+#fade {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  opacity: 0;
+  transition: opacity 2.5s;
+  pointer-events: none;
+}
+
+#fade.on {
+  opacity: 1;
+}
+
+#fade p {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 20px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+#story-text p {
+  line-height: 1.55;
+  margin: 0 0 12px;
+}
+
 #fps {
   position: fixed;
   right: 8px;

@@ -81,7 +81,8 @@ export async function runLaunchOrder(g: Game, checkpoint: number): Promise<void>
     const out: Ship[] = [];
     for (let i = 0; i < count; i++) {
       const p = P('yard').clone().add(v(-40 - i * 25, 20 + (i % 2) * 20, (i % 3) * 30 - 30));
-      const s = g.jumpIn('raider', 'wake', names, p, P('center'), { skill: 0.45 + Math.random() * 0.2, playerBias: 0.5, flares: i < missiles ? 2 : 0 });
+      const fang = names === 'Wake Hunter';
+      const s = g.jumpIn(fang ? 'fang' : 'raider', 'wake', fang ? 'Wake Fang' : names, p, P('center'), { skill: 0.45 + Math.random() * 0.2, playerBias: 0.5, flares: i < missiles ? 2 : 0 });
       s.missiles = i < missiles ? 2 : 0;
       out.push(s);
     }

@@ -325,7 +325,8 @@ function begin(m: MissionDef, checkpoint: number): void {
   game.loadLocation(m.map);
   const c = campaign;
   game.missionRunner = (g, cp) => m.run(g, cp, c);
-  game.playerFit = fitShip(campaign.activeShip, campaign.fits[campaign.activeShip]);
+  // the prologue is flown in a borrowed Kite, before you own anything
+  game.playerFit = m.id === 'prologue' ? fitShip('kite', newFit('kite')) : fitShip(campaign.activeShip, campaign.fits[campaign.activeShip]);
   game.startMission(checkpoint);
   game.input.requestPointerLock();
 }
@@ -349,10 +350,27 @@ for (const [id, hardcore] of [
     campaign.hardcore = hardcore;
     saveCampaign();
     show('new-run', false);
-    openHangar();
+    begin(missionById('prologue'), 0);
   });
 }
 $('run-cancel').addEventListener('click', () => show('new-run', false));
+
+/** After the prologue: who you are now, and what you have left. */
+function showStory(): void {
+  $('story-title').textContent = 'Kestrel Station';
+  $('story-text').innerHTML = [
+    'You wake up in the infirmary on Kestrel Station. The Red Wake took the <i>Tamsin\'s Luck</i> and everything in her hold. The <i>Halcyon</i> burned with her crew. Dace did not make it, and the Kite you borrowed is scrap.',
+    'Dockmaster Varga comes by with what is owed to you: the escort fee for the run, and the insurance on the Kite. Forty thousand credits. Enough for a ship of your own, if you choose carefully.',
+    'Kestrel is an independent station, caught between the Helion Combine, the Drift Union and the Red Wake. Out here, a pilot who can fly is worth something. Time to get your life back.',
+  ]
+    .map((t) => `<p>${t}</p>`)
+    .join('');
+  show('story', true);
+}
+$('story-go').addEventListener('click', () => {
+  show('story', false);
+  openHangar();
+});
 
 // --- Test cheat: Ctrl+P toggles unlimited credits --------------------------------------------
 const toastEl = $('toast');
@@ -442,6 +460,15 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 game.onMissionEnd = (result) => {
+  if (mission.id === 'prologue') {
+    // no pay, no fee, no debrief: it always ends adrift
+    void result;
+    for (const id of game.seenClasses) if (!campaign.seen.includes(id)) campaign.seen.push(id);
+    campaign.flags.prologue = 'done';
+    saveCampaign();
+    showStory();
+    return;
+  }
   const p = game.player;
   const kills = p ? p.kills : 0;
   const acc = p && p.shotsFired ? Math.round((p.shotsHit / p.shotsFired) * 100) : 0;

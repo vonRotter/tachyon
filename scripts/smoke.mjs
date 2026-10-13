@@ -99,7 +99,8 @@ const reachedDebrief = finalState?.state === 'debrief';
 console.log(reachedDebrief ? 'mission completed on autopilot' : 'mission did NOT complete on autopilot');
 
 // Restart at the gunship checkpoint for a look at the big ship.
-if (reachedDebrief) await page.click('#restart2');
+// story missions cannot be replayed from the debrief any more, so close it by hand
+if (reachedDebrief) await page.evaluate(() => document.getElementById('debrief').classList.remove('visible'));
 await page.evaluate(() => {
   const g = window.__game;
   g.startMission(3);

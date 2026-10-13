@@ -86,7 +86,7 @@ const kestrel: Builder = (world) => {
         speed: 18,
       },
       {
-        name: 'Bulk Hauler Tamsin',
+        name: 'Bulk Hauler Morrigan',
         points: [v(-1400, 300, -400), v(-600, 260, -1000), v(500, 200, -1150), v(1050, 120, -250), v(500, 150, 750), v(-300, 250, 1000)],
         speed: 35,
       },

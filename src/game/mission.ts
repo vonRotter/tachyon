@@ -15,6 +15,7 @@ function raiderWave(
   skill: [number, number],
   missiles: number,
   names: string[],
+  fangs = 0,
 ): Ship[] {
   const dist = 1700;
   const dir = v(Math.cos(bearing) * Math.cos(elevation), Math.sin(elevation), Math.sin(bearing) * Math.cos(elevation));
@@ -29,7 +30,9 @@ function raiderWave(
       .addScaledVector(side, s * row * 45)
       .addScaledVector(dir, row * 40)
       .add(v(0, (i % 3) * 15 - 15, 0));
-    const ship = g.jumpIn('raider', 'wake', names[i % names.length], p, v(0, 0, 0), {
+    // the first few are Fangs: the Wake's better fighter, fast with short heavy guns
+    const fang = i < fangs;
+    const ship = g.jumpIn(fang ? 'fang' : 'raider', 'wake', fang ? 'Wake Fang' : names[i % names.length], p, v(0, 0, 0), {
       skill: skill[0] + (skill[1] - skill[0]) * Math.random(),
       playerBias: 0.55,
     });
@@ -108,7 +111,7 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
   if (checkpoint <= 2) {
     g.checkpoint = 2;
     await g.say('vey', 'Cute. Second wing, go loud.');
-    const w2 = raiderWave(g, 5, Math.PI * 0.35, -0.2, [0.45, 0.6], 3, ['Wake Hunter', 'Wake Hunter', 'Wake Hunter', 'Wake Cutter', 'Wake Cutter']);
+    const w2 = raiderWave(g, 5, Math.PI * 0.35, -0.2, [0.45, 0.6], 3, ['Wake Hunter', 'Wake Hunter', 'Wake Hunter', 'Wake Cutter', 'Wake Cutter'], 1);
     g.objective = 'Destroy the second Red Wake wing';
     await g.say('juno', "More of them, and these ones are carrying missiles. If one locks on, drag it through the towers. Missiles can't take corners like you can.");
     g.hint(
@@ -130,7 +133,7 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
     g.setMusicIntensity(0.9);
     await g.say('vey', 'Who IS that pilot? Fine. Mawbreaker, bring the big guns.');
     const brute = g.jumpIn('brute', 'wake', 'Mawbreaker', v(-900, -300, -1300), hub, { skill: 0.6, playerBias: 0.4 });
-    const escorts = raiderWave(g, 3, Math.PI * 1.35, -0.15, [0.55, 0.7], 2, ['Wake Hunter']);
+    const escorts = raiderWave(g, 3, Math.PI * 1.35, -0.15, [0.55, 0.7], 2, ['Wake Hunter'], 1);
     g.objective = 'Destroy the gunship Mawbreaker';
     await g.say('varga', 'That is a gunship! Rook, Juno, Pike. Stop it before it reaches the station!');
     g.hint('Gunship turrets track you. Stay on its tail, use the station for cover', 7);
