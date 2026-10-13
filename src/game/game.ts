@@ -20,6 +20,8 @@ import { POWER, Ship, type PowerMode } from '../entities/ship';
 import { DEFAULT_MISSILE, SHIP_CLASSES, type GunSpec, type MissileSpec, type ShipClass } from '../entities/shipClasses';
 import type { Fitted } from './loadout';
 import { Hangar } from './hangar';
+import { CapitalShip } from '../entities/capitalShip';
+import type { CapitalKind } from '../world/capitals';
 import { DockPilot, Docking, type DockGuide } from './docking';
 import { FACTIONS, hostile, resetRelations, setHostile, type FactionId } from '../entities/factions';
 import { AIPilot, FACTION_TACTICS, TurretAI, WaypointPilot, type Tactic } from '../entities/ai';
@@ -103,6 +105,8 @@ export class Game implements CombatContext {
   location!: Location;
 
   ships: Ship[] = [];
+  /** Moving capital ships spawned by the current mission. */
+  capitals: CapitalShip[] = [];
   player: Ship | null = null;
   state: GameState = 'title';
   time = 0;
@@ -445,6 +449,54 @@ export class Game implements CombatContext {
     }
   }
 
+  /**
+   * Spawns a moving capital ship. Its turrets join the fight as anchored ships of the same
+   * faction (they shoot only if `armed`); its docks become available to `allowDocking`.
+   */
+  spawnCapital(
+    kind: CapitalKind,
+    faction: FactionId,
+    id: string,
+    name: string,
+    pos: THREE.Vector3,
+    look: THREE.Vector3,
+    opts: { armed?: boolean; skill?: number; speed?: number } = {},
+  ): CapitalShip {
+    const cap = new CapitalShip(kind, faction, id, name, pos, look);
+    cap.speed = opts.speed ?? 0;
+    this.scene.add(cap.root);
+    this.world.attach(cap.world, cap.root);
+    this.docking.add(cap.docks);
+    for (const m of cap.mounts) {
+      const t = this.spawnShip(m.heavy ? 'cannon' : 'turret', faction, m.heavy ? `${name} battery` : `${name} gun`, cap.toWorld(m.pos), cap.toWorld(m.pos.clone().add(new THREE.Vector3(0, 0, -10))), {
+        turret: true,
+        skill: opts.skill ?? 0.5,
+        playerBias: 0.5,
+      });
+      if (opts.armed === false) t.ai = null;
+      cap.turrets.push({ ship: t, local: m.pos.clone() });
+    }
+    this.capitals.push(cap);
+    return cap;
+  }
+
+  /** Lets a capital ship's guns open fire (or fall silent). */
+  armCapital(cap: CapitalShip, armed: boolean, skill = 0.5): void {
+    for (const t of cap.turrets) {
+      if (!t.ship.alive) continue;
+      t.ship.ai = armed ? new TurretAI(this, skill, 0.5) : null;
+      t.ship.controls.fire = false;
+    }
+  }
+
+  private clearCapitals(): void {
+    for (const c of this.capitals) {
+      this.scene.remove(c.root);
+      this.world.detach(c.world);
+    }
+    this.capitals = [];
+  }
+
   /** Spawns a ship with a jump-in flash. */
   jumpIn(classId: string, faction: FactionId, name: string, pos: THREE.Vector3, lookAt: THREE.Vector3, opts: SpawnOptions = {}): Ship {
     const s = this.spawnShip(classId, faction, name, pos, lookAt, { speed: SHIP_CLASSES[classId].boostSpeed, ...opts });
@@ -493,7 +545,8 @@ export class Game implements CombatContext {
     this.lockProgress = 0;
     this.damageFlash = 0;
     this.bounties = 0;
-    this.docking.reset();
+    this.clearCapitals();
+    this.docking.setPorts(this.location.docks);
     this.dockGuide = null;
     this.autoDock = false;
     resetRelations();
@@ -1272,6 +1325,10 @@ export class Game implements CombatContext {
           this.player.ai = null;
         }
       }
+      if (this.capitals.length) {
+        for (const c of this.capitals) c.update(dt);
+        this.world.sync();
+      }
       const steps = Math.ceil(dt / (1 / 90));
       const h = dt / steps;
       for (let i = 0; i < steps; i++) this.step(h);
@@ -1455,7 +1512,8 @@ export class Game implements CombatContext {
     this.player = null;
     this.bolts.clear();
     this.missiles.clear();
-    this.docking.reset();
+    this.clearCapitals();
+    this.docking.setPorts(this.location.docks);
     this.dockGuide = null;
     this.objective = '';
     this.hintText = null;

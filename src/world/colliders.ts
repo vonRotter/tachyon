@@ -450,6 +450,11 @@ export class CollisionWorld {
   }
 
   /** Attaches a sub-world whose colliders are defined in `object`'s local frame. */
+  detach(world: CollisionWorld): void {
+    const i = this.attached.findIndex((a) => a.world === world);
+    if (i >= 0) this.attached.splice(i, 1);
+  }
+
   attach(world: CollisionWorld, object: THREE.Object3D): void {
     this.attached.push({ world, object, inv: new THREE.Matrix4(), rot: new THREE.Quaternion(), invRot: new THREE.Quaternion() });
     this.sync();

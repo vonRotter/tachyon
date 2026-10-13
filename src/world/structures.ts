@@ -43,8 +43,42 @@ export interface DockSpec {
   parent?: THREE.Object3D;
 }
 
+/** Colours and markings for a capital ship hull. */
+export interface CapitalStyle {
+  hull: string;
+  trim: string;
+  dark: string;
+  light: string;
+  signs: string[];
+  signColor: string;
+  /** Dock id prefix and display name ("carrier" / "Sovereign Dawn"). */
+  id: string;
+  name: string;
+}
+
+export const COMBINE_STYLE: CapitalStyle = {
+  hull: '#ece6da',
+  trim: '#e0a83c',
+  dark: '#2b2f45',
+  light: '#5fe8ff',
+  signs: ['HELION COMBINE', 'A BRIGHTER TOMORROW, ON SCHEDULE'],
+  signColor: '#ffe7a8',
+  id: 'carrier',
+  name: 'Sovereign Dawn',
+};
+
+/** A gun position on a capital ship, local to its frame. */
+export interface TurretMount {
+  pos: THREE.Vector3;
+  heavy: boolean;
+}
+
 export interface StructureResult {
   group: THREE.Group;
+  /** Gun positions (capital ships), in the same space as `points`. */
+  turrets?: TurretMount[];
+  /** Fighter launch points and their launch directions. */
+  bays?: { pos: THREE.Vector3; out: THREE.Vector3 }[];
   beacons: Beacon[];
   /** Named waypoints (world space) used by AI and missions. */
   points: Record<string, THREE.Vector3>;
@@ -372,14 +406,20 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
  * Sovereign Dawn: a Helion Combine carrier. Broadside hangar tunnel, open cargo spine and a
  * massive engine block. Built in its own local frame (nose towards -Z) and placed by `transform`.
  */
-export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): StructureResult {
+/**
+ * Battlecruiser (the Sovereign Dawn's class, about 820 m): stepped prow, a broadside hangar
+ * tunnel, an open cargo spine, an engineering block with four engines, and heavy gun barbettes
+ * along the prow. Built in its own frame (nose towards -Z) and placed by `transform`.
+ */
+export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4, style: CapitalStyle = COMBINE_STYLE): StructureResult {
   const b = new StructureBuilder(transform);
   const rng = new SeededRandom(42);
   const beacons: Beacon[] = [];
-  const ivory = '#ece6da';
-  const gold = '#e0a83c';
-  const dark = '#2b2f45';
-  const cyan = '#5fe8ff';
+  const ivory = style.hull;
+  const gold = style.trim;
+  const dark = style.dark;
+  const cyan = style.light;
+  const turrets: TurretMount[] = [];
 
   // Stepped prow
   b.box(v3(0, 0, -365), v3(40, 24, 70), ivory);
@@ -466,20 +506,26 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
     b.cylinder(v3(ex, ey, 420.5), 15.5, 1, '#8fdcff', { quat: quatX90, sides: 18, glow: 3.2, collide: false });
   }
 
-  // Turret greebles on the prow
-  for (let i = 0; i < 6; i++) {
-    const z = -330 + i * 40;
-    const w = z < -250 ? 36 : 52;
-    for (const s of [1, -1]) {
-      const base = v3(s * (w * 0.5 - 6), z < -330 ? 12 : z < -250 ? 20 : 28, z);
-      b.box(base, v3(8, 4, 8), dark, { collide: false });
-      b.box(base.clone().add(v3(0, 2, -6)), v3(1.2, 1.2, 10), dark, { collide: false });
+  // Heavy gun barbettes down the prow and light batteries along the flanks
+  for (const [z, y] of [
+    [-345, 12],
+    [-300, 20],
+    [-255, 20],
+    [-205, 28],
+  ] as const) {
+    b.cylinder(v3(0, y + 1.5, z), 9, 3, dark, { collide: false, sides: 12 });
+    turrets.push({ pos: v3(0, y + 11, z), heavy: true });
+  }
+  for (const s of [1, -1]) {
+    for (const z of [-190, -110, -30, 280, 340]) {
+      const x = s * (z > 200 ? 75 : z < -150 ? 52 : 70);
+      turrets.push({ pos: v3(x + s * 6, 0, z), heavy: false });
     }
   }
   beacons.push({ position: v3(0, 13, -400), color: new THREE.Color('#ffffff'), phase: 0.5 });
 
   world.addAll(b.colliders);
-  const group = b.build('carrier');
+  const group = b.build(style.id);
   const fieldMat = new THREE.MeshBasicMaterial({
     color: '#5fe8ff',
     transparent: true,
@@ -495,7 +541,7 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
     group.add(field);
   }
   for (const s of [1, -1]) {
-    const sign = createHologram(['HELION COMBINE', 'A BRIGHTER TOMORROW, ON SCHEDULE'], '#ffe7a8', 110, 3 + s);
+    const sign = createHologram(style.signs, style.signColor, 110, 3 + s);
     group.add(placeHologram(sign, v3(s * 77, 22, 315), v3(s, 0, 0)));
   }
   const worldBeacons = beacons.map((bc) => ({ ...bc, position: bc.position.clone().applyMatrix4(transform) }));
@@ -504,8 +550,8 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
     beacons: worldBeacons,
     docks: [
       {
-        id: 'carrier.hangar',
-        name: 'Sovereign Dawn, hangar deck',
+        id: `${style.id}.hangar`,
+        name: `${style.name}, hangar deck`,
         pad: v3(0, -20, -75).applyMatrix4(transform),
         outward: v3(1, 0, 0).transformDirection(transform),
         up: v3(0, 1, 0).transformDirection(transform),
@@ -514,6 +560,8 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
         maxSpeed: 60,
       },
     ],
+    turrets: turrets.map((t) => ({ pos: t.pos.clone().applyMatrix4(transform), heavy: t.heavy })),
+    bays: [-95, -75, -55].map((z) => ({ pos: v3(hx - 20, -20, z).applyMatrix4(transform), out: v3(1, 0, 0).transformDirection(transform) })),
     points: {
       hangarPort: v3(-hx - 60, 0, -75).applyMatrix4(transform),
       hangarStarboard: v3(hx + 60, 0, -75).applyMatrix4(transform),

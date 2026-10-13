@@ -11,7 +11,8 @@ export type ModelId =
   | 'shuttle'
   | 'turret'
   | 'relay'
-  | 'habitat';
+  | 'habitat'
+  | 'cannon';
 
 export interface GunSpec {
   damage: number;
@@ -360,6 +361,32 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     missiles: 0,
     anchored: true,
     bounty: 900,
+    price: 0,
+  },
+  cannon: {
+    id: 'cannon',
+    name: 'Heavy gun barbette',
+    model: 'cannon',
+    radius: 9,
+    hull: 600,
+    shields: 250,
+    shieldRegen: 10,
+    shieldDelay: 5,
+    maxSpeed: 0,
+    boostSpeed: 0,
+    strafeSpeed: 0,
+    accel: 0,
+    pitchRate: 0.6,
+    yawRate: 0.6,
+    rollRate: 0,
+    turnResponse: 2,
+    energy: 400,
+    energyRegen: 40,
+    boostDrain: 0,
+    gun: { damage: 30, cooldown: 1.1, boltSpeed: 430, energyCost: 1, range: 2600, turretArc: 0.25, boltScale: 3.2, sound: 'cannon' },
+    missiles: 0,
+    anchored: true,
+    bounty: 2500,
     price: 0,
   },
   relay: {

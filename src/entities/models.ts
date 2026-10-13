@@ -562,7 +562,23 @@ function habitat(p: Palette): ShipModel {
   return { group: b.build('habitat', 'ship'), engines: [], engineRadius: 0, guns: [v3(0, 0, -50)], cameraOffset: v3(0, 60, 200) };
 }
 
-const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat };
+/** Capital-ship gun barbette: a heavy armoured mount with twin long barrels. */
+function cannon(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.cylinder(v3(0, -6, 0), 9, 4, '#2b2f45', { ...NO, sides: 14 });
+  b.hull(
+    [v3(-6, -4, -6), v3(6, -4, -6), v3(-7, -4, 6), v3(7, -4, 6), v3(-4.5, 2.5, -4), v3(4.5, 2.5, -4), v3(-5, 3, 5), v3(5, 3, 5)],
+    p.primary,
+  );
+  for (const s of [1, -1]) {
+    b.cylinder(v3(s * 2.2, 0, -14), 0.9, 18, '#3a3440', { ...NO, quat: X90, sides: 10 });
+    b.cylinder(v3(s * 2.2, 0, -23.2), 1.2, 1, p.accent, { ...NO, quat: X90, sides: 10, glow: 1.5 });
+  }
+  b.box(v3(0, 3.2, 1), v3(6, 0.4, 4), p.engine, { ...NO, glow: 1.6 });
+  return { group: b.build('cannon', 'ship'), engines: [], engineRadius: 0, guns: [v3(2.2, 0, -24), v3(-2.2, 0, -24)], cameraOffset: v3(0, 20, 60) };
+}
+
+const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat, cannon };
 const cache = new Map<string, ShipModel>();
 
 /** Builds (once) and clones a ship model. Clones share geometry and materials. */
