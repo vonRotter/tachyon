@@ -129,9 +129,10 @@ export function buildFrigate(world: CollisionWorld, transform: THREE.Matrix4, st
   beacons.push({ position: v3(0, 20.4, 19), color: new THREE.Color('#ff2040'), phase: 0 });
   return finish(b, world, transform, 'frigate', {
     beacons,
+    // both guns stand on the hull: one on the raised deck, one on the ridge ahead of it
     turrets: [
-      { pos: v3(0, 15, -2), heavy: false },
-      { pos: v3(0, -12, 6), heavy: false },
+      { pos: v3(0, 13, -2), heavy: false },
+      { pos: v3(0, 9, -16), heavy: false },
     ],
     bays: [],
     docks: [],
@@ -199,7 +200,7 @@ export function buildDestroyer(world: CollisionWorld, transform: THREE.Matrix4, 
     { pos: v3(0, 26, 34), heavy: true },
   ];
   for (const s of [1, -1]) {
-    turrets.push({ pos: v3(s * 18, 15, -28), heavy: false }, { pos: v3(s * 21, 8, 80), heavy: false }, { pos: v3(s * 12, -18, 40), heavy: false });
+    turrets.push({ pos: v3(s * 18, 15, -28), heavy: false }, { pos: v3(s * 21, 8, 80), heavy: false }, { pos: v3(s * 9, 19.5, 90), heavy: false });
   }
   return finish(b, world, transform, 'destroyer', {
     beacons,
@@ -235,15 +236,19 @@ export function buildCarrierShip(world: CollisionWorld, transform: THREE.Matrix4
     b.bevel(v3(x, 0, -60), v3(56, 44, 400), 8, style.hull, { front: [0.5, 0.55] });
     b.bevel(v3(x, 25, -50), v3(40, 8, 300), 4, style.hull, { front: [0.6, 1], back: [0.9, 1] });
     b.bevel(v3(x - s * 4, 31, 10), v3(22, 6, 120), 2, style.trim, { front: [0.7, 1] });
-    // point-defence turrets along the outer flank and the back of each prong
+    // the prong tapers towards the bow: half its width at z (front face z -260 at half scale)
+    const hw = (z: number) => 28 * (0.5 + 0.5 * ((z + 260) / 400));
+    // point-defence turrets along the outer flank, sitting on the plating
     for (const z of [-230, -170, -110, -50, 10, 70, 130]) {
-      const pd = v3(x + s * 30, 6, z);
+      const pd = v3(x + s * (hw(z) + 2.2), 6, z);
       b.sphere(pd, 3, style.dark, { detail: 1, collide: false });
       b.cylinder(pd.clone().add(v3(0, 0.8, -3.5)), 0.35, 6, '#3a3e52', { quat: X90, sides: 6, collide: false });
     }
-    // outer armour belt and inner bay doors
-    b.bevel(v3(x + s * 29, -6, -40), v3(6, 22, 300), 2, style.trim, { front: [1, 0.5] });
-    for (const z of [-140, -80, -20, 40]) lights(b, v3(x - s * 28.2, -4, z), v3(0.3, 10, 22), style.light, 1.3);
+    // outer armour belt following the taper, and lit bay doors on the inner face
+    const belt: THREE.Vector3[] = [];
+    for (const z of [-190, 110]) for (const dx of [-0.6, 3]) for (const y of [-17, 5]) belt.push(v3(x + s * (hw(z) + dx), y, z));
+    b.hull(belt, style.trim);
+    for (const z of [-140, -80, -20, 40]) lights(b, v3(x - s * (hw(z) + 0.2), -4, z), v3(0.3, 10, 22), style.light, 1.3);
     beacons.push({ position: v3(x, 0, -262), color: new THREE.Color(s > 0 ? '#30ff70' : '#ff2040'), phase: s });
   }
   // the palm: engineering block joining the prongs
@@ -274,7 +279,13 @@ export function buildCarrierShip(world: CollisionWorld, transform: THREE.Matrix4
   }
   const turrets: TurretMount[] = [];
   for (const s of [1, -1]) {
-    for (const z of [-240, -160, -80, 0, 80]) turrets.push({ pos: v3(s * 104, 8, z), heavy: false });
+    // flank guns stand on the prong's back near its outer edge (the prong tapers and slopes towards the bow)
+    for (const z of [-240, -160, -80, 0, 80]) {
+      const t = (z + 260) / 400;
+      const half = 28 * (0.5 + 0.5 * t);
+      const top = 22 * (0.55 + 0.45 * t);
+      turrets.push({ pos: v3(s * (72 + half * 0.72), top + 5.5, z), heavy: false });
+    }
     for (const z of [-180, -20]) turrets.push({ pos: v3(s * 72, 36, z), heavy: false });
   }
   turrets.push({ pos: v3(-50, 50, 196), heavy: true }, { pos: v3(50, 50, 196), heavy: true });

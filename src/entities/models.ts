@@ -82,8 +82,8 @@ function kite(p: Palette): ShipModel {
     1.1,
   );
   b.strut(v3(0, 1.66, -1.5), v3(0, 1.55, 0.1), 0.07, '#2b2f45', { ...NO, sides: 4 });
-  b.strut(v3(-0.7, 1.2, -0.95), v3(0.7, 1.2, -0.95), 0.06, '#2b2f45', { ...NO, sides: 4 });
-  b.hullMirrored(plate([v3(0.72, 0.62, -2.6), v3(0.88, 0.7, 0.6), v3(1.02, 0.5, 0.6), v3(0.86, 0.42, -2.6)], SIDEN, 0.08), p.accent);
+  for (const s of [1, -1]) b.strut(v3(s * 0.8, 0.86, -0.95), v3(0, 1.6, -0.95), 0.06, '#2b2f45', { ...NO, sides: 4 });
+  b.hullMirrored(plate([v3(0.64, 0.62, -2.6), v3(0.8, 0.7, 0.6), v3(0.94, 0.5, 0.6), v3(0.78, 0.42, -2.6)], SIDEN, 0.08), p.accent);
   // headrest fairing behind the canopy, flowing into the spine
   b.hull([v3(0.45, 0.9, 0.5), v3(-0.45, 0.9, 0.5), v3(0, 1.35, 0.8), v3(0.3, 0.95, 2.4), v3(-0.3, 0.95, 2.4), v3(0, 1.1, 2.6)], p.primary);
   // tail spine tapering back to a stinger
@@ -104,8 +104,9 @@ function kite(p: Palette): ShipModel {
     b.hull(plate([v3(s * 3.2, -0.08, 2.0), v3(s * 3.2, -0.08, 1.6), v3(s * 5.3, -0.33, 0.1), v3(s * 5.4, -0.33, 0.5)], UPN, 0.04), p.accent);
     b.hull(plate([v3(s * 5.6, -0.45, 0.8), v3(s * 5.5, -0.45, -0.3), v3(s * 6.0, 1.2, 0.3), v3(s * 6.1, 1.3, 1.1)], SIDEN, 0.14), p.secondary);
     b.sphere(v3(s * 6.1, 1.3, 1.0), 0.13, s > 0 ? '#30ff70' : '#ff2040', { ...NO, glow: 3, detail: 0 });
-    // chin guns
-    b.cylinder(v3(s * 0.75, -0.6, -4.6), 0.1, 2.4, '#2b2f45', { ...NO, quat: X90, sides: 6 });
+    // chin guns, tucked under the nose on short mounts
+    b.cylinder(v3(s * 0.5, -0.5, -4.6), 0.1, 2.4, '#2b2f45', { ...NO, quat: X90, sides: 6 });
+    b.box(v3(s * 0.48, -0.36, -3.9), v3(0.14, 0.3, 0.7), '#2b2f45', NO);
   }
   // the hoop over the tail, nacelle to nacelle
   hoop(b, v3(0, -0.1, 3.3), 2.2, 0.26, 0, Math.PI, p.accent);
@@ -317,10 +318,10 @@ function freighter(p: Palette): ShipModel {
   }
   for (let z = -32; z <= 30; z += 10.5) {
     for (const [cx, cy] of [
-      [4.6, 4.6],
-      [-4.6, 4.6],
-      [4.6, -4.6],
-      [-4.6, -4.6],
+      [3.9, 3.9],
+      [-3.9, 3.9],
+      [3.9, -3.9],
+      [-3.9, -3.9],
     ] as const) {
       if (next() < 0.15) continue;
       b.box(v3(cx, cy, z), v3(7.6, 7.6, 9.6), rngColors[Math.floor(next() * rngColors.length)], NO);
@@ -365,7 +366,7 @@ function corsair(p: Palette): ShipModel {
     ],
     p.primary,
   );
-  b.hull(plate([v3(0, 0.36, -8.2), v3(0.28, 0.42, -5.6), v3(-0.28, 0.42, -5.6)], UPN, 0.04), p.accent);
+  b.hull(plate([v3(0, 0.26, -8.2), v3(0.28, 0.32, -5.6), v3(-0.28, 0.32, -5.6)], UPN, 0.06), p.accent);
   // long bubble canopy and its halo
   b.hull([v3(0, 0.45, -4.3), v3(0.48, 0.5, -2.6), v3(-0.48, 0.5, -2.6), v3(0, 1.25, -2.0), v3(0.42, 0.95, -0.4), v3(-0.42, 0.95, -0.4), v3(0, 1.05, 0.4)], p.canopy, 1.2);
   hoop(b, v3(0, 0.6, -1.1), 1.05, 0.13, 0, Math.PI, p.secondary, new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), 0.25));
@@ -511,14 +512,15 @@ function shuttle(p: Palette): ShipModel {
     [v3(-3, -2.5, -11), v3(3, -2.5, -11), v3(-2.4, 2, -10), v3(2.4, 2, -10), v3(-4.5, -3.5, 8), v3(4.5, -3.5, 8), v3(-4, 3.5, 8), v3(4, 3.5, 8), v3(0, 0, -13)],
     p.primary,
   );
-  b.hull([v3(-1.8, 1.4, -11.4), v3(1.8, 1.4, -11.4), v3(-1.4, 2.4, -9), v3(1.4, 2.4, -9), v3(0, 0.6, -12.6)], p.canopy, 1.2);
-  b.box(v3(0, 3.8, 1), v3(6, 0.6, 12), p.secondary, NO);
+  b.hull([v3(-1.8, 1.15, -11.4), v3(1.8, 1.15, -11.4), v3(-1.4, 2.3, -9), v3(1.4, 2.3, -9), v3(0, 0.4, -12.6)], p.canopy, 1.2);
+  // roof slab following the slope of the hull's back
+  b.hull(plate([v3(-3, 2.5, -5), v3(3, 2.5, -5), v3(3.2, 3.45, 7), v3(-3.2, 3.45, 7)], UPN, 0.6), p.secondary);
   for (const s of [1, -1]) {
-    b.box(v3(s * 5.2, -1, 2), v3(1.6, 3, 10), p.secondary, NO);
-    b.box(v3(s * 4.7, 0.5, -2), v3(0.3, 0.8, 9), p.accent, { ...NO, glow: 1.3 });
+    b.box(v3(s * 4.5, -1, 2), v3(1.6, 3, 10), p.secondary, NO);
+    b.box(v3(s * 5.32, -0.6, 2), v3(0.12, 0.6, 9), p.accent, { ...NO, glow: 1.3 });
     b.cylinder(v3(s * 2.6, -0.5, 8.6), 1.3, 1.6, '#2b2f45', { ...NO, quat: X90, sides: 10 });
     b.cylinder(v3(s * 2.6, -0.5, 9.45), 1.1, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
-    b.sphere(v3(s * 6, -1, 7), 0.25, s > 0 ? '#30ff70' : '#ff2040', { ...NO, glow: 3, detail: 0 });
+    b.sphere(v3(s * 5.3, -1, 6.9), 0.25, s > 0 ? '#30ff70' : '#ff2040', { ...NO, glow: 3, detail: 0 });
   }
   return {
     group: b.build('shuttle', 'ship'),
@@ -583,7 +585,23 @@ function habitat(p: Palette): ShipModel {
     }
   }
   const cloth = ['#ff4d4d', '#ffcf33', '#2fb7ff', '#3ee07a', '#ff7ad9', '#9b6bff'];
-  for (let i = 0; i < 12; i++) b.box(v3(-30 + i * 5.5, -37.5, 46 - (i % 3)), v3(3, 4, 0.2), cloth[i % cloth.length], NO);
+  for (const z of [40, -40]) {
+    const line: THREE.Vector3[] = [];
+    for (let i = 0; i <= 12; i++) {
+      const a = -Math.PI / 2 - 0.9 + (i / 12) * 1.8;
+      line.push(v3(Math.cos(a) * 39.5, Math.sin(a) * 39.5, z));
+    }
+    // posts at each end and the line between them
+    for (const end of [line[0], line[12]]) b.strut(end.clone().multiplyScalar(36 / 39.5).setZ(z), end, 0.25, '#5a6078', NO);
+    for (let i = 0; i < 12; i++) b.strut(line[i], line[i + 1], 0.08, '#d8d2c6', NO);
+    // the washing: cloths hanging off the line, towards the hull
+    for (let i = 0; i < 12; i++) {
+      const mid = line[i].clone().add(line[i + 1]).multiplyScalar(0.5);
+      const a = Math.atan2(mid.y, mid.x);
+      const inward = mid.clone().setZ(0).normalize().multiplyScalar(-1.6);
+      b.box(mid.clone().add(inward), v3(3.2, 0.15, 2.6), cloth[(i + (z > 0 ? 0 : 3)) % cloth.length], { ...NO, quat: new THREE.Quaternion().setFromAxisAngle(v3(0, 0, 1), a + Math.PI / 2).multiply(new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2)) });
+    }
+  }
   b.box(v3(0, 38, 0), v3(10, 4, 70), '#5a6078', NO);
   return { group: b.build('habitat', 'ship'), engines: [], engineRadius: 0, guns: [v3(0, 0, -50)], cameraOffset: v3(0, 60, 200) };
 }
@@ -619,7 +637,7 @@ function gannet(p: Palette): ShipModel {
   const scrap = ['#6d6a72', '#4e5466', '#8a8070'];
   // cockpit pod, port side
   b.bevel(v3(-1.3, 0.2, -2.4), v3(1.9, 1.7, 5.2), 0.45, p.primary, { ...NO, front: [0.55, 0.5], lift: -0.2 });
-  b.hull([v3(-1.3, 0.9, -4.6), v3(-0.75, 0.95, -3.2), v3(-1.85, 0.95, -3.2), v3(-1.3, 1.55, -2.6), v3(-0.85, 1.25, -1.2), v3(-1.75, 1.25, -1.2)], p.canopy, 1.1);
+  b.hull([v3(-1.3, 0.5, -4.6), v3(-0.75, 0.66, -3.2), v3(-1.85, 0.66, -3.2), v3(-1.3, 1.45, -2.6), v3(-0.85, 1.05, -1.2), v3(-1.75, 1.05, -1.2)], p.canopy, 1.1);
   b.box(v3(-2.3, 0.1, -2.0), v3(0.1, 1.0, 2.6), scrap[0], NO);
   // launch-tube rack, starboard: a block of tubes with dark mouths
   b.bevel(v3(1.5, -0.1, -1.4), v3(2.4, 1.9, 6.2), 0.35, p.secondary, NO);
@@ -650,7 +668,7 @@ function gannet(p: Palette): ShipModel {
   // one stub wing to port, one fin to starboard; nothing matches
   b.hull(plate([v3(-2.2, -0.2, -0.4), v3(-2.2, -0.2, 1.6), v3(-4.6, -0.5, 1.9), v3(-4.4, -0.5, 0.9)], UPN, 0.18), scrap[1]);
   b.hull(plate([v3(2.4, 0.6, -0.2), v3(2.4, 0.6, 1.4), v3(3.0, 2.4, 2.0), v3(2.9, 2.4, 1.2)], SIDEN, 0.14), p.primary);
-  b.cylinder(v3(-1.3, -0.75, -4.6), 0.11, 2.0, DARK, { ...NO, quat: X90, sides: 6 });
+  b.cylinder(v3(-1.3, -0.5, -4.6), 0.11, 2.0, DARK, { ...NO, quat: X90, sides: 6 });
   nav(b, -4.5, -0.5, 1.6);
   nav(b, 3.0, 2.4, 1.8);
   return {
@@ -674,7 +692,7 @@ function bulwark(p: Palette): ShipModel {
   b.bevel(v3(0, -1.3, 0), v3(2.0, 0.8, 9), 0.3, scrap[3], NO);
   // cockpit welded on to starboard of the bow
   b.bevel(v3(1.9, 1.0, -4.2), v3(1.8, 1.6, 3.6), 0.4, p.primary, { ...NO, front: [0.6, 0.55] });
-  b.hull([v3(1.9, 1.7, -5.8), v3(2.45, 1.75, -4.6), v3(1.35, 1.75, -4.6), v3(1.9, 2.25, -4.0), v3(2.35, 1.9, -3.0), v3(1.45, 1.9, -3.0)], p.canopy, 1.1);
+  b.hull([v3(1.9, 1.45, -5.8), v3(2.45, 1.58, -4.6), v3(1.35, 1.58, -4.6), v3(1.9, 2.2, -4.0), v3(2.35, 1.85, -3.0), v3(1.45, 1.85, -3.0)], p.canopy, 1.1);
   // the armour cage: angled plates on frames
   for (const [x, z, rot, col] of [
     [1.75, -0.5, 0.28, p.secondary],
@@ -772,11 +790,11 @@ function interdictor(p: Palette): ShipModel {
   // central wedge
   b.bevel(v3(0, 0, -0.5), v3(4.0, 1.5, 11), 0.45, p.primary, { ...NO, front: [0.35, 0.45], lift: -0.15 });
   b.bevel(v3(0, 0.9, 1.4), v3(2.4, 0.6, 5.5), 0.25, p.primary, { ...NO, front: [0.6, 0.6] });
-  b.hull([v3(0, 0.55, -5.2), v3(0.7, 0.6, -3.4), v3(-0.7, 0.6, -3.4), v3(0, 1.3, -2.8), v3(0.6, 1.2, -1.4), v3(-0.6, 1.2, -1.4)], p.canopy, 1.1);
+  b.hull([v3(0, 0.45, -5.2), v3(0.7, 0.5, -3.4), v3(-0.7, 0.5, -3.4), v3(0, 1.25, -2.8), v3(0.6, 1.12, -1.4), v3(-0.6, 1.12, -1.4)], p.canopy, 1.1);
   // lightbar
-  b.bevel(v3(0, 1.36, 0.2), v3(3.2, 0.3, 0.7), 0.1, DARK, NO);
-  b.box(v3(-0.8, 1.56, 0.2), v3(1.4, 0.26, 0.5), '#ff3348', { ...NO, glow: 3 });
-  b.box(v3(0.8, 1.56, 0.2), v3(1.4, 0.26, 0.5), '#3a7bff', { ...NO, glow: 3 });
+  b.bevel(v3(0, 1.05, 0.2), v3(3.2, 0.3, 0.7), 0.1, DARK, NO);
+  b.box(v3(-0.8, 1.25, 0.2), v3(1.4, 0.26, 0.5), '#ff3348', { ...NO, glow: 3 });
+  b.box(v3(0.8, 1.25, 0.2), v3(1.4, 0.26, 0.5), '#3a7bff', { ...NO, glow: 3 });
   for (const s of [1, -1]) {
     // wing plate to the boom, with a chevron stripe
     b.hull(plate([v3(s * 1.8, -0.1, -2.0), v3(s * 1.9, -0.1, 3.6), v3(s * 4.2, -0.2, 3.4), v3(s * 4.2, -0.2, -0.8)], UPN, 0.25), p.primary);
@@ -841,7 +859,8 @@ function talon(p: Palette): ShipModel {
       // a small manoeuvring fin on each pod
       b.hull(plate([c.clone().add(v3(sx * 0.5, sy * 0.4, 0.2)), c.clone().add(v3(sx * 0.5, sy * 0.4, 1.3)), c.clone().add(v3(sx * 1.2, sy * 1.1, 1.6)), c.clone().add(v3(sx * 1.1, sy * 1.0, 0.9))], v3(sx, -sy, 0).normalize(), 0.1), p.secondary);
       pods.push(c.clone().add(v3(0, 0, 2.3)));
-      if (sy > 0) nav(b, sx * 6.3, 3.5, 2.2);
+      // nav lights on the tips of the upper pod fins
+      if (sy > 0) nav(b, c.x + sx * 1.15, c.y + 1.05, c.z + 1.25);
     }
   return {
     group: b.build('talon', 'ship'),
@@ -865,7 +884,7 @@ function wren(p: Palette): ShipModel {
     p.primary,
   );
   // nose stripes
-  b.hull(plate([v3(0, 0.22, -4.6), v3(0.5, 0.3, -3.0), v3(-0.5, 0.3, -3.0)], UPN, 0.04), p.secondary);
+  b.hull(plate([v3(0, 0.15, -4.6), v3(0.5, 0.24, -3.0), v3(-0.5, 0.24, -3.0)], UPN, 0.06), p.secondary);
   b.hullMirrored(plate([v3(1.2, 0.27, -0.6), v3(1.6, 0.27, -0.6), v3(2.3, 0.2, 1.6), v3(1.9, 0.22, 1.6)], UPN, 0.04), p.secondary);
   // cockpit bubble at the back
   b.hull([v3(0, 0.35, -0.6), v3(0.55, 0.45, 0.2), v3(-0.55, 0.45, 0.2), v3(0, 1.15, 0.5), v3(0.45, 0.55, 1.4), v3(-0.45, 0.55, 1.4), v3(0, 0.95, 1.4)], p.canopy, 1.15);
@@ -892,7 +911,7 @@ function drone(p: Palette): ShipModel {
   const b = new StructureBuilder();
   b.sphere(v3(0, 0, 0), 0.75, p.secondary, { ...NO, detail: 0 });
   b.sphere(v3(0, 0, -0.62), 0.24, p.accent, { ...NO, glow: 2.4, detail: 0 });
-  b.torus(v3(0, 0, 0.1), 1.05, 0.1, p.primary, { radial: 4, tubular: 14 });
+  b.torus(v3(0, 0, 0.7), 1.05, 0.1, p.primary, { radial: 4, tubular: 14 });
   for (let i = 0; i < 3; i++) {
     const a = Math.PI / 2 + (i * Math.PI * 2) / 3;
     const d = v3(Math.cos(a), Math.sin(a), 0);
@@ -1013,16 +1032,21 @@ function liner(p: Palette): ShipModel {
   b.bevel(v3(0, 0, 0), v3(36, 16, 170), 5, hull, { ...NO, front: [0.25, 0.5], lift: -3 });
   b.bevel(v3(0, 11, 10), v3(28, 8, 120), 3, hull, { ...NO, front: [0.4, 0.8] });
   b.bevel(v3(0, 18, 24), v3(20, 7, 70), 2.5, hull, { ...NO, front: [0.5, 0.8] });
-  for (const [y, w, z0, z1] of [
-    [2, 18.2, -60, 80],
-    [-3, 18.2, -50, 80],
-    [12, 14.2, -40, 68],
-    [18.5, 10.2, -6, 56],
-  ] as const) {
-    for (const s of [1, -1]) b.box(v3(s * w, y, (z0 + z1) / 2), v3(0.3, 1.4, z1 - z0), '#ffe7a8', { ...NO, glow: 1.5 });
-  }
+  // window bands along each deck's side, following its taper (deck: centre y, width, centre z, length, front scale)
+  const band = (y: number, w: number, zc: number, len: number, front: number, z0: number, z1: number) => {
+    const half = (z: number) => (w / 2) * (front + (1 - front) * ((z - (zc - len / 2)) / len)) + 0.05;
+    for (const sgn of [1, -1]) {
+      const pts: THREE.Vector3[] = [];
+      for (const z of [z0, z1]) for (const dy of [-0.7, 0.7]) for (const dx of [0, 0.25]) pts.push(v3(sgn * (half(z) + dx), y + dy, z));
+      b.hull(pts, '#ffe7a8', 1.5);
+    }
+  };
+  band(2, 36, 0, 170, 0.25, -50, 80);
+  band(-3, 36, 0, 170, 0.25, -45, 80);
+  band(11.5, 28, 10, 120, 0.4, -40, 68);
+  band(18.5, 20, 24, 70, 0.5, -6, 56);
   b.sphere(v3(0, 22, 4), 9, '#7fe0ff', { ...NO, detail: 2, scale: v3(1, 0.6, 1.3) });
-  b.box(v3(0, 7.8, -70), v3(8, 0.3, 30), p.accent, { ...NO, glow: 1.2 });
+  b.hull(plate([v3(-4, 2.3, -55), v3(4, 2.3, -55), v3(1.5, 1.2, -82), v3(-1.5, 1.2, -82)], UPN, 0.3), p.accent, 1.2);
   for (const s of [1, -1]) {
     b.hull(plate([v3(s * 16, 4, 60), v3(s * 16, 4, 84), v3(s * 30, 22, 92), v3(s * 28, 22, 78)], v3(1, -0.6 * s, 0).normalize(), 1.2), p.primary);
     b.sphere(v3(s * 30, 22, 90), 0.9, s > 0 ? '#30ff70' : '#ff2040', { ...NO, glow: 3, detail: 0 });
@@ -1150,7 +1174,7 @@ function scarlet(p: Palette): ShipModel {
   );
   b.bevel(v3(0, 0.1, 2.6), v3(2.4, 1.9, 5.2), 0.4, p.primary, NO);
   // cream nose stripes
-  b.hull(plate([v3(0, 0.33, -8.6), v3(0.3, 0.42, -6.2), v3(-0.3, 0.42, -6.2)], UPN, 0.04), p.secondary);
+  b.hull(plate([v3(0, 0.22, -8.6), v3(0.3, 0.31, -6.2), v3(-0.3, 0.31, -6.2)], UPN, 0.06), p.secondary);
   b.box(v3(0, 0.62, -4.4), v3(0.9, 0.06, 1.6), p.secondary, NO);
   // framed canopy, set a little to port: even the cockpit is lopsided
   b.hull([v3(-0.15, 0.6, -3.6), v3(0.35, 0.75, -2.4), v3(-0.65, 0.75, -2.4), v3(-0.15, 1.45, -2.0), v3(0.3, 1.2, -0.9), v3(-0.6, 1.2, -0.9)], p.canopy, 1.15);
@@ -1231,22 +1255,23 @@ function sunspear(p: Palette): ShipModel {
   b.hull([v3(0, 2.6, -11), v3(1.4, 2.8, -7), v3(-1.4, 2.8, -7), v3(0, 3.8, -6), v3(1.2, 3.2, -4), v3(-1.2, 3.2, -4)], p.canopy, 1.2);
   // spinal lance under the nose
   b.cylinder(v3(0, -3.2, -6), 1.2, 26, DARK, { ...NO, quat: X90, sides: 10 });
+  b.bevel(v3(0, -2.0, -4), v3(1.2, 1.8, 16), 0.3, p.secondary, { ...NO, front: [0.8, 0.6] });
   b.cylinder(v3(0, -3.2, -19.4), 0.9, 1, p.accent, { ...NO, quat: X90, sides: 10, glow: 2 });
   for (const z of [-14, -9, -4]) b.torus(v3(0, -3.2, z), 1.35, 0.25, p.secondary, { radial: 4, tubular: 16 });
   // crescent blades: three swept segments a side, curling forward at the tips
   for (const s of [1, -1]) {
-    const pts = [v3(s * 4, 0, 8), v3(s * 10, -0.5, 9), v3(s * 15, -1, 5), v3(s * 16.5, -1, -3), v3(s * 15, -0.8, -10)];
+    const pts = [v3(s * 2.4, 0, 8), v3(s * 10, -0.5, 9), v3(s * 15, -1, 5), v3(s * 16.5, -1, -3), v3(s * 15, -0.8, -10)];
     for (let i = 0; i < pts.length - 1; i++) {
       const a = pts[i];
       const c = pts[i + 1];
       const w = 3.4 - i * 0.7;
       b.hull(plate([a.clone().add(v3(0, 0, -w * 0.5)), a.clone().add(v3(0, 0, w * 0.5)), c.clone().add(v3(0, 0, (w - 0.7) * 0.5)), c.clone().add(v3(0, 0, -(w - 0.7) * 0.5))], UPN, 0.7), i % 2 ? p.secondary : p.primary);
     }
-    b.box(v3(s * 4.6, 0.5, 0), v3(0.3, 0.6, 22), p.accent, { ...NO, glow: 1.4 });
+    b.strut(v3(s * 1.5, 0.7, -11), v3(s * 3.0, 0.7, 11), 0.18, p.accent, { ...NO, glow: 1.4, sides: 4 });
     nav(b, s * 15, -0.5, -10.5);
   }
   const g1 = gunDome(b, v3(0, 2.6, 9), 2.4, p.primary);
-  const g2 = gunDome(b, v3(0, -2.6, 4), 2.2, p.primary, true);
+  const g2 = gunDome(b, v3(0, -1.9, 5), 2.2, p.primary, true);
   for (const ex of [-2.6, 0, 2.6]) {
     b.cylinder(v3(ex, 0, 17.4), 1.3, 2, DARK, { ...NO, quat: X90, sides: 10 });
     b.cylinder(v3(ex, 0, 18.45), 1.1, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
@@ -1289,7 +1314,7 @@ function ironbark(p: Palette): ShipModel {
   }
   // ring drive on four spokes
   b.torus(v3(0, 0, 8), 9, 0.9, p.secondary, { radial: 6, tubular: 32 });
-  b.torus(v3(0, 0, 8), 9, 0.3, p.accent, { radial: 4, tubular: 32, glow: 1.4 });
+  b.torus(v3(0, 0, 8.85), 9, 0.25, p.accent, { radial: 4, tubular: 32, glow: 1.4 });
   for (let k = 0; k < 4; k++) {
     const a = Math.PI / 4 + (k * Math.PI) / 2;
     b.strut(v3(Math.cos(a) * 4.4, Math.sin(a) * 4.4, 8), v3(Math.cos(a) * 8.4, Math.sin(a) * 8.4, 8), 0.5, DARK, { ...NO, sides: 5 });
@@ -1307,8 +1332,8 @@ function ironbark(p: Palette): ShipModel {
   b.cylinder(v3(-1.6, 0.6, 15.15), 2.0, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
   b.cylinder(v3(2.6, -1.4, 13), 1.4, 2.4, DARK, { ...NO, quat: X90, sides: 8 });
   b.cylinder(v3(2.6, -1.4, 14.25), 1.2, 0.1, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.0 });
-  nav(b, 9, 0, 8);
-  nav(b, -9, 0, 8);
+  nav(b, 9.95, 0, 8);
+  nav(b, -9.95, 0, 8);
   return {
     group: b.build('ironbark', 'ship'),
     engines: [v3(-1.6, 0.6, 15.2), v3(2.6, -1.4, 14.3)],
@@ -1327,7 +1352,7 @@ function warrant(p: Palette): ShipModel {
   b.bevel(v3(0, 0, 0), v3(16, 5, 28), 1.4, p.primary, { ...NO, front: [0.55, 0.6] });
   b.bevel(v3(0, -2.6, 1), v3(12, 1.6, 24), 0.6, p.secondary, { ...NO, front: [0.5, 1] });
   b.bevel(v3(0, 3.2, -2), v3(8, 2.4, 14), 0.8, p.primary, { ...NO, front: [0.6, 0.6] });
-  b.hull([v3(0, 3, -12), v3(2.6, 3, -9), v3(-2.6, 3, -9), v3(0, 5, -8.4), v3(2.2, 4.6, -6), v3(-2.2, 4.6, -6)], p.canopy, 1.2);
+  b.hull([v3(0, 1.7, -12.2), v3(2.6, 2.1, -10.2), v3(-2.6, 2.1, -10.2), v3(0, 4.6, -8.6), v3(2.2, 4.3, -6.5), v3(-2.2, 4.3, -6.5)], p.canopy, 1.2);
   // lightbars across the back: red to port, blue to starboard
   for (const s of [1, -1]) {
     b.box(v3(s * 2.2, 4.6, 2), v3(3.6, 0.6, 1.2), s > 0 ? '#3a7bff' : p.accent, { ...NO, glow: 2.6 });
@@ -1383,8 +1408,9 @@ function bulldog(p: Palette): ShipModel {
     nav(b, s * 11.9, -1.4, 9);
   }
   // the hoop over the back
-  hoop(b, v3(0, 0.5, 8), 9.4, 0.6, 0.15, Math.PI - 0.3, p.secondary);
-  hoop(b, v3(0, 0.5, 8), 9.4, 0.18, 0.3, Math.PI - 0.6, p.accent, undefined, 1.2);
+  hoop(b, v3(0, 0.5, 8), 9.4, 0.6, -0.16, Math.PI + 0.32, p.secondary);
+  // a light strip along the top of the hoop (at the same radius it was buried inside it)
+  hoop(b, v3(0, 0.5, 8), 9.95, 0.14, 0.3, Math.PI - 0.6, p.accent, undefined, 1.2);
   const g1 = gunDome(b, v3(0, 4.8, -1), 2.2, p.secondary);
   const g2 = gunDome(b, v3(0, -4.6, -7), 1.8, p.secondary, true);
   b.cylinder(v3(0, 0, 11.4), 3.4, 1.4, DARK, { ...NO, quat: X90, sides: 12 });

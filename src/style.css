@@ -257,6 +257,17 @@ button.primary {
   color: #fff;
 }
 
+.disclaimer {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: rgba(77, 252, 210, 0.06);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(232, 236, 248, 0.82);
+  max-width: 520px;
+}
+
 .fineprint {
   color: var(--muted);
   font-size: 14px;

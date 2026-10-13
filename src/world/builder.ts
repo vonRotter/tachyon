@@ -34,6 +34,8 @@ const _s = new THREE.Vector3(1, 1, 1);
 const UP = new THREE.Vector3(0, 1, 0);
 
 export class StructureBuilder {
+  /** Debug hook (model checks): when set, every part's local-frame vertices are recorded here. */
+  static recorder: { positions: Float32Array; glow: boolean; color: string; index: number; site: string }[] | null = null;
   private readonly solids: THREE.BufferGeometry[] = [];
   private readonly glows: THREE.BufferGeometry[] = [];
   readonly colliders: Collider[] = [];
@@ -69,6 +71,11 @@ export class StructureBuilder {
       arr[i * 3 + 2] = c.b * k;
     }
     g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    const rec = StructureBuilder.recorder;
+    if (rec) {
+      const site = (new Error().stack ?? '').split('\n').find((l) => l.includes('/src/') && !l.includes('builder.ts')) ?? '';
+      rec.push({ positions: new Float32Array(g.getAttribute('position').array as ArrayLike<number>), glow: glow > 0, color: `#${c.getHexString()}`, index: rec.length, site: site.trim() });
+    }
     (glow > 0 ? this.glows : this.solids).push(g);
     geo.dispose();
   }

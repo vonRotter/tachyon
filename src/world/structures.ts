@@ -499,7 +499,7 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4, st
   // point-defence domes along the flanks: small, quick guns for fighters
   for (const s of [1, -1])
     for (const z of [-250, -180, 40, 100, 160, 220, 300]) {
-      const pd = v3(s * (z < -150 ? 46 : z > 260 ? 76 : 84), z > 260 ? 30 : 14, z);
+      const pd = v3(s * (z < -150 ? 46 : z > 260 ? 67.5 : 84), z > 260 ? 30 : 14, z);
       b.sphere(pd, 3.4, dark, { detail: 1, collide: false });
       for (const o of [-0.8, 0.8]) b.cylinder(pd.clone().add(v3(o, 1.2, -4)), 0.35, 7, '#3a3e52', { quat: quatX90, sides: 6, collide: false });
     }
@@ -530,7 +530,8 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4, st
   b.torus(v3(46, 92, 336), 12, 1.2, gold, { quat: new THREE.Quaternion().setFromAxisAngle(v3(0, 1, 0), 0.6), tubular: 32 });
   b.torus(v3(46, 92, 336), 12, 0.35, cyan, { quat: new THREE.Quaternion().setFromAxisAngle(v3(0, 1, 0), 0.6), tubular: 32, glow: 1.8 });
   for (const s of [1, -1]) {
-    b.box(v3(s * 75.4, 0, 315), v3(0.6, 8, 120), gold, { collide: false });
+    // stripe on the engineering block's flank (it tapers to about 88% of its width mid-length)
+    b.box(v3(s * 66.3, 0, 315), v3(0.6, 8, 112), gold, { collide: false });
   }
   for (const [ex, ey] of [
     [40, 22],
@@ -554,13 +555,14 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4, st
     turrets.push({ pos: v3(0, y + 11, z), heavy: true });
   }
   for (const s of [1, -1]) {
-    // flank batteries stay clear of the hangar tunnel mouths (z -115 to -35)
-    for (const z of [-235, -175, 280, 340]) {
-      const x = s * (z > 200 ? 75 : z < -150 ? 52 : 70);
-      turrets.push({ pos: v3(x + s * 6, 0, z), heavy: false });
-    }
-    for (const z of [50, 130, 210]) turrets.push({ pos: v3(s * 90, -8, z), heavy: false });
-    turrets.push({ pos: v3(s * 50, 70, 30), heavy: false });
+    // flank batteries stay clear of the hangar tunnel mouths (z -115 to -35). They stand upright,
+    // so each sits half into the hull side it is bolted to rather than hovering beside it.
+    turrets.push({ pos: v3(s * 48.5, 0, -235), heavy: false }, { pos: v3(s * 52, 0, -175), heavy: false });
+    // on the engineering block's shoulders, outboard of the command tower and the sensor pylon
+    for (const z of [280, 340]) turrets.push({ pos: v3(s * 61, 45, z), heavy: false });
+    for (const z of [50, 130, 210]) turrets.push({ pos: v3(s * 86, -8, z), heavy: false });
+    // on the midsection's shoulders beside the forward main turret
+    turrets.push({ pos: v3(s * 47, 47, 30), heavy: false });
   }
   beacons.push({ position: v3(0, 13, -400), color: new THREE.Color('#ffffff'), phase: 0.5 });
 
