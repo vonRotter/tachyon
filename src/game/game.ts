@@ -19,7 +19,7 @@ import { Ship } from '../entities/ship';
 import { SHIP_CLASSES } from '../entities/shipClasses';
 import { FACTIONS, hostile, type FactionId } from '../entities/factions';
 import { AIPilot, WaypointPilot } from '../entities/ai';
-import { instruct } from '../entities/instructor';
+import { Instructor } from '../entities/instructor';
 import { BoltSystem, MissileSystem, type CombatContext } from '../entities/weapons';
 import { Hud } from '../ui/hud';
 import { Comms } from '../ui/comms';
@@ -102,6 +102,10 @@ export class Game implements CombatContext {
   /** Mouse-aim frame: where the player is looking and wants the ship to go. */
   private readonly aimQuat = new THREE.Quaternion();
   private readonly aimPoint = new THREE.Vector3();
+  private readonly instructor = new Instructor();
+  /** Smoothed angular velocity of the aim direction (world space, rad/s). */
+  private readonly aimRate = new THREE.Vector3();
+  private readonly prevAimDir = new THREE.Vector3(0, 0, -1);
   /** Camera offset driven by the ship's acceleration: it swings out in turns and on boost. */
   private readonly camLag = new THREE.Vector3();
   private readonly prevPlayerVel = new THREE.Vector3();
@@ -379,6 +383,9 @@ export class Game implements CombatContext {
     this.spawnTraffic();
     this.camQuat.copy(player.quat);
     this.aimQuat.copy(player.quat);
+    this.instructor.reset();
+    this.aimRate.set(0, 0, 0);
+    player.forward(this.prevAimDir);
     this.input.centerCursor();
     this.state = 'playing';
 
@@ -466,8 +473,15 @@ export class Game implements CombatContext {
       this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_X, -d.y));
       if (Math.abs(f.roll) > 0.05) this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_Z, -f.roll * p.cls.rollRate * 0.8 * dt));
       this.aimQuat.normalize();
+      // how fast the reticle is sweeping: mouse deltas arrive in bursts, so low-pass it
+      const aimDir = _v3.set(0, 0, -1).applyQuaternion(this.aimQuat);
+      _n.crossVectors(this.prevAimDir, aimDir).divideScalar(Math.max(dt, 1e-3));
+      this.prevAimDir.copy(aimDir);
+      this.aimRate.lerp(_n, dampFactor(18, dt));
       const manual = Math.abs(f.pitch) > 0.05 || Math.abs(f.yaw) > 0.05;
-      this.aimPoint.copy(this.camera.position).addScaledVector(_v.set(0, 0, -1).applyQuaternion(this.aimQuat), 600);
+      // The aim point hangs off the ship, not the camera, so camera sway can never feed back
+      // into where the ship is told to fly.
+      this.aimPoint.copy(p.pos).addScaledVector(_v.set(0, 0, -1).applyQuaternion(this.aimQuat), 1000);
       if (manual) {
         // keyboard pitch/yaw override the instructor; the aim frame follows the nose meanwhile
         c.pitch = f.pitch;
@@ -476,9 +490,9 @@ export class Game implements CombatContext {
         this.aimQuat.slerp(p.quat, dampFactor(6, dt));
       } else {
         const aimUp = _v2.set(0, 1, 0).applyQuaternion(this.aimQuat);
-        // aim through the reticle (which sits on the camera's line of sight), not parallel to it
+        // fly towards the aim point (1 km out along the aim)
         _v3.subVectors(this.aimPoint, p.pos).normalize();
-        instruct(p, _v3, aimUp);
+        this.instructor.fly(p, _v3, aimUp, this.aimRate);
       }
     } else {
       this.input.takeAimDelta();
@@ -785,7 +799,9 @@ export class Game implements CombatContext {
         this.camera.position.copy(p.toWorld(_v.set(0, 1.0, -1.2), _v2));
       } else {
         // in mouse aim the camera looks where you aim; otherwise it trails the ship's nose
-        this.camQuat.slerp(mouseAim ? this.aimQuat : p.quat, dampFactor(mouseAim ? 30 : p.sliding ? 6 : 9, dt));
+        // Mouse aim: the camera IS the aim, 1:1 with the mouse, with no smoothing to drag against.
+        if (mouseAim) this.camQuat.copy(this.aimQuat);
+        else this.camQuat.slerp(p.quat, dampFactor(p.sliding ? 6 : 9, dt));
         const off = _v.copy(p.model.cameraOffset);
         off.z += p.boosting ? 2.5 : 0;
         off.applyQuaternion(this.camQuat);
@@ -795,11 +811,15 @@ export class Game implements CombatContext {
         if (this.world.raycast(p.pos, _v2, len, 1.2, hit)) dist = Math.max(2, hit.t);
         this.camera.position.copy(p.pos).addScaledVector(_v2, dist);
         // acceleration lag: the camera is pushed opposite the ship's acceleration, then springs back
+        // Mostly fore-aft (boost and braking); the sideways part from hard turns is kept small,
+        // since it flips around during manoeuvres and made the ship jump about on screen.
         _v3.subVectors(p.vel, this.prevPlayerVel).divideScalar(Math.max(dt, 1e-3));
         this.prevPlayerVel.copy(p.vel);
-        _v3.multiplyScalar(-0.016);
-        if (_v3.length() > 4.5) _v3.setLength(4.5);
-        this.camLag.lerp(_v3, dampFactor(4, dt));
+        p.forward(_n);
+        const along = _v3.dot(_n);
+        _v3.addScaledVector(_n, -along).multiplyScalar(-0.002).addScaledVector(_n, -along * 0.009);
+        if (_v3.length() > 2.2) _v3.setLength(2.2);
+        this.camLag.lerp(_v3, dampFactor(3, dt));
         this.camera.position.add(this.camLag);
         if (p.boosting) this.shake = Math.max(this.shake, 0.22);
       }

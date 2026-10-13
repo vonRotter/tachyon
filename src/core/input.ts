@@ -215,9 +215,13 @@ export class Input {
     window.addEventListener('mousemove', (e) => {
       if (!this.pointerLocked) return;
       if (this.settings.mouseMode === 'aim') {
+        // Some browser/OS combinations occasionally report a huge bogus jump under pointer lock;
+        // clamp single events so one glitch cannot spin the camera.
+        const mx = clamp(e.movementX, -300, 300);
+        const my = clamp(e.movementY, -300, 300);
         const a = 0.0016 * this.settings.mouseSensitivity;
-        this.aimDelta.x += e.movementX * a;
-        this.aimDelta.y += e.movementY * a * (this.settings.invertMouseY ? -1 : 1);
+        this.aimDelta.x += mx * a;
+        this.aimDelta.y += my * a * (this.settings.invertMouseY ? -1 : 1);
         this.device = 'mouse';
         return;
       }
@@ -266,9 +270,15 @@ export class Input {
   }
 
   requestPointerLock(): void {
-    if (document.pointerLockElement !== this.canvas) {
-      const req = this.canvas.requestPointerLock() as unknown;
-      if (req instanceof Promise) req.catch(() => undefined);
+    if (document.pointerLockElement === this.canvas) return;
+    // Ask for raw mouse movement (no OS acceleration) where supported, for consistent aiming.
+    type LockFn = (opts?: { unadjustedMovement?: boolean }) => Promise<void> | undefined;
+    const lock = this.canvas.requestPointerLock.bind(this.canvas) as unknown as LockFn;
+    try {
+      const req = lock({ unadjustedMovement: true });
+      if (req instanceof Promise) req.catch(() => lock()?.catch?.(() => undefined));
+    } catch {
+      lock();
     }
   }
 
