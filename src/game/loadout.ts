@@ -1,3 +1,4 @@
+import { FACTIONS, type FactionId } from '../entities/factions';
 import { DEFAULT_MISSILE, SHIP_CLASSES, type GunSpec, type MissileSpec, type ShipClass } from '../entities/shipClasses';
 
 /**
@@ -9,8 +10,33 @@ import { DEFAULT_MISSILE, SHIP_CLASSES, type GunSpec, type MissileSpec, type Shi
 // ---------------------------------------------------------------------------------------------
 // Catalogue
 
-export const PLAYER_SHIPS = ['kite', 'warden', 'lancer', 'corsair', 'halberd'] as const;
+/** Every hull the player can fly, grouped by the yard that builds it. */
+export const PLAYER_SHIPS = ['kite', 'warden', 'lancer', 'corsair', 'sabre', 'halberd', 'gannet', 'bulwark', 'fang', 'interdictor'] as const;
 export type PlayerShipId = (typeof PLAYER_SHIPS)[number];
+
+/** Yards in shop order. */
+export const YARDS: FactionId[] = ['kestrel', 'combine', 'drift', 'wake', 'patrol'];
+
+export interface Availability {
+  /** Can be bought now. */
+  ok: boolean;
+  /** Why not (or a note on why it is allowed). */
+  reason: string;
+}
+
+/**
+ * Who can buy what. Independent yards sell to anyone; a faction's yards sell only to pilots
+ * working for it; the Patrol sells nothing. The Ctrl+P test cheat opens every yard.
+ */
+export function shipAvailability(shipId: string, campaign: Pick<Campaign, 'allegiance' | 'unlimited'>): Availability {
+  const cls = SHIP_CLASSES[shipId];
+  const maker = cls.maker ?? 'kestrel';
+  const restricted = cls.forSale === false || (maker !== 'kestrel' && maker !== campaign.allegiance);
+  if (!restricted) return { ok: true, reason: '' };
+  if (campaign.unlimited) return { ok: true, reason: 'Unlocked by the test cheat' };
+  if (cls.forSale === false) return { ok: false, reason: 'Not for sale' };
+  return { ok: false, reason: `${FACTIONS[maker].name} pilots only` };
+}
 
 export interface GunType {
   id: string;
@@ -243,7 +269,7 @@ export interface Campaign {
   credits: number;
   /** Test cheat (Ctrl+P): purchases cost nothing. */
   unlimited: boolean;
-  allegiance: 'combine' | 'drift' | null;
+  allegiance: 'combine' | 'drift' | 'wake' | null;
   activeShip: string;
   ships: string[];
   fits: Record<string, ShipFit>;
@@ -389,14 +415,14 @@ export function maxedFit(fit: ShipFit): ShipFit {
 /** Hull characteristics for the shop's comparison bars (weapons are compared separately). */
 export function shipStats(cls: ShipClass): { label: string; value: number; max: number; text: string }[] {
   return [
-    { label: 'Hull', value: cls.hull, max: 760, text: String(Math.round(cls.hull)) },
-    { label: 'Shields', value: cls.shields, max: 520, text: String(Math.round(cls.shields)) },
+    { label: 'Hull', value: cls.hull, max: 960, text: String(Math.round(cls.hull)) },
+    { label: 'Shields', value: cls.shields, max: 600, text: String(Math.round(cls.shields)) },
     { label: 'Speed', value: cls.maxSpeed, max: 145, text: `${Math.round(cls.maxSpeed)} m/s` },
     { label: 'Boost', value: cls.boostSpeed, max: 290, text: `${Math.round(cls.boostSpeed)} m/s` },
     { label: 'Turn rate', value: cls.pitchRate, max: 3.0, text: `${Math.round((cls.pitchRate * 180) / Math.PI)}°/s` },
     { label: 'Weapon slots', value: cls.weaponSlots ?? 2, max: 6, text: String(cls.weaponSlots ?? 2) },
     { label: 'Equipment', value: cls.equipSlots ?? 2, max: 5, text: `${cls.equipSlots ?? 2} slots` },
-    { label: 'Energy', value: cls.energy, max: 240, text: String(Math.round(cls.energy)) },
+    { label: 'Energy', value: cls.energy, max: 280, text: String(Math.round(cls.energy)) },
     { label: 'Missiles', value: cls.missiles, max: 32, text: cls.missiles ? String(cls.missiles) : 'none' },
   ];
 }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SeededRandom, clamp, dampFactor } from '../core/math';
 import { StructureBuilder, v3 } from '../world/builder';
-import { FACTIONS } from '../entities/factions';
+import { FACTIONS, shipPalette } from '../entities/factions';
 import { getShipModel } from '../entities/models';
 import type { ShipClass } from '../entities/shipClasses';
 
@@ -166,12 +166,15 @@ export class Hangar {
     }
   }
 
-  /** Shows a ship on the turntable (rebuilt only when the hull changes). */
-  showShip(cls: ShipClass): void {
-    const key = cls.model;
+  /** Shows a ship on the turntable (rebuilt only when the hull changes). Hulls you own wear your
+   *  paint; ones you are browsing wear their yard's. */
+  showShip(cls: ShipClass, owned = true): void {
+    const maker = cls.maker ?? 'kestrel';
+    const paint = owned || maker === 'kestrel' ? shipPalette('player', maker) : shipPalette(maker);
+    const key = `${cls.model}:${paint.key}`;
     if (key === this.displayKey) return;
     if (this.display) this.turntable.remove(this.display);
-    const m = getShipModel(cls.model, FACTIONS.player.palette, 'player');
+    const m = getShipModel(cls.model, paint.palette, paint.key);
     this.display = m.group;
     this.displayKey = key;
     this.turntable.add(m.group);

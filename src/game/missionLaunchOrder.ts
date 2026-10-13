@@ -278,7 +278,7 @@ export async function runLaunchOrder(g: Game, checkpoint: number): Promise<void>
     g.setRelation('wake', 'drift', false);
     const drift: Ship[] = [];
     for (let i = 0; i < 4; i++) {
-      drift.push(g.jumpIn('kite', 'drift', 'Drift escort', center.clone().add(v(400 - i * 60, 250, -700)), center, { skill: 0.6, playerBias: 0 }));
+      drift.push(g.jumpIn('gannet', 'drift', 'Drift escort', center.clone().add(v(400 - i * 60, 250, -700)), center, { skill: 0.6, playerBias: 0 }));
     }
     await g.until(() => alive(wing) === 0 || g.missionTime > deadline + 140 || !habitat.alive);
     g.objective = '';

@@ -27,13 +27,26 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 
 - **Hangar and shop** between missions. A new campaign starts with 80,000 cr and a choice of
   first ship; whatever it does not cost is yours to spend. Your ship hovers on a turntable in a
-  station bay (drag to look around). Five ships (Kite, Warden, Lancer, Corsair, Halberd) differ
-  in hull, shields, speed, turn rate, weapon slots, equipment slots, energy and missile magazine.
+  station bay (drag to look around). Ships differ in hull, shields, speed, turn rate, weapon
+  slots, equipment slots, energy and missile magazine.
   Upgrades (three tiers of six systems) stay with the hull they are installed on. Each weapon
   slot takes a gun or a missile launcher (launchers only on ships with a magazine); weapons you
   remove go to storage and can be fitted to any ship. Hovering anything previews it on the stat
   bars, and a faint bar shows each stat with every upgrade installed.
-- **Test cheat:** Ctrl+P toggles unlimited credits.
+- **Shipyards and faction design.** Each yard builds to its own principle, so a ship's maker
+  shows in its silhouette (the idea comes from EVE Online's racial ship lines):
+
+  | Yard | Who can buy | Look | Doctrine | Ships |
+  |---|---|---|---|---|
+  | Independent yards | Anyone | Rounded nacelles, rings, hoops, bright paint | Balanced, forgiving | Kite, Warden, Lancer, Corsair |
+  | Helion Combine | Combine pilots | Symmetry, bevelled wedges, crescent blades, ivory and gold | Fast-recharging shields, energy, long guns; thin hulls | Sabre, Halberd |
+  | Drift Union | Drift pilots | Asymmetric, exposed frames and rings, bolted-on pods | Heavy armour, deep magazines, many hardpoints; weak shields | Gannet, Bulwark |
+  | Red Wake | Wake pilots (no Wake path yet) | Hooked blades, forward fangs, crimson over black | Speed and short, hard-hitting guns; fragile | Fang |
+  | Reach Patrol | Nobody | Broad white wedge, outrigger booms, lightbar | Tough all-rounder | Interdictor |
+
+  Locked hulls can still be browsed and previewed in their yard's paint. Ships you own keep your
+  colours with their yard's trim.
+- **Test cheat:** Ctrl+P toggles unlimited credits and opens every yard.
 - **Credits** come from contract pay plus a bounty per kill. Repeat runs of a mission pay 40%.
   The campaign (credits, ships, fits, faction choice) is saved in `localStorage`.
 - **Weapons.** Pulse, rapid, mass driver and scatter guns. Seeker missiles, unguided rocket
@@ -48,6 +61,12 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   radio drama between the station, the Helion Combine and the Drift Union. You choose a side by
   where you land: Kestrel's bay 1 (Drift Union) or the Sovereign Dawn (Combine). Checkpoints let
   you retry a wave after dying.
+- **Mission "Flotsam"** (Drift side) in the Ashfall wreck field: drift into a Combine carrier
+  disguised as debris without moving too much, land in its hangar, grab the records, then run
+  for the Drift battlecruiser through the wreckage with fighters and the carrier's guns behind
+  you. Swap ships on landing, then help hold off the strike.
+- **Capital ships** built from bevelled blocks: an arrowhead frigate, a hammerhead destroyer
+  with a through-bay, a tuning-fork carrier you land inside, and a bladed battlecruiser.
 - **Mission "Launch Order"** (Combine side) at the Gallows, a Red Wake base: wait in the
   carrier's hangar tunnel while flights catapult out ahead of you, silence twelve turrets and a
   comms relay, then decide the fate of the habitat module. The surrendered Wake fight again if
@@ -56,6 +75,7 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   off at about 600 m and break away before you can close, and Drift pilots work round to your
   flank.
 - **Arcade flight with slide.** Hold slide to keep your momentum while you spin to aim anywhere.
+  Pull the throttle below zero to back up at a quarter of top speed.
   The velocity marker on the HUD shows where you are actually going.
 - **Flying through structures.** The station has a habitat ring, braced spokes, solar wings and
   two hollow lattice towers you can fly *inside*. The carrier has a broadside hangar tunnel and

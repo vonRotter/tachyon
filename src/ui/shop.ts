@@ -1,3 +1,4 @@
+import { FACTION_DESIGN, FACTIONS } from '../entities/factions';
 import { SHIP_CLASSES } from '../entities/shipClasses';
 import {
   EQUIPMENT,
@@ -5,12 +6,14 @@ import {
   MAX_TIER,
   MISSILE_TYPES,
   PLAYER_SHIPS,
+  YARDS,
   START_BUDGET,
   UPGRADES,
   canMount,
   fitShip,
   maxedFit,
   newFit,
+  shipAvailability,
   shipStats,
   upgradePrice,
   weaponInfo,
@@ -155,10 +158,12 @@ export class Shop {
     list.appendChild(
       el('p', 'tab-note', `Choose your first ship. You have ${cr(START_BUDGET)}: whatever the ship does not cost, you keep for upgrades, weapons and equipment.`),
     );
-    for (const id of PLAYER_SHIPS) {
+    list.appendChild(el('p', 'tab-note', 'Only the independent yards will sell to a pilot nobody has hired yet. Faction yards open up once you work for a faction.'));
+    for (const id of PLAYER_SHIPS.filter((s) => (SHIP_CLASSES[s].maker ?? 'kestrel') === 'kestrel')) {
       const cls = SHIP_CLASSES[id];
       const left = START_BUDGET - cls.price;
       const card = this.card(cls.name, cls.description ?? '', { status: cr(cls.price), active: this.viewShip === id });
+      this.traits(card, id);
       card.appendChild(el('p', 'card-desc', `Leaves you ${cr(left)} to spend.`));
       const row = el('div', 'card-actions');
       row.appendChild(
@@ -186,51 +191,83 @@ export class Shop {
     }
   }
 
+  /** Strengths and weaknesses lines on a ship card. */
+  private traits(card: HTMLElement, id: string): void {
+    const cls = SHIP_CLASSES[id];
+    if (cls.strengths) card.appendChild(el('p', 'trait good', `+ ${cls.strengths}`));
+    if (cls.weaknesses) card.appendChild(el('p', 'trait bad', `− ${cls.weaknesses}`));
+  }
+
+  /** Ships grouped by yard, each yard with its design principle; locked yards stay browsable. */
   private renderShips(list: HTMLElement): void {
     const c = this.campaign;
-    for (const id of PLAYER_SHIPS) {
-      const cls = SHIP_CLASSES[id];
-      const owned = c.ships.includes(id);
-      const active = c.activeShip === id;
-      const card = this.card(cls.name, cls.description ?? '', {
-        status: active ? 'FLYING' : owned ? 'OWNED' : cr(cls.price),
-        active: this.viewShip === id,
-      });
-      const row = el('div', 'card-actions');
-      if (owned && !active) {
-        row.appendChild(
-          this.button('Fly this ship', () => {
+    for (const yard of YARDS) {
+      const ids = PLAYER_SHIPS.filter((s) => (SHIP_CLASSES[s].maker ?? 'kestrel') === yard);
+      if (!ids.length) continue;
+      const design = FACTION_DESIGN[yard];
+      const head = el('div', 'yard-head');
+      head.style.borderColor = FACTIONS[yard].hudColor;
+      head.appendChild(el('div', 'yard-name', design?.yard ?? FACTIONS[yard].name));
+      const gate = yard === 'kestrel' ? 'Open to all' : yard === 'patrol' ? 'Not for sale' : c.allegiance === yard ? 'You fly for them' : `${FACTIONS[yard].name} only`;
+      head.appendChild(el('div', 'yard-gate', gate));
+      list.appendChild(head);
+      if (design) {
+        list.appendChild(el('p', 'yard-note', design.principle));
+        list.appendChild(el('p', 'yard-note', design.doctrine));
+      }
+      for (const id of ids) this.shipCard(list, id);
+    }
+  }
+
+  private shipCard(list: HTMLElement, id: string): void {
+    const c = this.campaign;
+    const cls = SHIP_CLASSES[id];
+    const owned = c.ships.includes(id);
+    const active = c.activeShip === id;
+    const avail = shipAvailability(id, c);
+    const card = this.card(cls.name, cls.description ?? '', {
+      status: active ? 'FLYING' : owned ? 'OWNED' : cls.forSale === false ? 'NOT FOR SALE' : cr(cls.price),
+      active: this.viewShip === id,
+    });
+    if (!owned && !avail.ok) card.classList.add('locked');
+    this.traits(card, id);
+    const row = el('div', 'card-actions');
+    if (owned && !active) {
+      row.appendChild(
+        this.button('Fly this ship', () => {
+          c.activeShip = id;
+          this.viewShip = id;
+          this.slot = 0;
+          this.commit();
+        }),
+      );
+    } else if (!owned && avail.ok) {
+      row.appendChild(
+        this.button(
+          `Buy · ${cr(cls.price)}`,
+          () => {
+            if (!this.spend(cls.price)) return;
+            c.ships.push(id);
+            c.fits[id] = newFit(id);
             c.activeShip = id;
             this.viewShip = id;
             this.slot = 0;
             this.commit();
-          }),
-        );
-      } else if (!owned) {
-        row.appendChild(
-          this.button(
-            `Buy · ${cr(cls.price)}`,
-            () => {
-              if (!this.spend(cls.price)) return;
-              c.ships.push(id);
-              c.fits[id] = newFit(id);
-              c.activeShip = id;
-              this.viewShip = id;
-              this.slot = 0;
-              this.commit();
-            },
-            { disabled: !this.afford(cls.price), primary: true },
-          ),
-        );
-      }
-      if (row.childNodes.length) card.appendChild(row);
-      card.addEventListener('click', () => {
-        this.viewShip = id;
-        this.render();
-      });
-      this.hoverPreview(card, () => ({ shipId: id, fit: c.fits[id] ?? newFit(id) }));
-      list.appendChild(card);
+          },
+          { disabled: !this.afford(cls.price), primary: true },
+        ),
+      );
+      if (avail.reason) row.appendChild(el('span', 'lock-note', avail.reason));
+    } else if (!owned) {
+      row.appendChild(el('span', 'lock-note', avail.reason));
     }
+    if (row.childNodes.length) card.appendChild(row);
+    card.addEventListener('click', () => {
+      this.viewShip = id;
+      this.render();
+    });
+    this.hoverPreview(card, () => ({ shipId: id, fit: c.fits[id] ?? newFit(id) }));
+    list.appendChild(card);
   }
 
   private renderUpgrades(list: HTMLElement): void {
@@ -397,7 +434,14 @@ export class Shop {
     const cls = SHIP_CLASSES[viewId];
     $('ship-name').textContent = cls.name;
     const owned = c.ships.includes(viewId);
-    $('ship-desc').textContent = owned ? (viewId === c.activeShip ? 'Your current ship.' : 'In your hangar.') : `For sale: ${cr(cls.price)}`;
+    const avail = shipAvailability(viewId, c);
+    $('ship-desc').textContent = owned
+      ? viewId === c.activeShip
+        ? 'Your current ship.'
+        : 'In your hangar.'
+      : avail.ok
+        ? `For sale: ${cr(cls.price)}`
+        : avail.reason;
     // compare against what you fly now (or, before the first pick, against the viewed ship)
     const baseId = c.started ? c.activeShip : viewId;
     const baseFit = c.fits[baseId] ?? newFit(baseId);

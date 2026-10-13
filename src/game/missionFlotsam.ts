@@ -70,6 +70,7 @@ export async function runFlotsam(g: Game, checkpoint: number): Promise<void> {
       const dir = bay.out.clone().transformDirection(cap.root.matrixWorld);
       const s = g.spawnShip(cls, faction, name, p, p.clone().add(dir), { ...opts, speed: 0, damageScale: faction === 'drift' ? 0.6 : 1 });
       s.placeAt(p, p.clone().add(dir), 0);
+      s.missiles = Math.min(s.missiles, 4);
       g.catapult(s);
       out.push(s);
     }
@@ -188,7 +189,7 @@ export async function runFlotsam(g: Game, checkpoint: number): Promise<void> {
       const d = player.pos.distanceTo(goal());
       if (g.objective.startsWith('RUN')) g.objective = `RUN. Reach the Long Patience · ${(d / 1000).toFixed(1)} km`;
       if (!escorts.length && d < 2200) {
-        escorts = launchFrom(patience, 'kite', 'drift', 'Drift escort', 3, { skill: 0.65, playerBias: 0, tactic: 'flanker' });
+        escorts = launchFrom(patience, 'gannet', 'drift', 'Drift escort', 3, { skill: 0.65, playerBias: 0, tactic: 'flanker' });
         void g.say('kit', 'Kit here, we see you! Coming out to cover you. Keep coming!');
       }
       if (!patienceArmed && d < 1700) {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { clamp, dampFactor, rand } from '../core/math';
-import { FACTIONS, type FactionId } from './factions';
+import { shipPalette, type FactionId } from './factions';
 import { createFlames, getShipModel, type ShipModel } from './models';
 import type { ShipClass } from './shipClasses';
 import type { Effects } from '../fx/effects';
@@ -161,8 +161,8 @@ export class Ship {
     readonly faction: FactionId,
     readonly name: string,
   ) {
-    const palette = FACTIONS[faction].palette;
-    this.model = getShipModel(cls.model, palette, faction);
+    const { palette, key } = shipPalette(faction, cls.maker);
+    this.model = getShipModel(cls.model, palette, key);
     this.root.add(this.model.group);
     this.engineColor = new THREE.Color(palette.engine).multiplyScalar(0.9);
     const box = new THREE.Box3().setFromObject(this.model.group);

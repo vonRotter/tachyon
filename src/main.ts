@@ -269,7 +269,7 @@ window.addEventListener('keydown', (e) => {
 // --- Hangar ---------------------------------------------------------------------------------
 const shop = new Shop(campaign);
 shop.onChange = saveCampaign;
-shop.onShowShip = (id) => game.hangar.showShip(SHIP_CLASSES[id]);
+shop.onShowShip = (id) => game.hangar.showShip(SHIP_CLASSES[id], campaign.ships.includes(id));
 shop.onLaunch = (id) => begin(missionById(id), 0);
 
 function startAudio(): void {
