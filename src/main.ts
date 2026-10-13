@@ -1,6 +1,6 @@
 import './style.css';
 import { Game } from './game/game';
-import { fitShip, migrateCampaign, missionPayout, newCampaign, type Campaign } from './game/loadout';
+import { defect, fitShip, migrateCampaign, missionPayout, newCampaign, type Campaign, type Side } from './game/loadout';
 import { missionById, type MissionDef } from './game/missions';
 import { SHIP_CLASSES } from './entities/shipClasses';
 import { Shop } from './ui/shop';
@@ -408,11 +408,17 @@ game.onMissionEnd = (result) => {
   // bounties are paid either way; the contract only on success, reduced on repeat runs
   const pay = missionPayout(campaign, mission.id, result === 'victory' ? mission.pay + game.bonusPay : 0, game.bounties);
   campaign.credits += pay.total;
+  for (const id of game.seenClasses) if (!campaign.seen.includes(id)) campaign.seen.push(id);
+  let confiscated: string[] = [];
   if (result === 'victory') {
     campaign.completed[mission.id] = (campaign.completed[mission.id] ?? 0) + 1;
     for (const [k, v] of Object.entries(game.missionFlags)) {
       if (k === 'allegiance') campaign.allegiance = v as Campaign['allegiance'];
+      else if (k === 'defect') confiscated = defect(campaign, v as Side);
       else campaign.flags[k] = v;
+    }
+    if (mission.faction && mission.faction === campaign.allegiance && !game.missionFlags.defect) {
+      campaign.standing[mission.faction] = (campaign.standing[mission.faction] ?? 0) + 1;
     }
   }
   saveCampaign();
@@ -442,7 +448,13 @@ game.onMissionEnd = (result) => {
     drift: 'You landed at Kestrel and sat down with Mother Sorrel. You fly with the Drift Union now.',
   };
   const side = result === 'victory' ? game.missionFlags.allegiance : undefined;
-  note.textContent = `${side ? `${sides[side]} ` : ''}Credits: ${campaign.unlimited ? '∞ (test mode)' : `${campaign.credits.toLocaleString()} cr`}.`;
+  const turned: Record<string, string> = {
+    combine: 'You turned on the Drift Union. The Helion Combine takes you in.',
+    drift: 'You turned on the Helion Combine. The Drift Union takes you in.',
+  };
+  const defected = result === 'victory' ? game.missionFlags.defect : undefined;
+  const lost = confiscated.length ? ` They kept what was theirs: ${confiscated.join(', ')}.` : '';
+  note.textContent = `${side ? `${sides[side]} ` : ''}${defected ? `${turned[defected]}${lost} ` : ''}Credits: ${campaign.unlimited ? '∞ (test mode)' : `${campaign.credits.toLocaleString()} cr`}.`;
   choice.appendChild(note);
   show('debrief', true);
 };

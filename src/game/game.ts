@@ -397,6 +397,8 @@ export class Game implements CombatContext {
   missionFlags: Record<string, string> = {};
   /** Extra pay a mission awards on top of the contract (bonuses). */
   bonusPay = 0;
+  /** Ship classes that appeared this mission, for the hangar database. */
+  readonly seenClasses = new Set<string>();
 
   /** Holds a ship still on a deck (carrier launch queue). The player can look around meanwhile. */
   park(ship: Ship, pos: THREE.Vector3, look: THREE.Vector3): void {
@@ -491,6 +493,7 @@ export class Game implements CombatContext {
     opts: SpawnOptions = {},
   ): Ship {
     const ship = new Ship(typeof classId === 'string' ? SHIP_CLASSES[classId] : classId, faction, name);
+    if (faction !== 'player') this.seenClasses.add(ship.cls.id);
     ship.placeAt(pos, lookAt, opts.speed ?? ship.cls.maxSpeed * 0.8);
     if (opts.turret) {
       ship.ai = new TurretAI(this, opts.skill ?? 0.5, opts.playerBias ?? 0.4);
@@ -630,6 +633,7 @@ export class Game implements CombatContext {
     resetRelations();
     this.missionFlags = {};
     this.bonusPay = 0;
+    this.seenClasses.clear();
     this.friendlyFire.clear();
     this.friendlyFireLimit = 220;
     this.onBetrayal = null;

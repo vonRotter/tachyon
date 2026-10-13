@@ -1,6 +1,7 @@
 import { FACTIONS, type FactionId } from '../entities/factions';
 import { SHIP_CLASSES, type ShipClass } from '../entities/shipClasses';
 import { CAPITAL_INFO, type CapitalKind } from '../world/capitals';
+import { proven, type Campaign } from './loadout';
 
 /**
  * The hangar's ship database: everything you can meet in the Reach, from fighters to
@@ -77,8 +78,10 @@ function capital(kind: CapitalKind, operators: FactionId[], blurb: string): DbEn
 
 export const DATABASE: DbEntry[] = [
   ship('kite', 'Fighters', ['player', 'drift'], 'The Reach\'s everyman fighter, built by the independent yards and flown by anyone who cannot afford better. A long drooped nose, a canopy pod, twin nacelles and a hoop over the tail.'),
+  ship('wren', 'Fighters', ['kestrel']),
   ship('warden', 'Fighters', ['kestrel']),
   ship('lancer', 'Fighters', ['player']),
+  ship('talon', 'Fighters', ['player', 'kestrel', 'patrol']),
   ship('corsair', 'Fighters', ['player']),
   ship('sabre', 'Fighters', ['combine']),
   ship('halberd', 'Fighters', ['combine']),
@@ -87,6 +90,7 @@ export const DATABASE: DbEntry[] = [
   ship('fang', 'Fighters', ['wake']),
   ship('raider', 'Fighters', ['wake'], 'The Red Wake\'s disposable raider: a stubby body between two forward prongs and drooping blade wings. Cheap, numerous and flown in packs.'),
   ship('interdictor', 'Fighters', ['patrol']),
+  ship('drone', 'Fighters', ['combine', 'wake', 'drift'], 'Unmanned and tiny: a faceted core with one eye, a guard ring and three vanes. A single burst kills one, but they come in clouds and nobody grieves for them.'),
   ship('brute', 'Gunships', ['wake'], 'A Wake gunship: a slab of armour with turrets that track you all the way round. Too slow to chase you, too tough to ignore. Stay on its tail.'),
   capital('frigate', ['drift', 'combine', 'wake'], 'An arrowhead delta. Drift frigates wear rings round the spine; Combine ones are clean ivory.'),
   capital('destroyer', ['wake', 'combine', 'drift'], 'A hammerhead bow over a through-bay you can fly into.'),
@@ -99,3 +103,15 @@ export const DATABASE: DbEntry[] = [
   ship('cannon', 'Installations', ['combine'], 'A heavy gun barbette: slow, long-ranged shells that hurt anything they hit.'),
   ship('relay', 'Installations', ['wake'], 'A comms relay mast. Take it out and nobody hears the call for help.'),
 ];
+
+/**
+ * Faction yard hulls stay out of the database until you have met one in a mission or the yard
+ * has opened to you; everything else is common knowledge.
+ */
+export function dbVisible(e: DbEntry, c: Campaign): boolean {
+  if (e.show.kind !== 'ship') return true;
+  const cls = SHIP_CLASSES[e.show.classId];
+  const maker = cls.maker;
+  if (!maker || maker === 'kestrel') return true;
+  return c.unlimited || proven(c, maker) || c.seen.includes(cls.id);
+}

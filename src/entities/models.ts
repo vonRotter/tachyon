@@ -777,7 +777,115 @@ function interdictor(p: Palette): ShipModel {
   };
 }
 
-const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat, cannon, gannet, bulwark, fang, interdictor };
+/**
+ * Talon: a superiority fighter after the Babylon 5 Starfury. A boxy cockpit pod with four
+ * slanted wings in an X, each ending in an engine pod that has nozzles at both ends, so it can
+ * thrust and brake in any direction.
+ */
+function talon(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  // cockpit pod: a bevelled box with a faceted nose and a framed canopy
+  b.bevel(v3(0, 0, -0.6), v3(2.0, 1.9, 6.4), 0.45, p.primary, { ...NO, front: [0.55, 0.6], lift: -0.1 });
+  b.hull([v3(0, 0.55, -4.0), v3(0.62, 0.62, -2.9), v3(-0.62, 0.62, -2.9), v3(0, 1.3, -2.4), v3(0.55, 1.15, -1.3), v3(-0.55, 1.15, -1.3)], p.canopy, 1.1);
+  b.strut(v3(0, 1.32, -2.4), v3(0, 1.17, -1.3), 0.06, DARK, { ...NO, sides: 4 });
+  b.bevel(v3(0, 0.15, 3.2), v3(1.5, 1.4, 2.0), 0.3, p.secondary, NO);
+  b.box(v3(0, 0.98, 0.6), v3(0.24, 0.1, 2.6), p.accent, { ...NO, glow: 1.3 });
+  b.cylinder(v3(0, -0.85, -3.6), 0.12, 2.0, DARK, { ...NO, quat: X90, sides: 6 });
+  const pods: THREE.Vector3[] = [];
+  for (const sx of [1, -1])
+    for (const sy of [1, -1]) {
+      // wing: a flat slab from the pod's flank out to the engine pod, raked back
+      const root = v3(sx * 0.9, sy * 0.45, 0.6);
+      const tip = v3(sx * 5.4, sy * 2.5, 2.6);
+      const n = new THREE.Vector3(-sy * 0.45, sx * 1, 0).normalize();
+      const along = tip.clone().sub(root).normalize();
+      const chord = 2.3;
+      b.hull(
+        plate([root.clone().add(v3(0, 0, -chord)), root.clone().add(v3(0, 0, chord * 0.5)), tip.clone().add(v3(0, 0, 0.6)), tip.clone().add(v3(0, 0, -1.2))], n, 0.22),
+        sy > 0 ? p.primary : p.secondary,
+      );
+      b.hull(plate([root.clone().addScaledVector(along, 1.2).add(v3(0, 0, -0.6)), root.clone().addScaledVector(along, 1.2).add(v3(0, 0, -0.2)), tip.clone().add(v3(0, 0, -0.3)).addScaledVector(along, -0.9), tip.clone().add(v3(0, 0, -0.7)).addScaledVector(along, -0.9)], n, 0.26), p.accent);
+      // engine pod with a forward retro nozzle and a main bell aft
+      const c = tip.clone().add(v3(0, 0, 0.4));
+      b.cylinder(c, 0.72, 3.4, p.primary, { ...NO, quat: X90, sides: 10 });
+      b.torus(c.clone().add(v3(0, 0, -0.9)), 0.76, 0.1, p.secondary, { radial: 4, tubular: 16 });
+      b.cylinder(c.clone().add(v3(0, 0, -1.9)), 0.5, 0.5, DARK, { ...NO, quat: X90, sides: 10, radiusTop: 0.36 });
+      b.cylinder(c.clone().add(v3(0, 0, 1.95)), 0.66, 0.5, DARK, { ...NO, quat: X90, sides: 10 });
+      b.cylinder(c.clone().add(v3(0, 0, 2.22)), 0.54, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
+      // a small manoeuvring fin on each pod
+      b.hull(plate([c.clone().add(v3(sx * 0.5, sy * 0.4, 0.2)), c.clone().add(v3(sx * 0.5, sy * 0.4, 1.3)), c.clone().add(v3(sx * 1.2, sy * 1.1, 1.6)), c.clone().add(v3(sx * 1.1, sy * 1.0, 0.9))], v3(sx, -sy, 0).normalize(), 0.1), p.secondary);
+      pods.push(c.clone().add(v3(0, 0, 2.3)));
+      if (sy > 0) nav(b, sx * 6.3, 3.5, 2.2);
+    }
+  return {
+    group: b.build('talon', 'ship'),
+    engines: pods,
+    engineRadius: 0.54,
+    guns: [v3(0, -0.85, -4.6), v3(5.4, 2.5, 0.0), v3(-5.4, -2.5, 0.0), v3(-5.4, 2.5, 0.0), v3(5.4, -2.5, 0.0)],
+    cameraOffset: v3(0, 4.2, 17),
+  };
+}
+
+/**
+ * Wren: Kestrel's station-defence fighter, after the Jedi starfighter. A small flat delta with
+ * the cockpit bubble at the back, a droid socket on one side and two engines at the corners.
+ * Small and friendly-looking, which it is until you threaten the station.
+ */
+function wren(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  // flat delta wedge
+  b.hull(
+    [v3(0, 0.05, -5.2), v3(2.6, 0.15, 1.8), v3(-2.6, 0.15, 1.8), v3(0, 0.55, 1.6), v3(0, -0.4, 1.6), v3(0, 0.3, -2.0), v3(0, -0.25, -2.0), v3(2.4, 0.05, 2.4), v3(-2.4, 0.05, 2.4)],
+    p.primary,
+  );
+  // nose stripes
+  b.hull(plate([v3(0, 0.22, -4.6), v3(0.5, 0.3, -3.0), v3(-0.5, 0.3, -3.0)], UPN, 0.04), p.secondary);
+  b.hullMirrored(plate([v3(1.2, 0.27, -0.6), v3(1.6, 0.27, -0.6), v3(2.3, 0.2, 1.6), v3(1.9, 0.22, 1.6)], UPN, 0.04), p.secondary);
+  // cockpit bubble at the back
+  b.hull([v3(0, 0.35, -0.6), v3(0.55, 0.45, 0.2), v3(-0.55, 0.45, 0.2), v3(0, 1.15, 0.5), v3(0.45, 0.55, 1.4), v3(-0.45, 0.55, 1.4), v3(0, 0.95, 1.4)], p.canopy, 1.15);
+  // droid socket to port
+  b.cylinder(v3(-1.3, 0.55, 0.9), 0.32, 0.6, '#dfe6ee', { ...NO, sides: 10 });
+  b.sphere(v3(-1.3, 0.88, 0.9), 0.32, p.secondary, { ...NO, detail: 1 });
+  b.sphere(v3(-1.15, 0.95, 0.66), 0.08, '#4dc8ff', { ...NO, glow: 2, detail: 0 });
+  // corner engines
+  for (const s of [1, -1]) {
+    b.cylinder(v3(s * 1.9, 0.1, 2.2), 0.42, 1.4, p.secondary, { ...NO, quat: X90, sides: 10 });
+    b.cylinder(v3(s * 1.9, 0.1, 2.95), 0.34, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
+    b.cylinder(v3(s * 0.9, -0.05, -2.6), 0.08, 1.4, DARK, { ...NO, quat: X90, sides: 6 });
+    nav(b, s * 2.6, 0.2, 1.7);
+  }
+  return {
+    group: b.build('wren', 'ship'),
+    engines: [v3(1.9, 0.1, 3.0), v3(-1.9, 0.1, 3.0)],
+    engineRadius: 0.34,
+    guns: [v3(0.9, -0.05, -3.3), v3(-0.9, -0.05, -3.3)],
+    cameraOffset: v3(0, 2.8, 11.5),
+  };
+}
+
+/** Drone: unmanned and tiny. A faceted core with one eye, a guard ring and three vanes. */
+function drone(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.sphere(v3(0, 0, 0), 0.75, p.secondary, { ...NO, detail: 0 });
+  b.sphere(v3(0, 0, -0.62), 0.24, p.accent, { ...NO, glow: 2.4, detail: 0 });
+  b.torus(v3(0, 0, 0.1), 1.05, 0.1, p.primary, { radial: 4, tubular: 14 });
+  for (let i = 0; i < 3; i++) {
+    const a = Math.PI / 2 + (i * Math.PI * 2) / 3;
+    const d = v3(Math.cos(a), Math.sin(a), 0);
+    b.hull(plate([d.clone().multiplyScalar(0.6).add(v3(0, 0, 0.2)), d.clone().multiplyScalar(0.6).add(v3(0, 0, 0.9)), d.clone().multiplyScalar(1.5).add(v3(0, 0, 1.1)), d.clone().multiplyScalar(1.4).add(v3(0, 0, 0.5))], v3(-d.y, d.x, 0), 0.08), p.primary);
+  }
+  b.cylinder(v3(0, 0, 0.85), 0.3, 0.4, DARK, { ...NO, quat: X90, sides: 8 });
+  b.cylinder(v3(0, 0, 1.07), 0.24, 0.06, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.0 });
+  return {
+    group: b.build('drone', 'ship'),
+    engines: [v3(0, 0, 1.1)],
+    engineRadius: 0.24,
+    guns: [v3(0, 0, -0.9)],
+    cameraOffset: v3(0, 1.8, 7),
+  };
+}
+
+const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat, cannon, gannet, bulwark, fang, interdictor, talon, wren, drone };
 const cache = new Map<string, ShipModel>();
 
 /** Builds (once) and clones a ship model. Clones share geometry and materials. */

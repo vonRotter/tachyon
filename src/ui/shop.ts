@@ -14,6 +14,7 @@ import {
   maxedFit,
   newFit,
   shipAvailability,
+  yardVisible,
   shipStats,
   upgradePrice,
   weaponInfo,
@@ -21,7 +22,7 @@ import {
   type EquipmentId,
   type ShipFit,
 } from '../game/loadout';
-import { DATABASE, DB_CATEGORIES, type DbEntry } from '../game/database';
+import { DATABASE, DB_CATEGORIES, dbVisible, type DbEntry } from '../game/database';
 import { MISSIONS, type MissionDef } from '../game/missions';
 import type { FactionId } from '../entities/factions';
 
@@ -165,7 +166,7 @@ export class Shop {
       el('p', 'tab-note', `Choose your first ship. You have ${cr(START_BUDGET)}: whatever the ship does not cost, you keep for upgrades, weapons and equipment.`),
     );
     list.appendChild(el('p', 'tab-note', 'Only the independent yards will sell to a pilot nobody has hired yet. Faction yards open up once you work for a faction.'));
-    for (const id of PLAYER_SHIPS.filter((s) => (SHIP_CLASSES[s].maker ?? 'kestrel') === 'kestrel')) {
+    for (const id of PLAYER_SHIPS.filter((s) => (SHIP_CLASSES[s].maker ?? 'kestrel') === 'kestrel' && SHIP_CLASSES[s].price <= START_BUDGET)) {
       const cls = SHIP_CLASSES[id];
       const left = START_BUDGET - cls.price;
       const card = this.card(cls.name, cls.description ?? '', { status: cr(cls.price), active: this.viewShip === id });
@@ -211,10 +212,22 @@ export class Shop {
       const ids = PLAYER_SHIPS.filter((s) => (SHIP_CLASSES[s].maker ?? 'kestrel') === yard);
       if (!ids.length) continue;
       const design = FACTION_DESIGN[yard];
+      if (!yardVisible(yard, c)) {
+        // you know the yard exists once you work for them, but they show you nothing yet
+        if (c.allegiance === yard) {
+          const head = el('div', 'yard-head');
+          head.style.borderColor = FACTIONS[yard].hudColor;
+          head.appendChild(el('div', 'yard-name', design?.yard ?? FACTIONS[yard].name));
+          head.appendChild(el('div', 'yard-gate', 'Closed to you'));
+          list.appendChild(head);
+          list.appendChild(el('p', 'yard-note', `Fly a contract for the ${FACTIONS[yard].name} and their yards will open to you.`));
+        }
+        continue;
+      }
       const head = el('div', 'yard-head');
       head.style.borderColor = FACTIONS[yard].hudColor;
       head.appendChild(el('div', 'yard-name', design?.yard ?? FACTIONS[yard].name));
-      const gate = yard === 'kestrel' ? 'Open to all' : yard === 'patrol' ? 'Not for sale' : c.allegiance === yard ? 'You fly for them' : `${FACTIONS[yard].name} only`;
+      const gate = yard === 'kestrel' ? 'Open to all' : yard === 'patrol' ? 'Not for sale' : c.allegiance === yard ? 'You fly for them' : 'Test cheat';
       head.appendChild(el('div', 'yard-gate', gate));
       list.appendChild(head);
       if (design) {
@@ -504,7 +517,7 @@ export class Shop {
     list.appendChild(el('p', 'tab-note', 'Everything you can meet in the Reach. Select an entry to put it on the turntable.'));
     for (const cat of DB_CATEGORIES) {
       list.appendChild(el('div', 'tab-head', cat));
-      for (const e of DATABASE.filter((d) => d.category === cat)) {
+      for (const e of DATABASE.filter((d) => d.category === cat && dbVisible(d, this.campaign))) {
         const card = this.card(e.name, '', { status: e.operators.map((f) => FACTIONS[f].name).join(' · '), active: this.dbEntry === e });
         card.classList.add('db-card');
         card.addEventListener('click', () => {

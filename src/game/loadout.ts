@@ -11,8 +11,16 @@ import { DEFAULT_MISSILE, SHIP_CLASSES, type GunSpec, type MissileSpec, type Shi
 // Catalogue
 
 /** Every hull the player can fly, grouped by the yard that builds it. */
-export const PLAYER_SHIPS = ['kite', 'warden', 'lancer', 'corsair', 'sabre', 'halberd', 'gannet', 'bulwark', 'fang', 'interdictor'] as const;
+export const PLAYER_SHIPS = ['wren', 'kite', 'warden', 'lancer', 'talon', 'corsair', 'sabre', 'halberd', 'gannet', 'bulwark', 'fang', 'interdictor'] as const;
 export type PlayerShipId = (typeof PLAYER_SHIPS)[number];
+
+/**
+ * Whether a yard shows up in the shop at all: the independent yards always, a faction's yards
+ * once you have proven yourself to it (or with the test cheat on).
+ */
+export function yardVisible(yard: FactionId, c: Pick<Campaign, 'allegiance' | 'unlimited' | 'standing'>): boolean {
+  return yard === 'kestrel' || c.unlimited || proven(c, yard);
+}
 
 /** Yards in shop order. */
 export const YARDS: FactionId[] = ['kestrel', 'combine', 'drift', 'wake', 'patrol'];
@@ -28,14 +36,14 @@ export interface Availability {
  * Who can buy what. Independent yards sell to anyone; a faction's yards sell only to pilots
  * working for it; the Patrol sells nothing. The Ctrl+P test cheat opens every yard.
  */
-export function shipAvailability(shipId: string, campaign: Pick<Campaign, 'allegiance' | 'unlimited'>): Availability {
+export function shipAvailability(shipId: string, campaign: Pick<Campaign, 'allegiance' | 'unlimited' | 'standing'>): Availability {
   const cls = SHIP_CLASSES[shipId];
   const maker = cls.maker ?? 'kestrel';
-  const restricted = cls.forSale === false || (maker !== 'kestrel' && maker !== campaign.allegiance);
+  const restricted = cls.forSale === false || (maker !== 'kestrel' && !proven(campaign, maker));
   if (!restricted) return { ok: true, reason: '' };
   if (campaign.unlimited) return { ok: true, reason: 'Unlocked by the test cheat' };
   if (cls.forSale === false) return { ok: false, reason: 'Not for sale' };
-  return { ok: false, reason: `${FACTIONS[maker].name} pilots only` };
+  return { ok: false, reason: `Fly a contract for the ${FACTIONS[maker].name} first` };
 }
 
 export interface GunType {
@@ -254,7 +262,7 @@ export function upgradePrice(shipId: string, up: UpgradeType, tier: number): num
 // Save state
 
 /** What a new campaign starts with; the first ship is bought out of it. */
-export const START_BUDGET = 80000;
+export const START_BUDGET = 40000;
 
 export interface ShipFit {
   upgrades: Partial<Record<UpgradeId, number>>;
@@ -269,7 +277,7 @@ export interface Campaign {
   credits: number;
   /** Test cheat (Ctrl+P): purchases cost nothing. */
   unlimited: boolean;
-  allegiance: 'combine' | 'drift' | 'wake' | null;
+  allegiance: Side | null;
   activeShip: string;
   ships: string[];
   fits: Record<string, ShipFit>;
@@ -280,6 +288,45 @@ export interface Campaign {
   completed: Record<string, number>;
   /** Story outcomes ("gallows" -> "burned" | "watched" | "defended" | "lost"). */
   flags: Record<string, string>;
+  /** Contracts flown for each faction. One proves you to them and opens their yards. */
+  standing: Partial<Record<Side, number>>;
+  /** Ship classes met in missions (unlocks their database entries). */
+  seen: string[];
+}
+
+export type Side = 'combine' | 'drift' | 'wake';
+
+/** True once you work for `faction` and have flown a contract for it. */
+export function proven(c: Pick<Campaign, 'allegiance' | 'standing'>, faction: FactionId): boolean {
+  return faction === c.allegiance && (c.standing[faction] ?? 0) > 0;
+}
+
+/**
+ * Changing sides: the faction you leave takes its hulls back (weapons go to storage, upgrades
+ * go with the hull), and if that leaves you with nothing to fly, Kestrel lends you a Kite.
+ * Returns the names of the ships taken.
+ */
+export function defect(c: Campaign, to: Side): string[] {
+  const from = c.allegiance;
+  const taken: string[] = [];
+  if (from && from !== to) {
+    for (const id of [...c.ships]) {
+      if (SHIP_CLASSES[id].maker !== from) continue;
+      for (const w of c.fits[id]?.weapons ?? []) if (w) c.inventory[w] = (c.inventory[w] ?? 0) + 1;
+      c.ships = c.ships.filter((s) => s !== id);
+      delete c.fits[id];
+      taken.push(SHIP_CLASSES[id].name);
+    }
+  }
+  if (!c.ships.length) {
+    c.ships = ['kite'];
+    c.fits.kite = newFit('kite');
+  }
+  if (!c.ships.includes(c.activeShip)) c.activeShip = c.ships[0];
+  c.allegiance = to;
+  // turning on your old side in front of the new one is proof enough
+  c.standing[to] = Math.max(1, c.standing[to] ?? 0);
+  return taken;
 }
 
 /** The fit a hull comes with from the yard: stock weapons, no upgrades. */
@@ -304,6 +351,8 @@ export function newCampaign(): Campaign {
     equipment: [],
     completed: {},
     flags: {},
+    standing: {},
+    seen: [],
   };
 }
 
@@ -337,6 +386,13 @@ export function migrateCampaign(raw: OldCampaign | null): Campaign {
   }
   delete c.guns;
   delete c.missiles;
+  c.standing = { ...(c.standing ?? {}) };
+  c.seen = [...(c.seen ?? [])];
+  // saves from before standing existed: count the faction contracts already flown
+  if (raw && raw.standing === undefined) {
+    if (c.completed['launch-order']) c.standing.combine = c.completed['launch-order'];
+    if (c.completed.flotsam) c.standing.drift = c.completed.flotsam;
+  }
   return c;
 }
 

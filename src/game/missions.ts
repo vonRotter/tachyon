@@ -1,5 +1,5 @@
 import type { Game } from './game';
-import type { Campaign } from './loadout';
+import type { Campaign, Side } from './loadout';
 import { runKestrelMission } from './mission';
 import { runLaunchOrder } from './missionLaunchOrder';
 import { runFlotsam } from './missionFlotsam';
@@ -19,6 +19,8 @@ export interface MissionDef {
   available: (c: Campaign) => boolean;
   /** Debrief headline on victory. */
   victoryTitle: string;
+  /** Whose contract it is: completing it earns standing with them. */
+  faction?: Side;
 }
 
 export const MISSIONS: MissionDef[] = [
@@ -43,6 +45,7 @@ export const MISSIONS: MissionDef[] = [
       'Commander Tessaine is taking the Sovereign Dawn to the Red Wake base at the Gallows, and wants you on the strike. Launch with Lance and Sabre flights, silence the turrets and the comms mast.',
     pay: 22000,
     run: runLaunchOrder,
+    faction: 'combine',
     available: (c) => c.allegiance === 'combine' && (c.completed['cold-guns'] ?? 0) > 0,
     victoryTitle: 'The Gallows falls',
   },
@@ -55,6 +58,7 @@ export const MISSIONS: MissionDef[] = [
       'Mother Sorrel needs the Combine\'s transfer records, kept aboard the carrier Meridian. Drift in with the wreckage, slip onto her recovery deck, grab the package, then run for the Long Patience. You will be outgunned and outnumbered. Fly.',
     pay: 18000,
     run: runFlotsam,
+    faction: 'drift',
     available: (c) => c.allegiance === 'drift' && (c.completed['cold-guns'] ?? 0) > 0,
     victoryTitle: 'The records are out',
   },

@@ -25,8 +25,8 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 
 ## What is in the game
 
-- **Hangar and shop** between missions. A new campaign starts with 80,000 cr and a choice of
-  first ship; whatever it does not cost is yours to spend. Your ship hovers on a turntable in a
+- **Hangar and shop** between missions. A new campaign starts with 40,000 cr and a choice of
+  first ship (light hulls only); whatever it does not cost is yours to spend. Your ship hovers on a turntable in a
   station bay (drag to look around). Ships differ in hull, shields, speed, turn rate, weapon
   slots, equipment slots, energy and missile magazine.
   Upgrades (three tiers of six systems) stay with the hull they are installed on. Each weapon
@@ -38,14 +38,18 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 
   | Yard | Who can buy | Look | Doctrine | Ships |
   |---|---|---|---|---|
-  | Independent yards | Anyone | Rounded nacelles, rings, hoops, bright paint | Balanced, forgiving | Kite, Warden, Lancer, Corsair |
+  | Independent yards | Anyone | Rounded nacelles, rings, hoops, bright paint | Balanced, forgiving | Wren, Warden, Kite, Lancer, Talon, Corsair |
   | Helion Combine | Combine pilots | Symmetry, bevelled wedges, crescent blades, ivory and gold | Fast-recharging shields, energy, long guns; thin hulls | Sabre, Halberd |
   | Drift Union | Drift pilots | Asymmetric, exposed frames and rings, bolted-on pods | Heavy armour, deep magazines, many hardpoints; weak shields | Gannet, Bulwark |
   | Red Wake | Wake pilots (no Wake path yet) | Hooked blades, forward fangs, crimson over black | Speed and short, hard-hitting guns; fragile | Fang |
   | Reach Patrol | Nobody | Broad white wedge, outrigger booms, lightbar | Tough all-rounder | Interdictor |
 
-  Locked hulls can still be browsed and previewed in their yard's paint. Ships you own keep your
-  colours with their yard's trim.
+  A faction's yard stays hidden until you work for that faction and have flown a contract for
+  it. Faction hulls appear in the database once you have met one. Ships you own keep your
+  colours with their yard's trim. The Talon takes after the Babylon 5 Starfury (four slanted
+  wings, engine pods that thrust both ways, so it strafes hard); the Wren, Kestrel's tiny
+  station-defence fighter, after the Jedi starfighter. Unmanned combat drones are small, fast
+  and die to a single burst.
 - **Ship database** in the hangar: every fighter, gunship, capital ship, civilian hull and
   installation in the Reach, with facts, a description, and a turntable model you can repaint
   in each operator's colours.
