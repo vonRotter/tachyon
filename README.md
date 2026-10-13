@@ -73,6 +73,10 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 - **Side jobs** for anyone, whichever side you fly for, paid in full every time: a Reach Patrol
   bounty hunt in the Ashfall alongside two Patrol Interdictors, a convoy run bringing container
   ships in to Vantage, and guarding Kestrel's ore barges from Wake strip-miners.
+- **Odd jobs**, civilian one-shots for cash with no story consequences: a cold-chain courier run
+  through ten gates round Kestrel against the clock, a search for escape pods drifting in the
+  Ashfall before their air runs out, and a salvage race against Wake scavenger tugs in Vantage's
+  rock ring. The hangar groups contracts into story, side arcs and odd jobs.
 - **Mission "Cold Guns"** at Kestrel Station: three Red Wake raider waves ending with a gunship,
   radio drama between the station, the Helion Combine and the Drift Union. You choose a side by
   where you land: Kestrel's bay 1 (Drift Union) or the Sovereign Dawn (Combine). Checkpoints let

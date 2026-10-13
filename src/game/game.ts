@@ -335,6 +335,8 @@ export class Game implements CombatContext {
   private frameHooks: ((dt: number) => void)[] = [];
   /** Mission-only scenery (cleared when a mission starts). */
   private decor: THREE.Object3D[] = [];
+  /** Mission API: HUD markers for gates, pods and other things to fly to. */
+  waypoints: { name: string; pos: THREE.Vector3; color?: string }[] = [];
   /** Stealth: detection 0..1 shown on the HUD while set (null = not sneaking). */
   signature: number | null = null;
   /** Set by the UI: lets the player pick one of their ships mid-mission; resolves to its id. */
@@ -566,6 +568,7 @@ export class Game implements CombatContext {
     this.frameHooks = [];
     for (const o of this.decor) this.scene.remove(o);
     this.decor = [];
+    this.waypoints = [];
     this.signature = null;
   }
 
@@ -1551,6 +1554,7 @@ export class Game implements CombatContext {
         dock: this.dockGuide,
         docks: this.docking.openPorts(),
         signature: this.signature,
+        waypoints: this.waypoints,
       });
     } else this.hud.clear();
   }

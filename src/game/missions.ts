@@ -7,6 +7,7 @@ import { runAccord } from './missionAccord';
 import { runOpenChannel } from './missionOpenChannel';
 import { runBastion, runLastLight } from './missionFinale';
 import { runBounty, runConvoy, runOreGuard } from './missionJobs';
+import { runCourier, runRescue, runSalvage } from './missionCivil';
 
 export interface MissionDef {
   id: string;
@@ -26,6 +27,8 @@ export interface MissionDef {
   victoryTitle: string;
   /** Side job: pays in full every time and is not part of the story. */
   repeatable?: boolean;
+  /** Hangar grouping. */
+  kind?: 'story' | 'baron' | 'job';
   /** Whose contract it is: completing it earns standing with them ('current': whoever you fly for). */
   faction?: Side | 'current';
 }
@@ -134,6 +137,7 @@ export const MISSIONS: MissionDef[] = [
     pay: 9000,
     run: (g) => runBounty(g),
     repeatable: true,
+    kind: 'job',
     available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
     victoryTitle: 'Bounties filed',
   },
@@ -146,6 +150,7 @@ export const MISSIONS: MissionDef[] = [
     pay: 8000,
     run: (g) => runConvoy(g),
     repeatable: true,
+    kind: 'job',
     available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
     victoryTitle: 'Convoy in',
   },
@@ -158,8 +163,48 @@ export const MISSIONS: MissionDef[] = [
     pay: 6000,
     run: (g) => runOreGuard(g),
     repeatable: true,
+    kind: 'job',
     available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
     victoryTitle: 'The crews are safe',
+  },
+  {
+    id: 'civ-courier',
+    name: 'Odd job: Hot Cargo',
+    location: 'Kestrel Station',
+    map: 'kestrel',
+    briefing: 'A cold-chain serum for Kestrel\'s hospital deck, and its cooler is failing. Fly ten gates round the station against the clock. Bonus for every second to spare.',
+    pay: 4000,
+    run: (g) => runCourier(g),
+    repeatable: true,
+    kind: 'job',
+    available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
+    victoryTitle: 'Delivered cold',
+  },
+  {
+    id: 'civ-rescue',
+    name: 'Odd job: Mayday',
+    location: 'The Ashfall',
+    map: 'ashfall',
+    briefing: 'A salvage tug blew its reactor in the Ashfall. Four escape pods are drifting in the wrecks, each with its own air supply. Find them before it runs out. Pay per pod.',
+    pay: 5000,
+    run: (g) => runRescue(g),
+    repeatable: true,
+    kind: 'job',
+    available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
+    victoryTitle: 'Pods recovered',
+  },
+  {
+    id: 'civ-salvage',
+    name: 'Odd job: Finders Keepers',
+    location: 'Vantage Station',
+    map: 'vantage',
+    briefing: 'A lost freighter\'s cargo is drifting in Vantage\'s rock ring. Fly through the crates to grab them before Wake scavenger tugs carry them off. Pay per crate.',
+    pay: 3000,
+    run: (g) => runSalvage(g),
+    repeatable: true,
+    kind: 'job',
+    available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
+    victoryTitle: 'Salvage rights',
   },
 ];
 

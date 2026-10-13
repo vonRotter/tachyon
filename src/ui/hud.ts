@@ -26,6 +26,8 @@ export interface HudData {
   docks: { name: string; pos: THREE.Vector3 }[];
   /** Stealth detection 0..1, or null when not sneaking. */
   signature: number | null;
+  /** Mission waypoints: gates, pods, crates. */
+  waypoints: { name: string; pos: THREE.Vector3; color?: string }[];
 }
 
 const _v = new THREE.Vector3();
@@ -307,6 +309,7 @@ export class Hud {
     this.radar(d);
     if (d.dock) this.dockGuide(d, d.dock);
     for (const port of d.docks) this.dockMarker(d, port);
+    for (const w of d.waypoints) this.dockMarker(d, w);
     if (d.signature !== null) this.signatureMeter(d.signature, d.time);
 
     // objective & hint
@@ -341,11 +344,11 @@ export class Hud {
   }
 
   /** A faint marker for an open dock you have not asked to land at yet. */
-  private dockMarker(d: HudData, port: { name: string; pos: THREE.Vector3 }): void {
+  private dockMarker(d: HudData, port: { name: string; pos: THREE.Vector3; color?: string }): void {
     const g = this.ctx;
     const sp = this.project(port.pos, d.camera);
-    g.strokeStyle = 'rgba(95,232,255,0.8)';
-    g.fillStyle = 'rgba(95,232,255,0.85)';
+    g.strokeStyle = port.color ?? 'rgba(95,232,255,0.8)';
+    g.fillStyle = port.color ?? 'rgba(95,232,255,0.85)';
     g.lineWidth = 1.5;
     if (sp && sp.x > 30 && sp.x < this.w - 30 && sp.y > 30 && sp.y < this.h - 30) {
       const r = 10;

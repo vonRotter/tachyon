@@ -584,7 +584,16 @@ export class Shop {
     const rank = (m: MissionDef) => (m === next ? 0 : m.repeatable ? 2 : c.completed[m.id] ? 3 : 1);
     const missions = MISSIONS.filter((m) => m.available(c)).sort((a, b) => rank(a) - rank(b));
     if (!missions.some((m) => m.id === this.selectedMission)) this.selectedMission = (next ?? missions[0]).id;
-    for (const m of missions) root.appendChild(this.missionCard(m));
+    const groups: [string, MissionDef[]][] = [
+      ['Story', missions.filter((m) => (m.kind ?? 'story') === 'story')],
+      ['The Scarlet Baron', missions.filter((m) => m.kind === 'baron')],
+      ['Odd jobs · full pay every time', missions.filter((m) => m.kind === 'job')],
+    ];
+    for (const [title, list] of groups) {
+      if (!list.length) continue;
+      root.appendChild(el('div', 'contract-group', title));
+      for (const m of list) root.appendChild(this.missionCard(m));
+    }
   }
 
   /** Where you are in the story: one pip per chapter of your side's path. */
