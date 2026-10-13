@@ -83,6 +83,11 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   marines; the Drift's gift hauler carries mining charge meant for the Sovereign Dawn and the
   dock crews beside it. Halfway through you learn what you are escorting. See it through and
   stay, or turn your guns on your own convoy and change sides in the middle of the fight.
+- **Finale, Combine side: "Last Light"** at Haven, the Drift Union's home: an asteroid with old
+  hulls driven into it like nails and half-built rings on spokes. Break the Drift screen, then
+  silence the Long Patience's guns alongside the Sovereign Dawn's broadsides until Mother
+  Sorrel strikes her colours. Partway through, a hospital ship leaves Haven and Tessaine orders
+  it burned.
 - **Changing sides** happens only at moments like that (also at the Gallows, if you defend the
   habitat). The faction you leave takes its ships back: weapons fitted to them go to storage,
   upgrades go with the hull, and if nothing is left Kestrel lends you a Kite.

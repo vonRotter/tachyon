@@ -905,7 +905,7 @@ export class Game implements CombatContext {
   private cycleTarget(nearest: boolean): void {
     const p = this.player;
     if (!p) return;
-    const enemies = this.ships.filter((s) => s.alive && s !== p && !s.cls.civilian && hostile(p.faction, s.faction));
+    const enemies = this.ships.filter((s) => s.alive && s !== p && (!s.cls.civilian || s.cls.targetable) && hostile(p.faction, s.faction));
     if (!enemies.length) {
       p.target = null;
       return;

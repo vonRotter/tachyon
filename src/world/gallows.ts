@@ -12,7 +12,7 @@ const wakeRed = '#c0142f';
 const wakeYellow = '#ffd030';
 
 /** Lumpy asteroid mesh plus a sphere collider. */
-function rock(b: StructureBuilder, center: THREE.Vector3, r: number, rng: SeededRandom, color: string): void {
+export function rock(b: StructureBuilder, center: THREE.Vector3, r: number, rng: SeededRandom, color: string): void {
   const geo = new THREE.IcosahedronGeometry(r, 3);
   const pos = geo.getAttribute('position');
   const tmp = new THREE.Vector3();

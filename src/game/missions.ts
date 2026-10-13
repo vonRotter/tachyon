@@ -5,6 +5,7 @@ import { runLaunchOrder } from './missionLaunchOrder';
 import { runFlotsam } from './missionFlotsam';
 import { runAccord } from './missionAccord';
 import { runOpenChannel } from './missionOpenChannel';
+import { runLastLight } from './missionFinale';
 
 export interface MissionDef {
   id: string;
@@ -94,6 +95,19 @@ export const MISSIONS: MissionDef[] = [
     faction: 'current',
     available: (c) => (c.allegiance === 'combine' || c.allegiance === 'drift') && (c.completed['open-channel'] ?? 0) > 0,
     victoryTitle: 'The Accord',
+  },
+  {
+    id: 'last-light',
+    name: 'Last Light',
+    location: 'Haven',
+    map: 'haven',
+    briefing:
+      'The Drift have pulled back to Haven, their home, behind the Long Patience. The Sovereign Dawn and the destroyer Resolute go in today. Break the Drift screen and silence the battlecruiser\'s guns, and Mother Sorrel will have to come to the table. Finale of the Combine campaign.',
+    pay: 30000,
+    run: runLastLight,
+    faction: 'combine',
+    available: (c) => c.allegiance === 'combine' && (c.completed.accord ?? 0) > 0,
+    victoryTitle: 'The Reach under the Combine',
   },
 ];
 

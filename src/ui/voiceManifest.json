@@ -23,6 +23,10 @@
     "duration": 2.77,
     "speaker": "juno"
   },
+  "0d0b90f0": {
+    "duration": 3.93,
+    "speaker": "sorrel"
+  },
   "0da122e5": {
     "duration": 2.43,
     "speaker": "halloran"
@@ -30,6 +34,10 @@
   "10909197": {
     "duration": 5.88,
     "speaker": "juno"
+  },
+  "11795025": {
+    "duration": 5.08,
+    "speaker": "sorrel"
   },
   "11ad7fc6": {
     "duration": 6.5,
@@ -42,6 +50,18 @@
   "176e2b7f": {
     "duration": 4.13,
     "speaker": "halloran"
+  },
+  "178a5f62": {
+    "duration": 5.42,
+    "speaker": "tessaine"
+  },
+  "19ae0d45": {
+    "duration": 10.4,
+    "speaker": "tessaine"
+  },
+  "19d78802": {
+    "duration": 1.81,
+    "speaker": "tessaine"
   },
   "1a206969": {
     "duration": 6.55,
@@ -59,6 +79,10 @@
     "duration": 4.95,
     "speaker": "vey"
   },
+  "2b2cba9f": {
+    "duration": 4.35,
+    "speaker": "tessaine"
+  },
   "2b8aad22": {
     "duration": 9.36,
     "speaker": "varga"
@@ -74,6 +98,10 @@
   "33c6c075": {
     "duration": 2.93,
     "speaker": "sorrel"
+  },
+  "349f27e4": {
+    "duration": 5.92,
+    "speaker": "tessaine"
   },
   "3505b90a": {
     "duration": 3.54,
@@ -115,6 +143,10 @@
     "duration": 2.18,
     "speaker": "juno"
   },
+  "41967f65": {
+    "duration": 3.68,
+    "speaker": "quell"
+  },
   "4633ccb4": {
     "duration": 3.62,
     "speaker": "tessaine"
@@ -126,6 +158,10 @@
   "482d6610": {
     "duration": 4.45,
     "speaker": "tessaine"
+  },
+  "48c5504d": {
+    "duration": 2.71,
+    "speaker": "vale"
   },
   "4935874c": {
     "duration": 3.16,
@@ -154,6 +190,10 @@
   "5e263231": {
     "duration": 3.11,
     "speaker": "meridian"
+  },
+  "611e0fe9": {
+    "duration": 4.86,
+    "speaker": "vale"
   },
   "62d4fc99": {
     "duration": 4.96,
@@ -262,6 +302,10 @@
   "8afb5ff5": {
     "duration": 1.1,
     "speaker": "kit"
+  },
+  "8b03b94b": {
+    "duration": 2.51,
+    "speaker": "vale"
   },
   "8e610b2b": {
     "duration": 2.96,
@@ -423,6 +467,10 @@
     "duration": 10.47,
     "speaker": "tessaine"
   },
+  "d16a2c0c": {
+    "duration": 6.32,
+    "speaker": "tessaine"
+  },
   "d3217521": {
     "duration": 2.27,
     "speaker": "kit"
@@ -455,6 +503,10 @@
     "duration": 4.8,
     "speaker": "sorrel"
   },
+  "dd394608": {
+    "duration": 3.41,
+    "speaker": "sorrel"
+  },
   "de2866cf": {
     "duration": 2.56,
     "speaker": "halloran"
@@ -470,6 +522,10 @@
   "e24b9478": {
     "duration": 4.79,
     "speaker": "quell"
+  },
+  "e44c7f17": {
+    "duration": 5.13,
+    "speaker": "vale"
   },
   "e5719997": {
     "duration": 3.68,

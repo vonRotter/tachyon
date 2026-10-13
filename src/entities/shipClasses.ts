@@ -121,6 +121,8 @@ export interface ShipClass {
   hitSpheres?: [number, number, number, number][];
   /** Civilian traffic: never targeted, never shoots. */
   civilian?: boolean;
+  /** A civilian the player can still lock on to (mission targets). */
+  targetable?: boolean;
   /** Fixed installation: never moves (turrets, relays, modules). */
   anchored?: boolean;
   /** Player ships: whose yard builds it. Independent ('kestrel') yards sell to anyone; a

@@ -220,7 +220,10 @@ export class Docking {
       this.landFromQ.copy(ship.quat);
     }
 
-    const next = this.stage === 'approach' ? 0 : this.stage === 'entry' ? (along > port.mouth + 110 ? 1 : 2) : 3;
+    // off the axis close in (beside the hull rather than in front of the mouth): back out to the
+    // line-up gate first, instead of flying at the mouth through the hull
+    const offAxis = lateral > Math.min(port.opening[0], port.opening[1]) * 0.9 && along < port.mouth + 60;
+    const next = this.stage === 'approach' ? 0 : this.stage === 'entry' ? (along > port.mouth + 110 || offAxis ? 1 : 2) : 3;
     this.gates.forEach((g, i) => {
       const mat = g.material as THREE.MeshBasicMaterial;
       const on = i === next;

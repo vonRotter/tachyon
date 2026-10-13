@@ -4,6 +4,7 @@ import { buildAsteroids, buildCarrier, buildKestrelStation, type Beacon, type Do
 import { buildGallows } from './gallows';
 import { buildAshfall } from './ashfall';
 import { buildVantage } from './vantage';
+import { buildHaven } from './haven';
 
 const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x, y, z);
 
@@ -136,4 +137,29 @@ const vantage: Builder = (world) => {
   };
 };
 
-export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall, vantage };
+const haven: Builder = (world) => {
+  const station = buildHaven(world);
+  return {
+    ...merge('haven', 'Haven', [station], ['haven']),
+    traffic: [
+      {
+        name: 'Ore barge Quill',
+        cls: 'miner',
+        points: [v(900, -300, -600), v(1300, -200, 300), v(800, -380, 900), v(400, -420, -200)],
+        speed: 20,
+      },
+      {
+        name: 'Container ship Odile',
+        cls: 'container',
+        points: [v(-1500, 500, -1200), v(-1800, 400, 600), v(-700, 600, 1500), v(-400, 650, -1400)],
+        speed: 28,
+      },
+    ],
+    start: { pos: v(0, 260, 2300), look: v(0, 0, 0) },
+    arena: { center: v(0, 0, 900), warn: 3800, limit: 4600 },
+    orbit: { center: v(0, 0, 0), radius: 1200, height: 260 },
+    frames: {},
+  };
+};
+
+export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall, vantage, haven };
