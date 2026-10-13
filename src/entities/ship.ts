@@ -131,6 +131,8 @@ export class Ship {
   lastDamageTime = -99;
   lastAttacker: Ship | null = null;
   boosting = false;
+  /** Things in tow (escape pods, cargo): each one costs some speed and turn rate. */
+  towLoad = 0;
   /** Set when boost runs the tank dry; boost stays off until energy recovers (no sputtering). */
   boostLocked = false;
   sliding = false;
@@ -271,7 +273,8 @@ export class Ship {
     const sf = this.vel.length() / cls.maxSpeed;
     const agility = sf < 0.35 ? 0.75 + (sf / 0.35) * 0.35 : sf <= 0.9 ? 1.1 : Math.max(0.68, 1.1 - (sf - 0.9) * 0.4);
     const slideBonus = c.slide ? 1.25 : 1;
-    const turn = c.slide ? slideBonus : agility;
+    const drag = 1 / (1 + 0.12 * this.towLoad);
+    const turn = (c.slide ? slideBonus : agility) * drag;
     this.angVel.x += (c.pitch * cls.pitchRate * turn - this.angVel.x) * k;
     this.angVel.y += (-c.yaw * cls.yawRate * turn - this.angVel.y) * k;
     this.angVel.z += (-c.roll * cls.rollRate * (0.85 + 0.15 * turn) - this.angVel.z) * k;
@@ -301,7 +304,7 @@ export class Ship {
       // Forward speed is driven by a thrust-limited motor; sideways velocity is bled off by the
       // flight computer at a finite rate ("grip"), so hard turns carve with some slip.
       // negative throttle backs up (the player's throttle goes down to -0.25)
-      const targetSpeed = (wantsBoost ? cls.boostSpeed : clamp(c.throttle, -0.25, 1) * cls.maxSpeed) * pw.speed;
+      const targetSpeed = (wantsBoost ? cls.boostSpeed : clamp(c.throttle, -0.25, 1) * cls.maxSpeed) * pw.speed * drag;
       const along = this.vel.dot(_fwd);
       const thrustAccel = wantsBoost ? cls.boostSpeed * 0.55 : cls.maxSpeed * 0.6;
       const brakeAccel = cls.maxSpeed * 0.75;

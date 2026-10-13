@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { ScanReadout } from '../game/scanner';
 import { clamp } from '../core/math';
 import { FACTIONS, hostile } from '../entities/factions';
 import type { Ship } from '../entities/ship';
@@ -28,6 +29,8 @@ export interface HudData {
   signature: number | null;
   /** Mission waypoints: gates, pods, crates. */
   waypoints: { name: string; pos: THREE.Vector3; color?: string }[];
+  /** Scanner readout for the scanned contact. */
+  scan: ScanReadout | null;
 }
 
 const _v = new THREE.Vector3();
@@ -310,6 +313,7 @@ export class Hud {
     if (d.dock) this.dockGuide(d, d.dock);
     for (const port of d.docks) this.dockMarker(d, port);
     for (const w of d.waypoints) this.dockMarker(d, w);
+    if (d.scan) this.scanCard(d, d.scan);
     if (d.signature !== null) this.signatureMeter(d.signature, d.time);
 
     // objective & hint
@@ -341,6 +345,53 @@ export class Hud {
     g.fillStyle = v > 0.75 && Math.sin(time * 12) > 0 ? '#ffffff' : color;
     g.fillText(v > 0.75 ? 'SIGNATURE · THEY ARE LOOKING' : v > 0.4 ? 'SIGNATURE · CAREFUL' : 'SIGNATURE · COLD', this.w / 2, y - 6);
     this.bar(x, y, w, 8, v, color);
+  }
+
+  /** Scanner: a dashed bracket on the contact and an info card at the right. */
+  private scanCard(d: HudData, s: ScanReadout): void {
+    const g = this.ctx;
+    const sp = this.project(s.pos, d.camera);
+    g.save();
+    g.strokeStyle = s.color;
+    g.fillStyle = s.color;
+    g.lineWidth = 1.5;
+    g.setLineDash([5, 4]);
+    if (sp && sp.x > 30 && sp.x < this.w - 30 && sp.y > 30 && sp.y < this.h - 30) {
+      const r = 22;
+      g.strokeRect(sp.x - r, sp.y - r, r * 2, r * 2);
+    } else {
+      const e = this.edge(s.pos, d.camera);
+      g.setLineDash([]);
+      g.translate(e.x, e.y);
+      g.rotate(e.a);
+      g.beginPath();
+      g.moveTo(12, 0);
+      g.lineTo(-5, -8);
+      g.lineTo(-5, 8);
+      g.closePath();
+      g.stroke();
+    }
+    g.restore();
+    // the card
+    const w = 270;
+    const x = this.w - w - 20;
+    const y = 96;
+    const h = 30 + s.lines.length * 18;
+    g.fillStyle = 'rgba(8,10,24,0.72)';
+    g.fillRect(x, y, w, h);
+    g.fillStyle = s.color;
+    g.fillRect(x, y, 3, h);
+    g.textAlign = 'left';
+    g.font = `700 14px ${FONT}`;
+    g.fillText(s.name, x + 12, y + 20);
+    g.textAlign = 'right';
+    g.font = `600 11px ${FONT}`;
+    g.fillStyle = 'rgba(255,255,255,0.55)';
+    g.fillText(`SCAN ${s.index + 1}/${s.count}`, x + w - 10, y + 19);
+    g.textAlign = 'left';
+    g.font = `600 13px ${FONT}`;
+    g.fillStyle = 'rgba(230,236,255,0.9)';
+    s.lines.forEach((l, i) => g.fillText(l, x + 12, y + 40 + i * 18));
   }
 
   /** A faint marker for an open dock you have not asked to land at yet. */

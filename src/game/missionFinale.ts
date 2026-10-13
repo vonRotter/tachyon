@@ -11,7 +11,7 @@ const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(
 /** Ships still in the fight: anything more than 4 km out has run. */
 const alive = (ships: Ship[]): number => ships.filter((s) => s.alive && s.pos.length() < 4000).length;
 const sweep = (g: Game, ships: Ship[]): void => {
-  for (const s of ships) if (s.alive && !s.cls.anchored) g.jumpOut(s);
+  g.retreat(ships);
 };
 const gunsLeft = (cap: CapitalShip): number => cap.turrets.filter((t) => t.ship.alive).length;
 

@@ -12,7 +12,7 @@ import { SHIP_CLASSES, type ShipClass } from '../entities/shipClasses';
 const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x, y, z);
 const alive = (ships: Ship[]): number => ships.filter((s) => s.alive && s.pos.length() < 5000).length;
 const sweep = (g: Game, ships: Ship[]): void => {
-  for (const s of ships) if (s.alive && !s.cls.anchored) g.jumpOut(s);
+  g.retreat(ships);
 };
 
 /** A Wake raiding party: cutters, fangs and drones jumping in around a point. */

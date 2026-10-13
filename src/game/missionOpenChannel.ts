@@ -6,7 +6,7 @@ import { SHIP_CLASSES, type ShipClass } from '../entities/shipClasses';
 
 const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x, y, z);
 const sweep = (g: Game, ships: Ship[]): void => {
-  for (const s of ships) if (s.alive) g.jumpOut(s);
+  g.retreat(ships);
 };
 
 /** The transmitter at each dish's focus. */

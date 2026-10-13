@@ -42,6 +42,7 @@ export type BindAction =
   | 'powerEngines'
   | 'powerBalanced'
   | 'dock'
+  | 'scan'
   | 'pause';
 
 /** One-shot actions the game polls with `pressed()`. `confirm` is fixed (Enter / pad A). */
@@ -59,7 +60,8 @@ export type Action =
   | 'powerEngines'
   | 'powerBalanced'
   | 'powerCycle'
-  | 'dock';
+  | 'dock'
+  | 'scan';
 
 export type Bindings = Record<BindAction, string[]>;
 
@@ -91,6 +93,7 @@ export const BIND_LABELS: [BindAction, string][] = [
   ['powerGuns', 'Power to guns'],
   ['powerEngines', 'Power to engines'],
   ['dock', 'Request docking'],
+  ['scan', 'Scan contacts (cycle)'],
   ['pause', 'Pause (Esc always works)'],
 ];
 
@@ -122,6 +125,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   powerGuns: ['Digit3'],
   powerEngines: ['Digit4'],
   dock: ['KeyB'],
+  scan: ['KeyN'],
   pause: ['KeyP'],
 };
 
@@ -137,6 +141,7 @@ const EDGE_ACTIONS: Partial<Record<BindAction, Action>> = {
   powerEngines: 'powerEngines',
   powerBalanced: 'powerBalanced',
   dock: 'dock',
+  scan: 'scan',
   pause: 'pause',
 };
 

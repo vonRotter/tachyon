@@ -109,67 +109,125 @@ export async function runCourier(g: Game): Promise<void> {
 
 // =============================================================================================
 
-/** "Mayday" in the Ashfall: find escape pods before their air runs out, while scavengers prowl. */
+/**
+ * "Mayday" in the Ashfall: find escape pods before their air runs out and tow them to the Patrol
+ * transport. Pods in tow trail behind you on cables, and each one makes you slower to turn and
+ * accelerate. Wake scavengers want the pods too, and only leave when the Patrol turns up.
+ */
 export async function runRescue(g: Game): Promise<void> {
   const player = g.player as Ship;
   const spots = [v(320, 80, -900), v(-420, -60, -1500), v(500, -150, -2100), v(-200, 180, -2700)];
-  const air = [150, 210, 260, 320];
+  const air = [120, 170, 220, 270];
   const pods = spots.map((p) => {
     const m = makePickup('pod');
     m.position.copy(p);
     g.addDecor(m);
     return m;
   });
-  const state: ('waiting' | 'saved' | 'lost')[] = spots.map(() => 'waiting');
+  const state: ('waiting' | 'towed' | 'lost' | 'delivered')[] = spots.map(() => 'waiting');
+  /** Pods in tow, in the order they were hooked: each trails the one in front of it. */
+  const chain: number[] = [];
+  const cable = new THREE.BufferGeometry();
+  cable.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * 2 * 4), 3));
+  const cableLine = new THREE.LineSegments(cable, new THREE.LineBasicMaterial({ color: '#ffd36b', toneMapped: false }));
+  cableLine.frustumCulled = false;
+  g.addDecor(cableLine);
+  const behind = new THREE.Vector3();
   g.onFrame((dt) => {
-    for (const m of pods) {
-      m.rotation.y += dt * 0.6;
-      m.rotation.x += dt * 0.25;
+    for (const [k, m] of pods.entries()) {
+      if (state[k] === 'waiting') {
+        m.rotation.y += dt * 0.6;
+        m.rotation.x += dt * 0.25;
+      }
     }
+    // the tow: each pod is pulled to a point 14 m behind the thing ahead of it
+    const pos = cable.getAttribute('position') as THREE.BufferAttribute;
+    let lead = player.pos;
+    chain.forEach((k, n) => {
+      const m = pods[k];
+      behind.copy(m.position).sub(lead);
+      const d = behind.length();
+      if (d > 14) m.position.copy(lead).addScaledVector(behind.normalize(), 14 + (d - 14) * Math.exp(-dt * 6));
+      m.lookAt(lead);
+      pos.setXYZ(n * 2, lead.x, lead.y, lead.z);
+      pos.setXYZ(n * 2 + 1, m.position.x, m.position.y, m.position.z);
+      lead = m.position;
+    });
+    for (let n = chain.length; n < 4; n++) {
+      pos.setXYZ(n * 2, 0, -1e5, 0);
+      pos.setXYZ(n * 2 + 1, 0, -1e5, 0);
+    }
+    pos.needsUpdate = true;
+    player.towLoad = chain.length;
   });
   player.placeAt(v(200, 100, 600), spots[0], 80);
   g.setMusicIntensity(0.35);
   await g.say('okafor', 'Contractor, Okafor. A salvage tug blew a reactor in the Ashfall. Four escape pods are drifting in the wrecks and their air will not last. The Patrol cannot get there in time. You can.');
-  g.hint('Fly close to a pod to take it in tow. Each pod has its own air supply', 7);
+  g.hint('Fly close to a pod to hook it. Pods in tow slow you down and make you turn wider', 8);
   let scavengers: Ship[] = [];
   await g.until(() => {
     const t = g.missionTime;
-    spots.forEach((p, i) => {
+    spots.forEach((_p, i) => {
       if (state[i] !== 'waiting') return;
-      if (player.pos.distanceTo(p) < 35) {
-        state[i] = 'saved';
-        pods[i].visible = false;
+      if (player.pos.distanceTo(pods[i].position) < 35) {
+        state[i] = 'towed';
+        chain.push(i);
         g.audio.blip(1500, 0.12, 0.1);
-        g.hint(`Pod ${i + 1} in tow`, 3);
+        g.hint(`Pod ${i + 1} hooked. It breathes off your ship now`, 3);
       } else if (t > air[i]) {
         state[i] = 'lost';
         pods[i].visible = false;
         g.hint(`Pod ${i + 1}: no more signal`, 4);
       }
     });
-    const saved = state.filter((s) => s === 'saved').length;
-    if (saved >= 2 && !scavengers.length) {
-      scavengers = [0, 1, 2, 3, 4, 5].map((i) => g.jumpIn('drone', 'wake', 'Wake scavenger', player.pos.clone().add(v(400 + i * 30, 120, -300)), player.pos, { skill: 0.45, playerBias: 0.6 }));
+    const towed = chain.length;
+    if (towed >= 2 && !scavengers.length) {
+      scavengers = [0, 1, 2, 3, 4, 5].map((i) => g.jumpIn('drone', 'wake', 'Wake scavenger', player.pos.clone().add(v(400 + i * 30, 120, -300)), player.pos, { skill: 0.45, playerBias: 0.7 }));
+      scavengers.push(g.jumpIn('raider', 'wake', 'Wake Cutter', player.pos.clone().add(v(500, 160, -360)), player.pos, { skill: 0.5, playerBias: 0.7 }));
       void g.say('vey', 'Pods full of people. People pay ransom. Bring them to me, little drones.').catch(() => undefined);
     }
     g.waypoints = spots
       .map((p, i) => ({ p, i }))
       .filter(({ i }) => state[i] === 'waiting')
-      .map(({ p, i }) => ({ name: `POD ${i + 1} · ${Math.max(0, Math.ceil(air[i] - t))} s`, pos: p, color: '#ff8a2a' }));
-    g.objective = `Find the escape pods · ${saved} saved · ${state.filter((s) => s === 'waiting').length} still out there`;
+      .map(({ i }) => ({ name: `POD ${i + 1} · ${Math.max(0, Math.ceil(air[i] - t))} s`, pos: pods[i].position, color: '#ff8a2a' }));
+    g.objective = `Find the escape pods · ${towed} in tow · ${state.filter((s) => s === 'waiting').length} still out there`;
     return state.every((s) => s !== 'waiting');
   });
-  g.waypoints = [];
-  for (const s of scavengers) if (s.alive) g.jumpOut(s);
-  const saved = state.filter((s) => s === 'saved').length;
-  g.objective = '';
-  if (!saved) {
+  if (!chain.length) {
+    g.waypoints = [];
+    g.objective = '';
+    g.retreat(scavengers);
     await g.say('okafor', 'None of them. I am sorry, contractor. You tried.');
     g.endMission('defeat');
     return;
   }
+  // the Patrol transport comes to meet you, with an escort the scavengers will not want to face
+  const meet = v(100, 120, 300);
+  const transport = g.jumpIn('hospital', 'patrol', 'Patrol transport Ministry', meet.clone(), meet.clone().add(v(0, 0, -100)), { speed: 0 });
+  await g.say('okafor', 'Transport Ministry is on station. Bring the pods in, contractor. Mind the scavengers, they will try to cut you off.');
+  await g.until(() => {
+    g.waypoints = [{ name: 'PATROL TRANSPORT', pos: transport.pos, color: '#8fb8ff' }];
+    g.objective = `Tow ${chain.length} ${chain.length === 1 ? 'pod' : 'pods'} to the Patrol transport`;
+    return player.pos.distanceTo(transport.pos) < 260;
+  });
+  g.waypoints = [];
+  for (const k of chain) {
+    state[k] = 'delivered';
+    pods[k].visible = false;
+  }
+  const saved = chain.length;
+  chain.length = 0;
+  player.towLoad = 0;
+  g.objective = '';
+  const patrol = [0, 1].map((i) => g.jumpIn('interdictor', 'patrol', `Interdictor ${i + 7}`, transport.pos.clone().add(v(i * 60 - 30, 60, 120)), player.pos, { skill: 0.65, playerBias: 0 }));
+  void patrol;
+  await g.say('okafor', 'Pods aboard. Interdictors, run those scavengers off.');
+  if (scavengers.some((s) => s.alive)) {
+    await g.say('vey', 'Patrol cruisers. Not worth it, little drones. Home.');
+    g.retreat(scavengers);
+  }
   g.bonusPay = saved * 1500;
-  await g.say('okafor', saved === 4 ? 'All four pods, all alive. That is a good day. Patrol transport is on the way for them.' : `${saved} of four. They will remember your name, contractor.`);
+  await g.say('okafor', saved === 4 ? 'All four pods, all alive. That is a good day, contractor.' : `${saved} of four. They will remember your name, contractor.`);
   await g.wait(1);
   g.endMission('victory');
 }
@@ -177,14 +235,14 @@ export async function runRescue(g: Game): Promise<void> {
 // =============================================================================================
 
 /** Wake scavenger tugs: slow, and they carry off any crate they reach. */
-const TUG: ShipClass = { ...SHIP_CLASSES.miner, civilian: false, name: 'Wake scavenger tug', shields: 150, shieldRegen: 0, hull: 500, maxSpeed: 40, boostSpeed: 40, radius: 18, bounty: 800 };
+const TUG: ShipClass = { ...SHIP_CLASSES.miner, civilian: false, name: 'Wake scavenger tug', shields: 300, shieldRegen: 4, hull: 700, maxSpeed: 58, boostSpeed: 58, radius: 18, bounty: 300 };
 
 /** "Finders Keepers" in Vantage's rock ring: grab the crates of a lost freighter before the Wake do. */
 export async function runSalvage(g: Game): Promise<void> {
   const player = g.player as Ship;
   const crates = Array.from({ length: 8 }, (_, i) => {
     const a = (i / 8) * Math.PI * 2 + 0.3;
-    return v(Math.cos(a) * (1250 + (i % 3) * 120), -260 + (i % 2) * 90, Math.sin(a) * (1250 + (i % 3) * 120));
+    return v(Math.cos(a) * (1250 + (i % 3) * 260), -320 + (i % 3) * 220, Math.sin(a) * (1250 + (i % 3) * 260));
   });
   const meshes = crates.map((p) => {
     const m = makePickup('crate');
@@ -202,11 +260,11 @@ export async function runSalvage(g: Game): Promise<void> {
   g.hint('Fly through a crate to grab it. Wake tugs take any crate they reach, so shoot the tugs', 7);
   const tugs: Ship[] = [];
   const escorts: Ship[] = [];
-  let nextTug = g.missionTime + 12;
+  let nextTug = g.missionTime + 4;
   const freeCrates = () => crates.map((p, i) => ({ p, i })).filter(({ i }) => owner[i] === 'free');
   await g.until(() => {
     for (const { p, i } of freeCrates()) {
-      if (player.pos.distanceTo(p) < 25) {
+      if (player.pos.distanceTo(p) < 18) {
         owner[i] = 'you';
         meshes[i].visible = false;
         g.audio.blip(1400, 0.1, 0.08);
@@ -230,14 +288,15 @@ export async function runSalvage(g: Game): Promise<void> {
         g.hint('A Wake tug grabbed a crate!', 3);
       }
     }
-    if (g.missionTime > nextTug && tugs.length < 4 && freeCrates().length) {
-      nextTug = g.missionTime + 25;
+    if (g.missionTime > nextTug && tugs.length < 6 && freeCrates().length) {
+      nextTug = g.missionTime + 14;
       const at = v(-1800 + tugs.length * 300, 200, -900 + tugs.length * 500);
       const t = g.spawnShip(TUG, 'wake', 'Wake scavenger tug', at, v(0, 0, 0), { speed: 30 });
       g.fx.jumpIn(at, at.clone().negate().normalize(), '#ff5a3a');
       g.audio.jumpIn(at);
       tugs.push(t);
-      escorts.push(g.jumpIn('raider', 'wake', 'Wake Cutter', at.clone().add(v(60, 30, 0)), player.pos, { skill: 0.5, playerBias: 0.6 }));
+      escorts.push(g.jumpIn('raider', 'wake', 'Wake Cutter', at.clone().add(v(60, 30, 0)), player.pos, { skill: 0.55, playerBias: 0.7 }));
+      if (tugs.length % 2 === 0) escorts.push(g.jumpIn('fang', 'wake', 'Wake Fang', at.clone().add(v(-60, 40, 20)), player.pos, { skill: 0.6, playerBias: 0.7, flares: 2 }));
       if (tugs.length === 1) void g.say('vey', 'Salvage is for those who can keep it. Tugs, go.').catch(() => undefined);
     }
     const mine = owner.filter((o) => o === 'you').length;
@@ -247,7 +306,7 @@ export async function runSalvage(g: Game): Promise<void> {
     return freeCrates().length === 0;
   });
   g.waypoints = [];
-  for (const s of [...tugs, ...escorts]) if (s.alive) g.jumpOut(s);
+  g.retreat([...tugs, ...escorts]);
   const mine = owner.filter((o) => o === 'you').length;
   g.objective = '';
   if (!mine) {
@@ -255,7 +314,7 @@ export async function runSalvage(g: Game): Promise<void> {
     g.endMission('defeat');
     return;
   }
-  g.bonusPay = mine * 1500;
+  g.bonusPay = mine * 500;
   await g.say('halloran', `${mine} crates. Vantage will buy them off you at a fair price. Mostly fair.`);
   await g.wait(1);
   g.endMission('victory');

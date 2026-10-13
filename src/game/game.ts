@@ -23,8 +23,9 @@ import { Hangar } from './hangar';
 import { CapitalShip } from '../entities/capitalShip';
 import type { CapitalKind } from '../world/capitals';
 import { DockPilot, Docking, type DockGuide } from './docking';
+import { listContacts, readout, type ScanReadout } from './scanner';
 import { FACTIONS, hostile, resetRelations, setHostile, type FactionId } from '../entities/factions';
-import { AIPilot, FACTION_TACTICS, TurretAI, WaypointPilot, type Tactic } from '../entities/ai';
+import { AIPilot, FACTION_TACTICS, TurretAI, WaypointPilot, type Tactic, RoutePilot } from '../entities/ai';
 import { Instructor } from '../entities/instructor';
 import { BoltSystem, MissileSystem, type CombatContext } from '../entities/weapons';
 import { Hud } from '../ui/hud';
@@ -357,6 +358,9 @@ export class Game implements CombatContext {
   private frameHooks: ((dt: number) => void)[] = [];
   /** Mission-only scenery (cleared when a mission starts). */
   private decor: THREE.Object3D[] = [];
+  /** Scanner selection (by contact key) and what it reads. */
+  private scanKey: string | null = null;
+  scanReadout: ScanReadout | null = null;
   /** Mission API: HUD markers for gates, pods and other things to fly to. */
   waypoints: { name: string; pos: THREE.Vector3; color?: string }[] = [];
   /** Stealth: detection 0..1 shown on the HUD while set (null = not sneaking). */
@@ -482,6 +486,35 @@ export class Game implements CombatContext {
     this.allowDocking(ids);
     await this.until(() => this.docking.stage === 'docked' && !!this.docking.active && ids.includes(this.docking.active.id));
     return this.docking.active?.id ?? ids[0];
+  }
+
+  /** Scan key: steps through every contact in the system, nearest first, then switches off. */
+  cycleScan(): void {
+    const p = this.player;
+    if (!p) return;
+    const list = listContacts(p, this.ships, this.capitals, this.points);
+    const at = this.scanKey ? list.findIndex((c) => c.key === this.scanKey) : -1;
+    const next = list[at + 1];
+    this.scanKey = next ? next.key : null;
+    this.audio.blip(next ? 1760 : 660, 0.05, 0.05);
+    if (!next) this.hint('Scanner off', 1.5);
+  }
+
+  /** Refreshes the scanner readout (the contact may have moved, been hit, or be gone). */
+  private updateScan(): void {
+    const p = this.player;
+    if (!p || !this.scanKey) {
+      this.scanReadout = null;
+      return;
+    }
+    const list = listContacts(p, this.ships, this.capitals, this.points);
+    const i = list.findIndex((c) => c.key === this.scanKey);
+    if (i < 0) {
+      this.scanKey = null;
+      this.scanReadout = null;
+      return;
+    }
+    this.scanReadout = readout(list[i], p, i, list.length);
   }
 
   /**
@@ -632,6 +665,36 @@ export class Game implements CombatContext {
     return s;
   }
 
+  /** Ships on their way out: they fly clear and jump when their time comes. */
+  private retreating: { ship: Ship; at: number }[] = [];
+
+  /**
+   * Mission API: these ships break off. They turn away from the fight, burn out at full throttle
+   * and jump a few seconds later, staggered, instead of vanishing on the spot.
+   */
+  retreat(ships: Ship[]): void {
+    ships.forEach((s, i) => {
+      if (!s.alive || s.isPlayer || s.cls.anchored) return;
+      const from = this.player?.pos ?? this.location.arena.center;
+      const away = s.pos.clone().sub(from);
+      if (away.lengthSq() < 1) away.set(rand(-1, 1), 0.3, rand(-1, 1));
+      away.normalize();
+      s.ai = new RoutePilot([s.pos.clone().addScaledVector(away, 4000)], 1, 100);
+      s.target = null;
+      this.retreating.push({ ship: s, at: this.missionTime + 4 + i * 0.7 + rand(0, 2) });
+    });
+  }
+
+  private updateRetreats(): void {
+    if (!this.retreating.length) return;
+    this.retreating = this.retreating.filter((r) => {
+      if (!r.ship.alive) return false;
+      if (this.missionTime < r.at) return true;
+      this.jumpOut(r.ship);
+      return false;
+    });
+  }
+
   /** Removes a ship with a jump flash (retreat), without counting it as a kill. */
   jumpOut(ship: Ship): void {
     if (!ship.alive) return;
@@ -702,6 +765,9 @@ export class Game implements CombatContext {
     this.bonusPay = 0;
     this.seenClasses.clear();
     this.playerDied = false;
+    this.scanKey = null;
+    this.scanReadout = null;
+    this.retreating = [];
     // the battlecruiser some locations are built round counts as met
     if (this.location.frames.carrier) this.seenClasses.add('capital-battlecruiser');
     this.friendlyFire.clear();
@@ -920,6 +986,7 @@ export class Game implements CombatContext {
     }
     if (this.input.pressed('flares')) this.dropFlare(p);
     if (this.input.pressed('dock')) this.requestDock();
+    if (this.input.pressed('scan')) this.cycleScan();
     const power: [Parameters<Input['pressed']>[0], PowerMode][] = [
       ['powerShields', 'shields'],
       ['powerGuns', 'guns'],
@@ -1490,6 +1557,8 @@ export class Game implements CombatContext {
       for (const hook of this.frameHooks) hook(dt);
       this.updateDocking(dt);
       this.updatePlayerSystems(dt);
+      this.updateScan();
+      this.updateRetreats();
       // resolve waiters
       const ready = this.waiters.filter((w) => w.until());
       if (ready.length) {
@@ -1605,6 +1674,7 @@ export class Game implements CombatContext {
         docks: this.docking.openPorts(),
         signature: this.signature,
         waypoints: this.waypoints,
+        scan: this.scanReadout,
       });
     } else this.hud.clear();
   }

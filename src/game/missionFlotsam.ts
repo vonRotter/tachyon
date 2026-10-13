@@ -249,7 +249,7 @@ export async function runFlotsam(g: Game, checkpoint: number): Promise<void> {
   });
   g.objective = '';
   g.armCapital(meridian, false);
-  for (const s of combineWing) if (s.alive && !s.cls.anchored) g.jumpOut(s);
+  g.retreat(combineWing);
   await g.say('meridian', 'All wings, disengage. Meridian is withdrawing.');
   await g.say('sorrel', 'They are pulling back. Rook, you have just handed the Drift the one thing the Combine cannot buy back. Come home.');
   g.missionFlags.records = 'stolen';

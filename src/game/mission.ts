@@ -138,7 +138,7 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
     g.objective = '';
     g.setMusicIntensity(0.3);
     await g.say('vey', "This isn't over, Kestrel. Ask your Combine friends who sold us your patrol schedule.");
-    for (const e of escorts) g.jumpOut(e);
+    g.retreat(escorts);
     await g.wait(1.5);
     await g.say('tessaine', 'Impressive flying, Rook. The Combine pays well for talent, and better for discretion. Dock with the Sovereign Dawn. We should talk.');
     await g.say('sorrel', 'Rook. Before you go to them, come see me. I am aboard Kestrel, bay one. Ask yourself why a Combine battlecruiser went quiet the moment the Wake arrived.');

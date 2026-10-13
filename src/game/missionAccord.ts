@@ -11,7 +11,7 @@ const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(
 const alive = (ships: Ship[]): number => ships.filter((s) => s.alive && s.pos.length() < 3000).length;
 /** Sends home whoever ran from the fight. */
 const sweep = (g: Game, ships: Ship[]): void => {
-  for (const s of ships) if (s.alive) g.jumpOut(s);
+  g.retreat(ships);
 };
 
 /** The convoy craft: escortable, and shootable by everyone (unlike traffic). */
@@ -180,10 +180,10 @@ export async function runAccord(g: Game, checkpoint: number, side: 'combine' | '
     await g.until(() => turned || alive(raid) === 0 || convoy.every((s) => !s.alive));
     if (turned) {
       // you shot the convoy in the middle of a Wake raid: Vey's people take the chance to leave
-      for (const s of raid) if (s.alive) g.jumpOut(s);
+      g.retreat(raid);
       return;
     }
-    for (const s of raid) if (s.alive) g.jumpOut(s);
+    g.retreat(raid);
     g.objective = '';
     g.setMusicIntensity(0.35);
     await g.wait(1.5);
@@ -244,7 +244,7 @@ async function stayed(g: Game, side: 'combine' | 'drift', convoy: Ship[], agains
     if (convoy.some((s) => s.alive)) {
       await g.say('varga', 'They are in the bay. Marines on the deck. All militia, stand down. Kestrel yields.');
       await g.say('juno', 'Rook. I hope they pay you well.');
-      for (const s of militia) if (s.alive) g.jumpOut(s);
+      g.retreat(militia);
       g.missionFlags.kestrel = 'seized';
     } else {
       await g.say('tessaine', 'The delegation is lost. Rook, you will explain this to me in person.');
@@ -328,7 +328,7 @@ async function turnedOn(
       await g.say('tessaine', 'So the contractor has found a conscience. Sabre flight, launch. Kill that ship.');
       await g.say('vale', 'No. Not like this. Lance two, break off with me. We are done here.');
     }
-    for (const s of wing) if (s.alive) g.jumpOut(s);
+    g.retreat(wing);
     if (!restart) await g.say('juno', 'Rook is with us! Militia, cover Rook!');
     g.objective = 'Survive the Combine strike';
     const first = launchSabres(5, 'Dawn Sabre', { skill: 0.6, playerBias: 0.6, tactic: 'standoff' });

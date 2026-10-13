@@ -61,6 +61,11 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 - **Story contracts are flown once.** Odd jobs come from a job board of three that is dealt
   again after each story chapter, and you have time for two side activities (odd jobs or the
   Baron's arc) before the next chapter will not wait.
+- **Scanner** (N): steps through everyone in the system, ships, capital ships and stations alike,
+  nearest first, with an info card (class, faction and stance, distance, speed, hull and
+  shields, bounty). It is separate from the combat target.
+- **Enemies leave for a reason.** When a fight ends, the losers break off, burn out and jump
+  rather than vanishing.
 - **Docking** picks the open bay you are facing; press the dock key again on the approach to
   switch to another open bay.
 - **Difficulty** (Options): Easy, Normal or Hard scales the damage you take and how sharply
@@ -102,7 +107,8 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
      he lives.
 - **Odd jobs**, civilian one-shots for cash with no story consequences: a cold-chain courier run
   through ten gates round Kestrel against the clock, a search for escape pods drifting in the
-  Ashfall before their air runs out, and a salvage race against Wake scavenger tugs in Vantage's
+  Ashfall before their air runs out (hooked pods trail behind you on cables and slow you down,
+  until you deliver them to a Patrol transport), and a salvage race against Wake scavenger tugs in Vantage's
   rock ring. The hangar groups contracts into story, side arcs and odd jobs.
 - **Mission "Cold Guns"** at Kestrel Station: three Red Wake raider waves ending with a gunship,
   radio drama between the station, the Helion Combine and the Drift Union. You choose a side by
@@ -200,6 +206,7 @@ table below lists the defaults.
 | Guns | Left click | RT / R2 |
 | Missile (most types need a lock) | Right click or G | RB / R1 |
 | Drop flare | V | B / Circle |
+| Scan contacts (everyone in the system, nearest first; info card) | N | |
 | Power: balanced / shields / guns / engines | 1 / 2 / 3 / 4 (press again to balance) | R3 cycles |
 | Request docking (again: docking computer) | B | X / Square |
 | Target nearest / next | T / Tab | Y (Triangle) / LB (L1) |
