@@ -405,7 +405,7 @@ export class GasClouds {
  * reference, speed is invisible in space, and this is the cheapest fix.
  */
 export class SpaceDust {
-  private readonly count = 600;
+  private readonly count = 400;
   private readonly box = 220;
   private readonly offsets: Float32Array;
   private readonly geo = new THREE.BufferGeometry();
@@ -429,7 +429,7 @@ export class SpaceDust {
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        opacity: 0.55,
+        opacity: 0.42,
       }),
     );
     this.mesh.frustumCulled = false;
