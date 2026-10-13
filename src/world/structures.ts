@@ -415,7 +415,6 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
  */
 export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4, style: CapitalStyle = COMBINE_STYLE): StructureResult {
   const b = new StructureBuilder(transform);
-  const rng = new SeededRandom(42);
   const beacons: Beacon[] = [];
   const ivory = style.hull;
   const gold = style.trim;
@@ -463,46 +462,56 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4, st
     b.box(v3(s * (hx + 0.3), 48, -80), v3(0.6, 5, 190), gold, { collide: false });
   }
 
-  // Open cargo spine: four beams, ribs, and colourful containers with gaps to thread
-  const spineStart = 20;
-  const spineEnd = 250;
-  const beamX = 56;
-  const beamY = 40;
-  for (const sx of [1, -1])
-    for (const sy of [1, -1]) {
-      b.box(v3(sx * beamX, sy * beamY, (spineStart + spineEnd) / 2), v3(7, 7, spineEnd - spineStart), dark);
-    }
-  b.cylinder(v3(0, 0, (spineStart + spineEnd) / 2), 9, spineEnd - spineStart, '#7a8099', {
-    quat: quatX90,
-    sides: 12,
-  });
-  for (let z = spineStart + 40; z < spineEnd; z += 70) {
-    b.box(v3(0, beamY, z), v3(beamX * 2 + 7, 5, 5), gold);
-    b.box(v3(0, -beamY, z), v3(beamX * 2 + 7, 5, 5), gold);
-    b.box(v3(beamX, 0, z), v3(5, beamY * 2, 5), gold);
-    b.box(v3(-beamX, 0, z), v3(5, beamY * 2, 5), gold);
+  // Armoured midsection: a stepped warship hull with gun decks, sponsons and the main battery
+  b.bevel(v3(0, 0, 135), v3(124, 92, 236), 12, ivory, { front: [0.9, 0.9], back: [0.92, 0.92] });
+  b.bevel(v3(0, 54, 130), v3(92, 18, 200), 5, ivory, { front: [0.8, 1], back: [0.9, 1] });
+  b.bevel(v3(0, 66, 125), v3(56, 8, 150), 3, dark, { front: [0.7, 1] });
+  b.bevel(v3(0, -52, 140), v3(84, 14, 190), 5, dark, { front: [0.8, 1] });
+  for (const s of [1, -1]) {
+    // sponsons down each flank, with a gold armour belt and lit gun-deck slits
+    b.bevel(v3(s * 70, -8, 130), v3(26, 46, 196), 6, gold, { front: [0.6, 0.7], back: [0.8, 0.9] });
+    b.bevel(v3(s * 64, 30, 135), v3(10, 14, 180), 3, ivory, { front: [0.5, 0.8] });
+    for (let z = 50; z <= 220; z += 34) b.box(v3(s * 83.4, -8, z), v3(0.4, 3, 18), cyan, { glow: 1.6, collide: false });
+    b.box(v3(s * 62.4, 12, 135), v3(0.6, 4, 210), gold, { collide: false });
   }
-  const crateColors = ['#ff4d4d', '#ffcf33', '#2fb7ff', '#3ee07a', '#ff7ad9', '#9b6bff'];
-  for (let z = spineStart + 75; z < spineEnd - 10; z += 70) {
-    for (const [cx, cy] of [
-      [0, 15],
-      [0, -15],
-      [17, 0],
-      [-17, 0],
-    ] as const) {
-      if (rng.next() < 0.3) continue;
-      b.box(v3(cx, cy, z), v3(12, 12, 20), rng.pick(crateColors));
+  /** A main-battery turret: barbette, armoured house and three long barrels. */
+  const mainTurret = (pos: THREE.Vector3, aft: boolean, under: boolean, k = 1.4) => {
+    const up = under ? -1 : 1;
+    const dir = aft ? 1 : -1;
+    b.cylinder(pos.clone().add(v3(0, -6 * k * up, 0)), 25 * k, 9 * k, dark, { sides: 18 });
+    b.bevel(pos.clone().add(v3(0, 5 * k * up, 0)), v3(50 * k, 20 * k, 54 * k), 7, ivory, aft ? { back: [0.72, 0.65] } : { front: [0.72, 0.65] });
+    b.bevel(pos.clone().add(v3(0, 15 * k * up, dir * 5 * k)), v3(34 * k, 5 * k, 30 * k), 2.5, gold, { collide: false });
+    b.box(pos.clone().add(v3(0, 5 * k * up, dir * 27.2 * k)), v3(40 * k, 2 * k, 0.4), cyan, { glow: 1.8, collide: false });
+    for (const bx of [-12, 0, 12]) {
+      const root = pos.clone().add(v3(bx * k, 3 * k * up, dir * 24 * k));
+      b.cylinder(root.clone().add(v3(0, 0, dir * 38 * k)), 2.9 * k, 76 * k, '#3a3e52', { quat: quatX90, sides: 12, collide: false });
+      b.cylinder(root.clone().add(v3(0, 0, dir * 9 * k)), 4.2 * k, 14 * k, dark, { quat: quatX90, sides: 12, collide: false });
+      b.cylinder(root.clone().add(v3(0, 0, dir * 76.5 * k)), 3.8 * k, 3 * k, dark, { quat: quatX90, sides: 12, collide: false });
+      b.cylinder(root.clone().add(v3(0, 0, dir * 78.2 * k)), 2 * k, 0.4, '#ff8a3a', { quat: quatX90, sides: 12, glow: 2.4, collide: false });
     }
-  }
+  };
+  // superfiring pair forward on the dorsal deck, one aft, one under the keel
+  mainTurret(v3(0, 84, 45), false, false);
+  b.bevel(v3(0, 86, 140), v3(70, 22, 80), 4, ivory);
+  mainTurret(v3(0, 112, 140), false, false);
+  mainTurret(v3(0, 76, 222), true, false, 1.1);
+  mainTurret(v3(0, -70, 110), false, true);
+  // point-defence domes along the flanks: small, quick guns for fighters
+  for (const s of [1, -1])
+    for (const z of [-250, -180, 40, 100, 160, 220, 300]) {
+      const pd = v3(s * (z < -150 ? 46 : z > 260 ? 76 : 84), z > 260 ? 30 : 14, z);
+      b.sphere(pd, 3.4, dark, { detail: 1, collide: false });
+      for (const o of [-0.8, 0.8]) b.cylinder(pd.clone().add(v3(o, 1.2, -4)), 0.35, 7, '#3a3e52', { quat: quatX90, sides: 6, collide: false });
+    }
 
   if (style.rings) {
     // big rings round the cargo spine, on spokes: the Drift build their ships round habitats
-    for (const z of [70, 150, 230]) {
-      b.torus(v3(0, 0, z), 80, 3.5, gold, { tubular: 64, radial: 8 });
-      b.torus(v3(0, 0, z), 80, 1, cyan, { tubular: 64, glow: 1.6 });
+    for (const z of [80, 170]) {
+      b.torus(v3(0, 0, z), 104, 3.5, gold, { tubular: 64, radial: 8 });
+      b.torus(v3(0, 0, z), 104, 1, cyan, { tubular: 64, glow: 1.6 });
       for (let k = 0; k < 4; k++) {
         const a = Math.PI / 4 + (k * Math.PI) / 2;
-        b.strut(v3(Math.cos(a) * 62, Math.sin(a) * 50, z), v3(Math.cos(a) * 78, Math.sin(a) * 78, z), 2, dark);
+        b.strut(v3(Math.cos(a) * 64, Math.sin(a) * 52, z), v3(Math.cos(a) * 102, Math.sin(a) * 102, z), 2, dark);
       }
     }
   }
@@ -546,10 +555,12 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4, st
   }
   for (const s of [1, -1]) {
     // flank batteries stay clear of the hangar tunnel mouths (z -115 to -35)
-    for (const z of [-235, -175, 40, 280, 340]) {
+    for (const z of [-235, -175, 280, 340]) {
       const x = s * (z > 200 ? 75 : z < -150 ? 52 : 70);
       turrets.push({ pos: v3(x + s * 6, 0, z), heavy: false });
     }
+    for (const z of [50, 130, 210]) turrets.push({ pos: v3(s * 90, -8, z), heavy: false });
+    turrets.push({ pos: v3(s * 50, 70, 30), heavy: false });
   }
   beacons.push({ position: v3(0, 13, -400), color: new THREE.Color('#ffffff'), phase: 0.5 });
 

@@ -212,6 +212,14 @@ export class Hangar {
     const hull = buildCapitalHull(kind, new CollisionWorld(), new THREE.Matrix4(), style);
     const model = new THREE.Group();
     model.add(hull.group);
+    // the guns that crew it in a fight
+    const paint = shipPalette(faction);
+    for (const t of hull.turrets ?? []) {
+      const gun = getShipModel(t.heavy ? 'cannon' : 'turret', paint.palette, paint.key);
+      gun.group.position.copy(t.pos);
+      gun.group.userData.shared = true;
+      hull.group.add(gun.group);
+    }
     // centre it on the turntable
     const box = new THREE.Box3().setFromObject(hull.group);
     const size = box.getSize(new THREE.Vector3());
@@ -225,10 +233,15 @@ export class Hangar {
     if (this.display) {
       this.turntable.remove(this.display);
       // capital models are built per view; ship models share cached geometry
-      if (this.displayOwned)
-        this.display.traverse((o) => {
+      if (this.displayOwned) {
+        // free what was built for this view, but not the cached ship models hung on it
+        const free = (o: THREE.Object3D) => {
+          if (o.userData.shared) return;
           if (o instanceof THREE.Mesh) o.geometry.dispose();
-        });
+          o.children.forEach(free);
+        };
+        free(this.display);
+      }
     }
     this.display = group;
     this.displayKey = key;

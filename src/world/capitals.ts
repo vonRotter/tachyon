@@ -231,11 +231,16 @@ export function buildCarrierShip(world: CollisionWorld, transform: THREE.Matrix4
   const beacons: Beacon[] = [];
   for (const s of [1, -1]) {
     const x = s * 72;
-    // prong: a long bevelled wedge, layered with a flight deck
+    // prong: a long bevelled wedge with layered armour on its back
     b.bevel(v3(x, 0, -60), v3(56, 44, 400), 8, style.hull, { front: [0.5, 0.55] });
-    b.bevel(v3(x, 25, -40), v3(44, 6, 340), 3, style.dark, { front: [0.5, 1] });
-    for (let z = -190; z < 120; z += 28) lights(b, v3(x, 28.2, z), v3(1, 0.3, 12), '#ffd27a', 1.4);
-    lights(b, v3(x + s * 20, 28.2, -40), v3(0.5, 0.3, 320), style.light, 1.2);
+    b.bevel(v3(x, 25, -50), v3(40, 8, 300), 4, style.hull, { front: [0.6, 1], back: [0.9, 1] });
+    b.bevel(v3(x - s * 4, 31, 10), v3(22, 6, 120), 2, style.trim, { front: [0.7, 1] });
+    // point-defence turrets along the outer flank and the back of each prong
+    for (const z of [-230, -170, -110, -50, 10, 70, 130]) {
+      const pd = v3(x + s * 30, 6, z);
+      b.sphere(pd, 3, style.dark, { detail: 1, collide: false });
+      b.cylinder(pd.clone().add(v3(0, 0.8, -3.5)), 0.35, 6, '#3a3e52', { quat: X90, sides: 6, collide: false });
+    }
     // outer armour belt and inner bay doors
     b.bevel(v3(x + s * 29, -6, -40), v3(6, 22, 300), 2, style.trim, { front: [1, 0.5] });
     for (const z of [-140, -80, -20, 40]) lights(b, v3(x - s * 28.2, -4, z), v3(0.3, 10, 22), style.light, 1.3);
@@ -268,7 +273,10 @@ export function buildCarrierShip(world: CollisionWorld, transform: THREE.Matrix4
     engine(b, v3(x, y, 258), 12, 20, style);
   }
   const turrets: TurretMount[] = [];
-  for (const s of [1, -1]) for (const z of [-200, -80, 60]) turrets.push({ pos: v3(s * 104, 10, z), heavy: false });
+  for (const s of [1, -1]) {
+    for (const z of [-240, -160, -80, 0, 80]) turrets.push({ pos: v3(s * 104, 8, z), heavy: false });
+    for (const z of [-180, -20]) turrets.push({ pos: v3(s * 72, 36, z), heavy: false });
+  }
   turrets.push({ pos: v3(-50, 50, 196), heavy: true }, { pos: v3(50, 50, 196), heavy: true });
   const r = finish(b, world, transform, 'carrier-ship', {
     beacons,

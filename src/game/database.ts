@@ -96,7 +96,7 @@ export const DATABASE: DbEntry[] = [
   capital('frigate', ['drift', 'combine', 'wake'], 'An arrowhead delta. Drift frigates wear rings round the spine; Combine ones are clean ivory.'),
   capital('destroyer', ['wake', 'combine', 'drift'], 'A hammerhead bow over a through-bay you can fly into.'),
   capital('carrier', ['combine', 'drift'], 'A tuning fork: two prongs with the landing deck between them, the engineering block at the palm.'),
-  capital('battlecruiser', ['combine', 'drift'], 'A bladed prow, layered decks, a command tower offset to port and four heavy barbettes. The Sovereign Dawn is one.'),
+  capital('battlecruiser', ['combine', 'drift'], 'A bladed prow, an armoured midsection with sponsons, four triple-barrelled main turrets for fighting other capital ships, point-defence guns down both flanks for fighters, and a command tower offset to port. The Sovereign Dawn is one.'),
   ship('freighter', 'Civilian', ['drift'], 'Drift bulk hauler: a long spine of cargo pods behind a small bridge. Slow, enormous, and the reason half the Reach eats.'),
   ship('container', 'Civilian', ['drift', 'kestrel'], 'A long open keel carrying a terraced load of containers, with the bridge up front on a bevelled bow. Most of what the Reach eats and breathes arrives on one of these.'),
   ship('hospital', 'Civilian', ['drift', 'kestrel'], 'A white hull with a spinning ward ring amidships and the green mercy cross on its back. Everybody in the Reach agrees not to shoot at these. Mostly.'),

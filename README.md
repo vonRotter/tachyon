@@ -140,7 +140,7 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   habitat). The faction you leave takes its ships back: weapons fitted to them go to storage,
   upgrades go with the hull, and if nothing is left Kestrel lends you a Kite.
 - **Capital ships** built from bevelled blocks: an arrowhead frigate, a hammerhead destroyer
-  with a through-bay, a tuning-fork carrier you land inside, and a bladed battlecruiser.
+  with a through-bay, a tuning-fork carrier you land inside, and a bladed battlecruiser with triple-barrelled main turrets and point defence.
 - **Mission "Launch Order"** (Combine side) at the Gallows, a Red Wake base: wait in the
   carrier's hangar tunnel while flights catapult out ahead of you, silence twelve turrets and a
   comms relay, then decide the fate of the habitat module. The surrendered Wake fight again if
@@ -152,8 +152,8 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   Pull the throttle below zero to back up at a quarter of top speed.
   The velocity marker on the HUD shows where you are actually going.
 - **Flying through structures.** The station has a habitat ring, braced spokes, solar wings and
-  two hollow lattice towers you can fly *inside*. The carrier has a broadside hangar tunnel and
-  an open cargo spine. Collision uses swept spheres against analytic shapes, so fast ships do not
+  two hollow lattice towers you can fly *inside*. The battlecruiser has a broadside hangar tunnel
+  you can fly through. Collision uses swept spheres against analytic shapes, so fast ships do not
   tunnel through thin struts.
 - **Pursuers fly the same geometry.** AI uses sphere-cast obstacle avoidance under the same flight
   model as you, and missiles explode on structures. Dragging either through a tower works.
