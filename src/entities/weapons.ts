@@ -132,8 +132,18 @@ export class BoltSystem {
       // ships first (nearest along the segment)
       let bestT = step;
       let bestShip: Ship | null = null;
+      // broad phase: the segment's midpoint and half length against each hull's bounding sphere
+      const half = step * 0.5;
+      const mx = _p.x + _d.x * half;
+      const my = _p.y + _d.y * half;
+      const mz = _p.z + _d.z * half;
       for (const s of ctx.ships) {
         if (!s.alive || s === this.owner[i]) continue;
+        const reach = half + s.boundRadius * 1.2 + 1;
+        const dx = s.pos.x - mx;
+        const dy = s.pos.y - my;
+        const dz = s.pos.z - mz;
+        if (dx * dx + dy * dy + dz * dz > reach * reach) continue;
         // the player's guns can hit friendlies (with consequences); everyone else only shoots enemies
         if (!hostile(this.faction[i], s.faction) && !(this.owner[i]?.isPlayer && s.faction !== 'player')) continue;
         const pad = s.spheres.length > 1 ? 1 : 1.15;
@@ -199,6 +209,13 @@ export class BoltSystem {
 const missileBody = new THREE.CylinderGeometry(0.28, 0.35, 2.6, 8).rotateX(Math.PI / 2);
 const missileMat = new THREE.MeshStandardMaterial({ color: '#eeeeee', roughness: 0.4, metalness: 0.3 });
 const missileGlowGeo = new THREE.SphereGeometry(0.55, 8, 6);
+
+/** A missile-shaped stand-in, so the shaders are compiled at mission start rather than at first launch. */
+export function missileProbe(): THREE.Object3D {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(missileBody, missileMat), new THREE.Mesh(missileGlowGeo, glowMat('#ffffff')));
+  return g;
+}
 
 const glowMats = new Map<string, THREE.MeshBasicMaterial>();
 function glowMat(color: string): THREE.MeshBasicMaterial {

@@ -169,6 +169,8 @@ export class Ship {
     readonly faction: FactionId,
     readonly name: string,
   ) {
+    const hs = cls.hitSpheres;
+    this.boundRadius = hs ? Math.max(...hs.map((h) => Math.hypot(h[0], h[1], h[2]) + h[3])) : cls.radius;
     const { palette, key } = shipPalette(faction, cls.maker);
     this.model = getShipModel(cls.model, palette, key);
     this.root.add(this.model.group);
@@ -209,8 +211,14 @@ export class Ship {
 
   /** Radius used against station geometry (the core sphere for compound hulls). */
   get collisionRadius(): number {
-    return this.cls.hitSpheres ? Math.max(...this.cls.hitSpheres.map((h) => h[3])) : this.cls.radius;
+    if (this.collisionR < 0) this.collisionR = this.cls.hitSpheres ? Math.max(...this.cls.hitSpheres.map((h) => h[3])) : this.cls.radius;
+    return this.collisionR;
   }
+
+  private collisionR = -1;
+
+  /** Everything of the hull lies within this distance of `pos` (bolt broad phase). */
+  readonly boundRadius: number;
 
   /** World-space hit spheres: one for fighters, a chain along the hull for long ships. */
   readonly spheres: { c: THREE.Vector3; r: number }[] = [];

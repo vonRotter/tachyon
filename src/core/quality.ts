@@ -77,27 +77,47 @@ export class DynamicResolution {
   private accum = 0;
   private frames = 0;
   private cooldown = 0;
+  /** Highest scale worth trying: lowered when a raise immediately costs the frame rate again. */
+  private ceiling = 1;
+  private sinceRaise = Infinity;
   enabled = true;
 
   constructor(private readonly min = 0.6) {}
 
-  /** Returns true when the scale changed. */
+  /** Back to full resolution with no learned ceiling (new quality level). */
+  reset(): void {
+    this.scale = 1;
+    this.ceiling = 1;
+    this.sinceRaise = Infinity;
+    this.accum = 0;
+    this.frames = 0;
+  }
+
+  /**
+   * Returns true when the scale changed. Every change reallocates the render targets, which is
+   * itself a hitch, so the scale must not seesaw: a raise that is followed by a drop within
+   * fifteen seconds caps the scale below that level for good.
+   */
   update(frameSeconds: number): boolean {
     if (!this.enabled) return false;
     this.accum += Math.min(frameSeconds, 0.1);
     this.frames++;
     this.cooldown -= frameSeconds;
+    this.sinceRaise += frameSeconds;
     if (this.accum < 1 || this.cooldown > 0) return false;
     const avg = this.accum / this.frames;
     this.accum = 0;
     this.frames = 0;
     let next = this.scale;
     // wide dead band (45..57 fps) so the render size is not resized back and forth
-    if (avg > 1 / 45) next = Math.max(this.min, this.scale - 0.1);
-    else if (avg < 1 / 57 && this.scale < 1) next = Math.min(1, this.scale + 0.05);
+    if (avg > 1 / 45) {
+      next = Math.max(this.min, this.scale - 0.1);
+      if (this.sinceRaise < 15) this.ceiling = Math.max(this.min, this.scale - 0.05);
+    } else if (avg < 1 / 57 && this.scale < this.ceiling - 1e-6) next = Math.min(this.ceiling, this.scale + 0.05);
     if (next !== this.scale) {
+      if (next > this.scale) this.sinceRaise = 0;
+      this.cooldown = next > this.scale ? 8 : 4;
       this.scale = next;
-      this.cooldown = 4;
       return true;
     }
     return false;

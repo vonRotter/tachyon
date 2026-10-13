@@ -27,7 +27,7 @@ import { listContacts, readout, type Contact, type ScanReadout } from './scanner
 import { FACTIONS, hostile, resetRelations, setHostile, type FactionId } from '../entities/factions';
 import { AIPilot, FACTION_TACTICS, TurretAI, WaypointPilot, type Tactic, RoutePilot } from '../entities/ai';
 import { Instructor } from '../entities/instructor';
-import { BoltSystem, MissileSystem, type CombatContext } from '../entities/weapons';
+import { BoltSystem, MissileSystem, missileProbe, type CombatContext } from '../entities/weapons';
 import { Hud } from '../ui/hud';
 import { Comms } from '../ui/comms';
 
@@ -79,6 +79,7 @@ const _n = new THREE.Vector3();
 const _relVel = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const hit = makeRayHit();
+const _anchorQ = new THREE.Quaternion();
 
 
 
@@ -289,7 +290,7 @@ export class Game implements CombatContext {
     }
     setHullDetail(Object.values(hullMaterials), q.surfaceDetail);
     this.hangar?.setShadows(q.shadows);
-    this.dynamicResolution.scale = 1;
+    this.dynamicResolution.reset();
     this.buildComposer();
     this.resize();
   }
@@ -617,6 +618,30 @@ export class Game implements CombatContext {
     return ship;
   }
 
+  /**
+   * Compiles every shader the mission can need now, while the screen is still settling, instead
+   * of mid-fight: hidden things (explosions, shields, flames, a missile) only compile the first
+   * time they are drawn, and each compile is a visible hitch.
+   */
+  private prewarmShaders(): void {
+    const hidden: THREE.Object3D[] = [];
+    this.scene.traverse((o) => {
+      if (!o.visible) {
+        hidden.push(o);
+        o.visible = true;
+      }
+    });
+    const probe = missileProbe();
+    probe.position.copy(this.camera.position);
+    this.scene.add(probe);
+    try {
+      this.renderer.compile(this.scene, this.camera);
+    } finally {
+      this.scene.remove(probe);
+      for (const o of hidden) o.visible = false;
+    }
+  }
+
   /** The drone bay: two drones on the player's wing. */
   private launchEscorts(player: Ship): void {
     for (const side of [-1, 1]) {
@@ -886,6 +911,7 @@ export class Game implements CombatContext {
     this.input.centerCursor();
     this.state = 'playing';
 
+    this.prewarmShaders();
     const token = this.missionToken;
     const runner = this.missionRunner;
     if (runner) {
@@ -1434,9 +1460,9 @@ export class Game implements CombatContext {
       if (s.ai) s.ai.update(s, dt);
       if (s.cls.anchored) {
         // fixed installations aim (their AI turns them) but never move
-        const q = s.quat.clone();
+        _anchorQ.copy(s.quat);
         s.updateFlight(dt);
-        s.quat.copy(q);
+        s.quat.copy(_anchorQ);
         s.vel.set(0, 0, 0);
         s.angVel.set(0, 0, 0);
       } else {
@@ -1452,7 +1478,13 @@ export class Game implements CombatContext {
     this.shipVsShip();
     this.bolts.update(dt, this);
     this.missiles.update(dt, this);
-    this.ships = this.ships.filter((s) => s.alive || s.isPlayer);
+    // drop the dead without allocating a new array every physics step
+    let w = 0;
+    for (let r = 0; r < this.ships.length; r++) {
+      const s = this.ships[r];
+      if (s.alive || s.isPlayer) this.ships[w++] = s;
+    }
+    this.ships.length = w;
   }
 
   private updateDocking(dt: number): void {

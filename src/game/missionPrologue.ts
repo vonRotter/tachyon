@@ -259,11 +259,13 @@ async function flightSchool(g: Game, player: Ship, dace: Ship): Promise<void> {
   await gateRun(700, 'boost to the gate', pad() ? 'Hold A to boost. It burns energy, the purple bar' : `Hold ${key('boost')} to boost. It burns energy, the purple bar`, () => player.boosting);
   await g.say('dace', 'Now the trick that keeps you alive. Slide: you keep your momentum and point the nose anywhere.');
   let slid = 0;
+  let slideClock = g.missionTime;
   await step(
     'slide and turn',
     pad() ? 'Hold LT to slide, and turn while you hold it' : `Hold ${key('slide')} to slide, and turn while you hold it`,
     () => {
-      if (player.sliding) slid += 1 / 60;
+      if (player.sliding) slid += g.missionTime - slideClock;
+      slideClock = g.missionTime;
       return slid > 1.5;
     },
   );

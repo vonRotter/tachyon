@@ -23,7 +23,7 @@ import {
   type ShipFit,
 } from '../game/loadout';
 import { DATABASE, DB_CATEGORIES, dbVisible, type DbEntry } from '../game/database';
-import { MISSIONS, briefingText, campaignPath, isFinale, missionById, nextStory, offered, sideLocked, type MissionDef } from '../game/missions';
+import { MISSIONS, briefingText, campaignPath, isFinale, locationOf, missionById, nextStory, offered, sideLocked, type MissionDef } from '../game/missions';
 import { SIDE_PER_CHAPTER } from '../game/loadout';
 import type { FactionId } from '../entities/factions';
 
@@ -677,7 +677,7 @@ export class Shop {
     // flown contracts fold down to one line unless selected
     const brief = (done || m.repeatable) && m.id !== this.selectedMission ? '' : briefingText(m, this.campaign);
     const final = isFinale(m, this.campaign) && !done;
-    const card = this.card(`${final ? 'FINAL MISSION · ' : ''}${m.name} · ${m.location}`, brief, {
+    const card = this.card(`${final ? 'FINAL MISSION · ' : ''}${m.name} · ${locationOf(m, this.campaign)}`, brief, {
       status: done && !m.repeatable ? `FLOWN ×${done} · ${cr(Math.round(m.pay * 0.4))}+` : `${done ? `×${done} · ` : ''}${cr(m.pay)}+`,
       active: m.id === this.selectedMission,
     });

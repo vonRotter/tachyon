@@ -26,11 +26,13 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 ## What is in the game
 
 - **Prologue, "The Tamsin Run"** (the Ashfall): before you own a ship, Rook flies escort for a
-  small independent caravan in a borrowed Kite. The first Wake raid is beaten off; the second,
-  with Vey, the Mawbreaker and a pack of Fangs, is not. The fight cannot be won or lost by dying:
-  the Kite is crippled, the caravan taken, and the Kestrel militia find you drifting. You wake on
-  Kestrel with your escort fee and the Kite's insurance, and buy your first ship. Skippable from
-  the pause menu.
+  small independent caravan in a borrowed Kite. It starts with an optional flight school (asked
+  before launch: Dace walks you through steering, boost, slide, guns, missiles, flares, power and
+  the scanner). The first Wake raid is beaten off, Vey's Fangs can be held, and then a Wake
+  battlecruiser and carrier jump in with fighters and a cloud of drones. It cannot be won and you
+  cannot die in it: the Kite is crippled, the caravan taken, and the Kestrel militia find you
+  drifting. You wake on Kestrel with your escort fee and the Kite's insurance, and buy your first
+  ship. Skippable from the pause menu.
 - **Hangar and shop** between missions. A new campaign starts with 40,000 cr and a choice of
   first ship (light hulls only); whatever it does not cost is yours to spend. Your ship hovers on a turntable in a
   station bay (drag to look around). Ships differ in hull, shields, speed, turn rate, weapon
@@ -72,14 +74,17 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   capital ships, civilian hulls, installations), with facts, a description, and a turntable model
   you can repaint in each operator's colours.
 - **Standard or hardcore.** A new campaign asks. On standard, dying costs 2,500 cr for the tug
-  that recovers you and the repairs, and you retry from a checkpoint. On hardcore you have one
-  life: die, and the campaign is over.
+  that recovers you and the repairs, and you retry from a checkpoint with the hull, missiles,
+  bounties and bonuses you had when you reached it. On hardcore you have one life: die, and the
+  campaign is over; a failed mission starts again from the beginning (no checkpoints).
 - **Story contracts are flown once.** Odd jobs come from a job board of three that is dealt
   again after each story chapter, and you have time for two side activities (odd jobs or the
   Baron's arc) before the next chapter will not wait.
 - **Scanner** (N): steps through everyone in the system, ships, capital ships and stations alike,
   nearest first, with an info card (class, faction and stance, distance, speed, hull and
-  shields, bounty). It is separate from the combat target.
+  shields, bounty). It is separate from the combat target, but **Y** targets the scanned ship
+  (friend or foe) and **Z** matches its speed while the scanner is on it. Killing your target
+  moves your lock to the next hostile.
 - **Enemies leave for a reason.** When a fight ends, the losers break off, burn out and jump
   rather than vanishing.
 - **Docking** picks the open bay you are facing; press the dock key again on the approach to
@@ -92,6 +97,13 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   The campaign (credits, ships, fits, faction choice) is saved in `localStorage`.
 - **Weapons.** Pulse, rapid, mass driver and scatter guns. Seeker missiles, unguided rocket
   pods, swarm packs and slow, heavy torpedoes.
+- **Hulls come unarmed.** A ship you buy has empty weapon slots; the guns salvaged from the
+  prologue Kite are fitted to your first ship. You cannot launch without a weapon. Slow hulls get
+  more hull, shields and missiles (up to +50%) to make up for what speed and turn rate give the
+  nimble ones.
+- **Flares.** Every ship has two built-in flares that come back every 20 s; the flare dispenser
+  adds ten. AI missiles have a narrower seeker than yours: a hard break across the nose at the
+  last moment shakes them.
 - **Equipment.** Flares, an emergency shield cell, repair drones, an afterburner tank, an
   extended magazine, a targeting computer, a docking computer and a drone bay (two combat drones
   fly on your wing, attack your target and anything shooting at you, and are replaced each sortie).
@@ -99,10 +111,27 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 - **Docking.** Request clearance and fly the holographic gates into a bay; the clamps take over
   once you are inside and slow enough. Kestrel Station has a hangar on its hub, and the Combine
   carrier lands you inside its hangar tunnel.
-- **Campaign.** Five chapters per side, shown as a progress strip above the contracts:
-  Cold Guns, then Launch Order (Combine) or Flotsam (Drift), Open Channel, The Accord, and
-  Last Light (Combine) or The Bastion (Drift). The next story contract is picked for you when
-  you return to the hangar; story contracts are flown once.
+- **Campaign.** Ten chapters per side. The hangar shows the chapters you have flown and the next
+  one, never what lies ahead, and announces the final mission when it comes. Shaped after the
+  old campaign games (TIE Fighter's loyalty missions with a traitor underneath, FreeSpace 2's
+  beacons and broadsides): first you prove yourself while things do not quite add up, then you
+  are told the plan, then you are the one who makes it possible.
+
+  | # | Combine | Drift Union |
+  |---|---|---|
+  | 1 | Cold Guns (Kestrel) | Cold Guns (Kestrel) |
+  | 2 | *Credentials*: relief transports for the Dawn; a Drift salvager wants a look inside | *Credentials*: ore haulers through the Ashfall; Combine customs want a look inside |
+  | 3 | Launch Order (the Gallows) | Flotsam (the Ashfall) |
+  | 4 | *Loose Ends*: kill the Wake courier carrying a copy of the records | *Loose Ends*: get the Wake courier to a Drift frigate |
+  | 5 | Open Channel (Vantage) | Open Channel (Vantage) |
+  | 6 | *Sealed Orders*: hold Bastion's drydock against a Drift raid, then hear the plan | *Sealed Orders*: hold Haven's water tugs against a Combine raid, then hear the plan |
+  | 7 | *Keys to the Door*: tap Kestrel's defence relays unseen | *Keys to the Door*: copy the Sovereign Dawn's hangar codes unseen |
+  | 8 | The Accord (Kestrel) | The Accord (Kestrel) |
+  | 9 | *Lantern*: lay jump beacons at Haven and hold them for the fleet | *Lantern*: lay jump beacons at Bastion and hold them for the Long Patience |
+  | 10 | Last Light (Haven) | The Bastion |
+
+  Story contracts are flown once. In *Credentials* you wave inspectors off by flying in their
+  faces; shooting them is an incident.
 - **Side jobs** for anyone, whichever side you fly for, paid in full every time: a Reach Patrol
   bounty hunt in the Ashfall alongside two Patrol Interdictors, a convoy run bringing container
   ships in to Vantage, and guarding Kestrel's ore barges from Wake strip-miners.
@@ -122,8 +151,10 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
      friend you defend it against the Red Wake and he gives you his spare fighter, the Scarlet
      Rose; as his enemy you break his defences with the Patrol and duel him, then decide whether
      he lives.
-- **Odd jobs**, civilian one-shots for cash with no story consequences: a cold-chain courier run
-  through ten gates round Kestrel against the clock, a search for escape pods drifting in the
+- **Odd jobs**, civilian one-shots for cash with no story consequences: *The Ring Run*, the dock
+  crews' race round Kestrel against three rivals (over and under the spinning habitat ring,
+  through the rocks, through the battlecruiser's hangar tunnel and a loop over her back; paid by
+  finishing position), a search for escape pods drifting in the
   Ashfall before their air runs out (hooked pods trail behind you on cables and slow you down,
   until you deliver them to a Patrol transport), and a salvage race against Wake scavenger tugs in Vantage's
   rock ring. The hangar groups contracts into story, side arcs and odd jobs.
@@ -132,7 +163,7 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   where you land: Kestrel's bay 1 (Drift Union) or the Sovereign Dawn (Combine). Checkpoints let
   you retry a wave after dying.
 - **Mission "Flotsam"** (Drift side) in the Ashfall wreck field: drift into a Combine carrier
-  disguised as debris without moving too much, land in its hangar, grab the records, then run
+  disguised as debris (the stream carries you beside a big rock; keep the throttle at zero), land in its hangar, grab the records, then run
   for the Drift battlecruiser through the wreckage with fighters and the carrier's guns behind
   you. Swap ships on landing, then help hold off the strike.
 - **Mission "Open Channel"** (either side) at Vantage, a research station with the only dish
@@ -216,7 +247,7 @@ table below lists the defaults.
 |---|---|---|
 | Pitch / yaw | Mouse aim: point the circle, the ship follows (**X** recentres). Virtual stick available in Options | Right stick |
 | Roll (the camera rolls with the ship) | Q / E | Left stick X |
-| Throttle | W / S (**Z** matches target speed). Below zero it reverses at a quarter of top speed; it stops at zero first, so press S again to back up | Left stick Y (L3 matches speed) |
+| Throttle | W / S (**Z** matches the scanned ship's speed, or the target's). Below zero it reverses at a quarter of top speed; it stops at zero first, so press S again to back up | Left stick Y (L3 matches speed) |
 | Strafe | A / D, R / F | D-pad |
 | Boost | Shift | A / Cross |
 | Slide | Space (hold) | LT / L2 (hold) |
@@ -224,6 +255,7 @@ table below lists the defaults.
 | Missile (most types need a lock) | Right click or G | RB / R1 |
 | Drop flare | V | B / Circle |
 | Scan contacts (everyone in the system, nearest first; info card) | N | |
+| Target the scanned ship (friend or foe) | Y | |
 | Power: balanced / shields / guns / engines | 1 / 2 / 3 / 4 (press again to balance) | R3 cycles |
 | Request docking (again: docking computer) | B | X / Square |
 | Target nearest / next | T / Tab | Y (Triangle) / LB (L1) |

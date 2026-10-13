@@ -1,7 +1,7 @@
 import './style.css';
 import { Game, type Difficulty } from './game/game';
 import { DEATH_FEE, defect, fitShip, migrateCampaign, missionPayout, newCampaign, newFit, type Campaign, type Side } from './game/loadout';
-import { dealBoard, isFinale, isSide, missionById, nextStory, type MissionDef } from './game/missions';
+import { dealBoard, isFinale, isSide, mapOf, missionById, nextStory, type MissionDef } from './game/missions';
 import { SHIP_CLASSES } from './entities/shipClasses';
 import { Shop } from './ui/shop';
 import { detectQuality, type QualityLevel } from './core/quality';
@@ -329,7 +329,7 @@ function begin(m: MissionDef, checkpoint: number): void {
   show('pause', false);
   show('debrief', false);
   show('hangar', false);
-  game.loadLocation(m.map);
+  game.loadLocation(mapOf(m, campaign));
   const c = campaign;
   game.missionRunner = (g, cp) => m.run(g, cp, c);
   // the prologue is flown in a borrowed Kite, before you own anything

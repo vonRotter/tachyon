@@ -9,15 +9,16 @@ import { runBastion, runLastLight } from './missionFinale';
 import { runBounty, runConvoy, runOreGuard } from './missionJobs';
 import { runCourier, runRescue, runSalvage } from './missionCivil';
 import { runPrologue } from './missionPrologue';
+import { runCredentials, runKeys, runLantern, runLooseEnds, runSealedOrders } from './missionCampaign';
 import { runBaronDuel, runBaronFinale, runBaronHeist, runBaronRobbery } from './missionBaron';
 
 export interface MissionDef {
   id: string;
   name: string;
-  /** Display name of where it happens. */
-  location: string;
-  /** Location id to build (see world/locations.ts). */
-  map: string;
+  /** Display name of where it happens (may depend on your side). */
+  location: string | ((c: Campaign) => string);
+  /** Location id to build (see world/locations.ts); may depend on your side. */
+  map: string | ((c: Campaign) => string);
   /** Hangar text; may depend on the campaign (which side you are on). */
   briefing: string | ((c: Campaign) => string);
   /** Pay on completion, before bounties. */
@@ -34,6 +35,15 @@ export interface MissionDef {
   /** Whose contract it is: completing it earns standing with them ('current': whoever you fly for). */
   faction?: Side | 'current';
 }
+
+const sideOf = (c: Campaign): 'combine' | 'drift' => (c.allegiance === 'combine' ? 'combine' : 'drift');
+/** On your side's story path, with the chapter before it flown. */
+const afterOnPath = (id: string) => (c: Campaign): boolean => {
+  if (c.allegiance !== 'combine' && c.allegiance !== 'drift') return false;
+  const path = CAMPAIGN_PATHS[c.allegiance];
+  const i = path.indexOf(id);
+  return i > 0 && (c.completed[path[i - 1]] ?? 0) > 0;
+};
 
 export const MISSIONS: MissionDef[] = [
   {
@@ -58,7 +68,7 @@ export const MISSIONS: MissionDef[] = [
     pay: 22000,
     run: runLaunchOrder,
     faction: 'combine',
-    available: (c) => c.allegiance === 'combine' && (c.completed['cold-guns'] ?? 0) > 0,
+    available: afterOnPath('launch-order'),
     victoryTitle: 'The Gallows falls',
   },
   {
@@ -71,7 +81,7 @@ export const MISSIONS: MissionDef[] = [
     pay: 18000,
     run: runFlotsam,
     faction: 'drift',
-    available: (c) => c.allegiance === 'drift' && (c.completed['cold-guns'] ?? 0) > 0,
+    available: afterOnPath('flotsam'),
     victoryTitle: 'The records are out',
   },
   {
@@ -86,7 +96,7 @@ export const MISSIONS: MissionDef[] = [
     pay: 16000,
     run: (g, cp, c) => runOpenChannel(g, cp, c.allegiance === 'combine' ? 'combine' : 'drift'),
     faction: 'current',
-    available: (c) => (c.allegiance === 'combine' || c.allegiance === 'drift') && ((c.completed['launch-order'] ?? 0) > 0 || (c.completed.flotsam ?? 0) > 0),
+    available: afterOnPath('open-channel'),
     victoryTitle: 'Open Channel',
   },
   {
@@ -101,8 +111,83 @@ export const MISSIONS: MissionDef[] = [
     pay: 20000,
     run: (g, cp, c) => runAccord(g, cp, c.allegiance === 'combine' ? 'combine' : 'drift'),
     faction: 'current',
-    available: (c) => (c.allegiance === 'combine' || c.allegiance === 'drift') && (c.completed['open-channel'] ?? 0) > 0,
+    available: afterOnPath('accord'),
     victoryTitle: 'The Accord',
+  },
+  {
+    id: 'credentials',
+    name: 'Credentials',
+    location: (c) => (c.allegiance === 'combine' ? 'Kestrel Station' : 'The Ashfall'),
+    map: (c) => (c.allegiance === 'combine' ? 'kestrel' : 'ashfall'),
+    briefing: (c) =>
+      c.allegiance === 'combine'
+        ? 'Lieutenant Vale wants to see how you fly before the Commander trusts you with anything sharp. Three relief transports for the Sovereign Dawn: food, medicine, water reclamation for Kestrel. If anyone asks to look inside, they do not.'
+        : 'Kit has you on the ore run: three Drift haulers through the Ashfall to the Long Patience. Combine customs cutters are working the Ashfall this week. Nobody looks in the Magpie\'s hold.',
+    pay: 12000,
+    run: (g, _cp, c) => runCredentials(g, sideOf(c)),
+    faction: 'current',
+    available: afterOnPath('credentials'),
+    victoryTitle: 'Trusted, for now',
+  },
+  {
+    id: 'loose-ends',
+    name: 'Loose Ends',
+    location: 'The Ashfall',
+    map: 'ashfall',
+    briefing: (c) =>
+      c.allegiance === 'combine'
+        ? 'One Red Wake ship escaped the Gallows with a copy of what Vey was shouting about, and it is running for a Drift frigate in the Ashfall. Commander Tessaine wants it destroyed. Not captured: destroyed.'
+        : 'Vey kept a second copy of the Combine\'s transfer records and is sending it to the Drift. His courier is running for the frigate Lark through the Ashfall with Combine hunters behind it. Keep it alive.',
+    pay: 18000,
+    run: (g, _cp, c) => runLooseEnds(g, sideOf(c)),
+    faction: 'current',
+    available: afterOnPath('loose-ends'),
+    victoryTitle: 'Loose ends',
+  },
+  {
+    id: 'sealed-orders',
+    name: 'Sealed Orders',
+    location: (c) => (c.allegiance === 'combine' ? 'Bastion' : 'Haven'),
+    map: (c) => (c.allegiance === 'combine' ? 'bastion' : 'haven'),
+    briefing: (c) =>
+      c.allegiance === 'combine'
+        ? 'Commander Tessaine has sealed orders for you, and they are not for the radio. Report to Bastion in person.'
+        : 'Mother Sorrel wants to see you at Haven. She says there is something she has to tell you face to face.',
+    pay: 20000,
+    run: (g, _cp, c) => runSealedOrders(g, sideOf(c), c),
+    faction: 'current',
+    available: afterOnPath('sealed-orders'),
+    victoryTitle: 'Now you know',
+  },
+  {
+    id: 'keys',
+    name: 'Keys to the Door',
+    location: 'Kestrel Station',
+    map: 'kestrel',
+    briefing: (c) =>
+      c.allegiance === 'combine'
+        ? 'Three relays guard Kestrel\'s approach. Plant a tap on each tonight, quietly, and tomorrow the station\'s guns will be blind when the delegation arrives. If the militia sees you, there is no Accord.'
+        : 'The Magpie needs the Sovereign Dawn\'s hangar clearance codes. Sit beside three of her masts long enough for a little box to copy them, without her pickets noticing.',
+    pay: 16000,
+    run: (g, cp, c) => runKeys(g, sideOf(c), cp),
+    faction: 'current',
+    available: afterOnPath('keys'),
+    victoryTitle: 'The door is open',
+  },
+  {
+    id: 'lantern',
+    name: 'Lantern',
+    location: (c) => (c.allegiance === 'combine' ? 'Haven' : 'Bastion'),
+    map: (c) => (c.allegiance === 'combine' ? 'haven' : 'bastion'),
+    briefing: (c) =>
+      c.allegiance === 'combine'
+        ? 'A fleet cannot jump blind into Haven\'s rocks. Fly ahead, lay three jump beacons on the approach and hold them until the Sovereign Dawn and the Resolute lock on.'
+        : 'The Long Patience cannot jump blind into Bastion\'s shadow. Fly ahead, lay three jump beacons on the approach and hold them until she locks on.',
+    pay: 24000,
+    run: (g, cp, c) => runLantern(g, sideOf(c), c, cp),
+    faction: 'current',
+    available: afterOnPath('lantern'),
+    victoryTitle: 'The way is lit',
   },
   {
     id: 'last-light',
@@ -114,7 +199,7 @@ export const MISSIONS: MissionDef[] = [
     pay: 30000,
     run: runLastLight,
     faction: 'combine',
-    available: (c) => c.allegiance === 'combine' && (c.completed.accord ?? 0) > 0,
+    available: afterOnPath('last-light'),
     victoryTitle: 'The Reach under the Combine',
   },
   {
@@ -127,7 +212,7 @@ export const MISSIONS: MissionDef[] = [
     pay: 30000,
     run: runBastion,
     faction: 'drift',
-    available: (c) => c.allegiance === 'drift' && (c.completed.accord ?? 0) > 0,
+    available: afterOnPath('bastion'),
     victoryTitle: 'The Combine leaves the Reach',
   },
   {
@@ -278,14 +363,16 @@ export const MISSIONS: MissionDef[] = [
 ];
 
 export const briefingText = (m: MissionDef, c: Campaign): string => (typeof m.briefing === 'string' ? m.briefing : m.briefing(c));
+export const mapOf = (m: MissionDef, c: Campaign): string => (typeof m.map === 'string' ? m.map : m.map(c));
+export const locationOf = (m: MissionDef, c: Campaign): string => (typeof m.location === 'string' ? m.location : m.location(c));
 
 export const missionById = (id: string): MissionDef => MISSIONS.find((m) => m.id === id) ?? MISSIONS[0];
 
 /** The story in order for each side; the hangar shows where you are in it. */
 export const CAMPAIGN_PATHS: Record<'combine' | 'drift' | 'none', string[]> = {
   none: ['cold-guns'],
-  combine: ['cold-guns', 'launch-order', 'open-channel', 'accord', 'last-light'],
-  drift: ['cold-guns', 'flotsam', 'open-channel', 'accord', 'bastion'],
+  combine: ['cold-guns', 'credentials', 'launch-order', 'loose-ends', 'open-channel', 'sealed-orders', 'keys', 'accord', 'lantern', 'last-light'],
+  drift: ['cold-guns', 'credentials', 'flotsam', 'loose-ends', 'open-channel', 'sealed-orders', 'keys', 'accord', 'lantern', 'bastion'],
 };
 
 export function campaignPath(c: Campaign): string[] {
@@ -300,9 +387,13 @@ export function isFinale(m: MissionDef, c: Campaign): boolean {
 
 /** The next story contract you have not flown, if any. */
 export function nextStory(c: Campaign): MissionDef | null {
-  for (const id of campaignPath(c)) {
+  const path = campaignPath(c);
+  // chapters before one you have already flown are behind you (older saves, or a change of side)
+  let from = 0;
+  for (let i = 0; i < path.length; i++) if (c.completed[path[i]]) from = i + 1;
+  for (const id of path.slice(from)) {
     const m = MISSIONS.find((x) => x.id === id);
-    if (m && m.available(c) && !c.completed[id]) return m;
+    if (m && !c.completed[id] && (m.available(c) || path.indexOf(id) === from)) return m;
   }
   return null;
 }
@@ -330,7 +421,9 @@ export function dealBoard(c: Campaign): void {
  * they are on the board, and no side work once this chapter's share is used. Test mode shows all.
  */
 export function offered(m: MissionDef, c: Campaign): boolean {
-  if (c.unlimited) return true;
+  if (c.unlimited) return m.id !== 'prologue';
+  // the story offers exactly one chapter: the next one
+  if ((m.kind ?? 'story') === 'story') return nextStory(c)?.id === m.id;
   if (!m.available(c)) return false;
   if (m.kind === 'job') return c.board.includes(m.id) && !sideLocked(c);
   if (c.completed[m.id]) return false;

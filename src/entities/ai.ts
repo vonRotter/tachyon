@@ -166,7 +166,7 @@ export class AIPilot {
       // lead the target for gunnery
       _tmp.subVectors(t.vel, ship.vel);
       const ti = interceptTime(_rel, _tmp, cls.gun.boltSpeed);
-      _aim.copy(t.pos).addScaledVector(t.vel, ti > 0 ? ti : 0).sub(ship.vel.clone().multiplyScalar(ti > 0 ? ti : 0));
+      _aim.copy(t.pos).addScaledVector(t.vel, ti > 0 ? ti : 0).addScaledVector(ship.vel, -(ti > 0 ? ti : 0));
       _aim.sub(ship.pos);
       const aimDist = _aim.length();
       _aim.divideScalar(Math.max(aimDist, 1e-3));
@@ -415,6 +415,9 @@ export class TurretAI {
   private readonly aim = new THREE.Vector3();
   private readonly look = new THREE.Matrix4();
   private readonly qTarget = new THREE.Quaternion();
+  private losTimer = 0;
+  private losTarget: Ship | null = null;
+  private losBlocked = false;
 
   constructor(
     private readonly ctx: AIContext,
@@ -457,11 +460,15 @@ export class TurretAI {
     const slew = (0.7 + this.skill * 0.8) * dt;
     ship.quat.rotateTowards(this.qTarget, slew);
     if (angle < 0.12 && _rel.length() < range) {
-      _vdir.copy(_rel).normalize();
-      // start clear of the structure the turret is bolted to
-      _tmp2.copy(ship.pos).addScaledVector(_vdir, ship.radius + 4);
-      const blocked = this.ctx.world.raycast(_tmp2, _vdir, _rel.length() - t.radius - ship.radius - 4, 0.5, hit);
-      c.fire = !blocked;
+      this.losTimer -= dt;
+      if (this.losTimer <= 0 || this.losTarget !== t) {
+        this.losTimer = 0.2;
+        this.losTarget = t;
+        _vdir.copy(_rel).normalize();
+        _tmp2.copy(ship.pos).addScaledVector(_vdir, ship.radius + 4);
+        this.losBlocked = this.ctx.world.raycast(_tmp2, _vdir, _rel.length() - t.radius - ship.radius - 4, 0.5, hit);
+      }
+      c.fire = !this.losBlocked;
     }
   }
 }

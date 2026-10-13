@@ -280,6 +280,12 @@ export class CollisionWorld {
   private stamp = 1;
   private readonly scratch: Collider[] = [];
 
+  /** Bounding sphere of everything added, in this world's frame (for cheap rejects). */
+  private readonly boundMin = new THREE.Vector3(Infinity, Infinity, Infinity);
+  private readonly boundMax = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+  readonly boundCenter = new THREE.Vector3();
+  boundRadius = 0;
+
   /** `margin` must exceed the largest inflate radius any query uses. */
   constructor(
     readonly cellSize = 60,
@@ -292,6 +298,10 @@ export class CollisionWorld {
 
   add(c: Collider): void {
     this.colliders.push(c);
+    this.boundMin.min(c.min);
+    this.boundMax.max(c.max);
+    this.boundCenter.addVectors(this.boundMin, this.boundMax).multiplyScalar(0.5);
+    this.boundRadius = this.boundMin.distanceTo(this.boundMax) / 2;
     const cs = this.cellSize;
     const m = this.margin;
     const x0 = Math.floor((c.min.x - m) / cs);
@@ -320,6 +330,9 @@ export class CollisionWorld {
   /** Removes everything (static colliders and attached sub-worlds). */
   clear(): void {
     this.colliders.length = 0;
+    this.boundMin.set(Infinity, Infinity, Infinity);
+    this.boundMax.set(-Infinity, -Infinity, -Infinity);
+    this.boundRadius = 0;
     this.cells.clear();
     this.attached.length = 0;
   }
@@ -476,6 +489,8 @@ export class CollisionWorld {
     let best = found ? hit.t : maxT;
     for (const a of this.attached) {
       _lo.copy(o).applyMatrix4(a.inv);
+      // nowhere near this ship: skip the traversal
+      if (_lo.distanceTo(a.world.boundCenter) > a.world.boundRadius + best + inflate) continue;
       _ld.copy(d).applyQuaternion(a.invRot);
       if (a.world.raycastLocal(_lo, _ld, best, inflate, subHit)) {
         best = subHit.t;
@@ -494,6 +509,7 @@ export class CollisionWorld {
     let best = this.nearestLocal(p, range, outNormal);
     for (const a of this.attached) {
       _lo.copy(p).applyMatrix4(a.inv);
+      if (_lo.distanceTo(a.world.boundCenter) > a.world.boundRadius + range) continue;
       const dist = a.world.nearestLocal(_lo, range, _ln);
       if (dist < best) {
         best = dist;
@@ -511,6 +527,7 @@ export class CollisionWorld {
     let deepest = this.resolveLocal(p, r, outNormal);
     for (const a of this.attached) {
       _lo.copy(p).applyMatrix4(a.inv);
+      if (_lo.distanceTo(a.world.boundCenter) > a.world.boundRadius + r) continue;
       const depth = a.world.resolveLocal(_lo, r, _ln);
       if (depth > 0) {
         p.copy(_lo).applyMatrix4(a.object.matrixWorld);

@@ -93,6 +93,10 @@ interface Flash {
 }
 
 /** Explosions, sparks, trails and flashes. A fixed light pool avoids shader recompiles. */
+const _debrisM = new THREE.Matrix4();
+const _debrisQ = new THREE.Quaternion();
+const _impactColor = new THREE.Color();
+
 export class Effects {
   readonly particles = new ParticleSystem(9000);
   private readonly rings: Ring[] = [];
@@ -279,7 +283,7 @@ export class Effects {
   }
 
   impact(p: THREE.Vector3, normal: THREE.Vector3, color: THREE.ColorRepresentation): void {
-    const hex = new THREE.Color(color).getHex();
+    const hex = _impactColor.set(color).getHex();
     this.particles.emit(p, _v.set(0, 0, 0), {
       life: 0.18,
       size0: 9,
@@ -342,8 +346,8 @@ export class Effects {
       f.material.uniforms.uTime.value = this.time;
       if (f.life <= 0) f.mesh.visible = false;
     }
-    const m = new THREE.Matrix4();
-    const q = new THREE.Quaternion();
+    const m = _debrisM;
+    const q = _debrisQ;
     let n = 0;
     for (let i = this.debris.length - 1; i >= 0; i--) {
       const d = this.debris[i];
