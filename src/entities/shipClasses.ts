@@ -1,4 +1,4 @@
-export type ModelId = 'kite' | 'lancer' | 'raider' | 'warden' | 'brute' | 'freighter';
+export type ModelId = 'kite' | 'lancer' | 'raider' | 'warden' | 'brute' | 'freighter' | 'corsair' | 'halberd';
 
 export interface GunSpec {
   damage: number;
@@ -8,7 +8,46 @@ export interface GunSpec {
   range: number;
   /** Turret guns fire within this half-angle (radians) of the nose instead of straight ahead. */
   turretArc?: number;
+  /** Bolts per shot (scatter guns) and their cone half-angle. */
+  pellets?: number;
+  spread?: number;
+  /** Visual bolt thickness multiplier. */
+  boltScale?: number;
+  /** Sound preset name; defaults by faction. */
+  sound?: 'pulse' | 'rapid' | 'cannon' | 'scatter';
 }
+
+export type MissileKind = 'seeker' | 'rocket' | 'swarm' | 'torpedo';
+
+export interface MissileSpec {
+  kind: MissileKind;
+  damage: number;
+  speed: number;
+  turnRate: number;
+  /** Seconds on target to get a lock; 0 = fires unguided without a lock. */
+  lockTime: number;
+  /** Projectiles per trigger pull (one round of ammunition). */
+  salvo: number;
+  /** Seconds between trigger pulls. */
+  refire: number;
+  life: number;
+  /** Blast radius for splash damage (0 = direct hit only). */
+  blast: number;
+  scale: number;
+}
+
+export const DEFAULT_MISSILE: MissileSpec = {
+  kind: 'seeker',
+  damage: 75,
+  speed: 200,
+  turnRate: 2.3,
+  lockTime: 1.1,
+  salvo: 1,
+  refire: 0.7,
+  life: 9,
+  blast: 0,
+  scale: 1,
+};
 
 export interface ShipClass {
   id: string;
@@ -32,7 +71,15 @@ export interface ShipClass {
   boostDrain: number;
   gun: GunSpec;
   missiles: number;
+  /** Missile type; AI ships use DEFAULT_MISSILE with slower motors. */
+  missile?: MissileSpec;
   price: number;
+  /** Equipment slots (player ships). */
+  equipSlots?: number;
+  /** Shop blurb. */
+  description?: string;
+  /** Credits paid for destroying one. */
+  bounty?: number;
   /** Compound collision for long hulls: local [x, y, z, radius] spheres. */
   hitSpheres?: [number, number, number, number][];
   /** Civilian traffic: never targeted, never shoots. */
@@ -65,6 +112,8 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     boostDrain: 24,
     gun: { damage: 9, cooldown: 0.085, boltSpeed: 720, energyCost: 1.2, range: 900 },
     missiles: 8,
+    equipSlots: 2,
+    description: 'Light interceptor. Quick, forgiving and cheap to fix. Two equipment slots.',
     price: 0,
   },
   lancer: {
@@ -89,6 +138,8 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     boostDrain: 26,
     gun: { damage: 14, cooldown: 0.11, boltSpeed: 680, energyCost: 1.6, range: 950 },
     missiles: 12,
+    equipSlots: 3,
+    description: 'Heavy fighter with long-barrelled guns and a deep missile bay. Slower to turn, hard to kill.',
     price: 42000,
   },
   raider: {
@@ -113,6 +164,7 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     boostDrain: 22,
     gun: { damage: 6, cooldown: 0.16, boltSpeed: 620, energyCost: 1.5, range: 800 },
     missiles: 0,
+    bounty: 600,
     price: 18000,
   },
   warden: {
@@ -136,8 +188,63 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     energyRegen: 14,
     boostDrain: 22,
     gun: { damage: 7, cooldown: 0.14, boltSpeed: 650, energyCost: 1.4, range: 850 },
-    missiles: 2,
-    price: 26000,
+    missiles: 4,
+    equipSlots: 3,
+    description: 'Kestrel militia surplus. A stable gun platform with a ring of shield emitters. Three slots.',
+    bounty: 900,
+    price: 22000,
+  },
+  corsair: {
+    id: 'corsair',
+    name: 'Corsair Striker',
+    model: 'corsair',
+    radius: 3.4,
+    hull: 190,
+    shields: 170,
+    shieldRegen: 20,
+    shieldDelay: 2.4,
+    maxSpeed: 116,
+    boostSpeed: 235,
+    strafeSpeed: 36,
+    accel: 2.4,
+    pitchRate: 2.25,
+    yawRate: 1.55,
+    rollRate: 3.8,
+    turnResponse: 7.5,
+    energy: 110,
+    energyRegen: 18,
+    boostDrain: 22,
+    gun: { damage: 9, cooldown: 0.07, boltSpeed: 760, energyCost: 1.15, range: 920 },
+    missiles: 8,
+    equipSlots: 3,
+    description: 'Racing-bred striker with three gun mounts. The fastest thing you can legally buy out here.',
+    price: 68000,
+  },
+  halberd: {
+    id: 'halberd',
+    name: 'Halberd Assault Fighter',
+    model: 'halberd',
+    radius: 4.6,
+    hull: 420,
+    shields: 300,
+    shieldRegen: 22,
+    shieldDelay: 3.2,
+    maxSpeed: 88,
+    boostSpeed: 175,
+    strafeSpeed: 24,
+    accel: 1.7,
+    pitchRate: 1.55,
+    yawRate: 1.05,
+    rollRate: 2.3,
+    turnResponse: 5.5,
+    energy: 150,
+    energyRegen: 22,
+    boostDrain: 26,
+    gun: { damage: 13, cooldown: 0.1, boltSpeed: 700, energyCost: 1.5, range: 980 },
+    missiles: 16,
+    equipSlots: 4,
+    description: 'Four guns, a torpedo-rated bay and armour like a bulkhead. Built to take on gunships.',
+    price: 115000,
   },
   brute: {
     id: 'brute',
@@ -161,6 +268,7 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     boostDrain: 20,
     gun: { damage: 8, cooldown: 0.12, boltSpeed: 600, energyCost: 1, range: 900, turretArc: 1.4 },
     missiles: 10,
+    bounty: 5000,
     price: 0,
   },
   freighter: {

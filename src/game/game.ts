@@ -15,8 +15,10 @@ import { LensPass, SanitizePass } from '../fx/postfx';
 import { updateHolograms } from '../world/holograms';
 import { buildAsteroids, buildCarrier, buildKestrelStation, type Beacon, type Spinner } from '../world/structures';
 import { Effects } from '../fx/effects';
-import { Ship } from '../entities/ship';
-import { SHIP_CLASSES } from '../entities/shipClasses';
+import { POWER, Ship, type PowerMode } from '../entities/ship';
+import { DEFAULT_MISSILE, SHIP_CLASSES, type ShipClass } from '../entities/shipClasses';
+import type { Fitted } from './loadout';
+import { Hangar } from './hangar';
 import { FACTIONS, hostile, type FactionId } from '../entities/factions';
 import { AIPilot, WaypointPilot } from '../entities/ai';
 import { Instructor } from '../entities/instructor';
@@ -24,7 +26,7 @@ import { BoltSystem, MissileSystem, type CombatContext } from '../entities/weapo
 import { Hud } from '../ui/hud';
 import { Comms } from '../ui/comms';
 
-export type GameState = 'title' | 'playing' | 'paused' | 'debrief';
+export type GameState = 'title' | 'hangar' | 'playing' | 'paused' | 'debrief';
 
 export class MissionAbort extends Error {
   constructor() {
@@ -42,6 +44,7 @@ export interface SpawnOptions {
   skill?: number;
   playerBias?: number;
   invulnerable?: boolean;
+  flares?: number;
   speed?: number;
   damageScale?: number;
 }
@@ -62,6 +65,9 @@ export class Game implements CombatContext {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(72, 1, 0.5, 20000);
   private composer!: EffectComposer;
+  private mainPass!: RenderPass;
+  /** The between-missions hangar, with its own scene and camera. */
+  readonly hangar: Hangar;
   private bloom!: UnrealBloomPass;
   private lens!: LensPass;
   private readonly lighting: Lighting;
@@ -125,6 +131,10 @@ export class Game implements CombatContext {
   private fpsAccum = 0;
   private fpsFrames = 0;
   fps = 0;
+  /** The player's fitted ship for the next sortie (set by the hangar). */
+  playerFit: { cls: ShipClass; fitted: Fitted } | null = null;
+  /** Bounties earned by the player this sortie. */
+  bounties = 0;
   /** Set by the mission runner. */
   onMissionEnd: ((result: 'victory' | 'defeat') => void) | null = null;
   missionRunner: ((game: Game, checkpoint: number) => Promise<void>) | null = null;
@@ -180,6 +190,8 @@ export class Game implements CombatContext {
     });
     this.scene.add(this.beaconMesh);
 
+    this.hangar = new Hangar(this.scene.environment);
+    this.hangar.attachControls(this.renderer.domElement, () => this.state === 'hangar');
     this.comms.radio = () => this.audio.radio;
     window.addEventListener('resize', () => this.resize());
     this.applyQuality(detectQuality(this.renderer));
@@ -200,6 +212,7 @@ export class Game implements CombatContext {
       });
     }
     setHullDetail(Object.values(hullMaterials), q.surfaceDetail);
+    this.hangar?.setShadows(q.shadows);
     this.dynamicResolution.scale = 1;
     this.buildComposer();
     this.resize();
@@ -218,6 +231,7 @@ export class Game implements CombatContext {
     const mainPass = new RenderPass(this.scene, this.camera);
     mainPass.clear = false;
     mainPass.clearDepth = true;
+    this.mainPass = mainPass;
     this.composer.addPass(skyPass);
     this.composer.addPass(mainPass);
     this.composer.addPass(new SanitizePass());
@@ -242,6 +256,7 @@ export class Game implements CombatContext {
     this.composer.setPixelRatio(this.pixelRatio);
     this.composer.setSize(w, h);
     this.bloom.resolution.set(w / 2, h / 2);
+    this.hangar?.resize(w, h);
     this.hud.resize();
     this.fx.particles.setViewport(h * this.renderer.getPixelRatio(), this.camera.fov);
   }
@@ -288,14 +303,14 @@ export class Game implements CombatContext {
   }
 
   spawnShip(
-    classId: string,
+    classId: string | ShipClass,
     faction: FactionId,
     name: string,
     pos: THREE.Vector3,
     lookAt: THREE.Vector3,
     opts: SpawnOptions = {},
   ): Ship {
-    const ship = new Ship(SHIP_CLASSES[classId], faction, name);
+    const ship = new Ship(typeof classId === 'string' ? SHIP_CLASSES[classId] : classId, faction, name);
     ship.placeAt(pos, lookAt, opts.speed ?? ship.cls.maxSpeed * 0.8);
     if (opts.skill !== undefined) {
       const ai = new AIPilot(this, opts.skill);
@@ -305,6 +320,7 @@ export class Game implements CombatContext {
     }
     ship.invulnerable = opts.invulnerable ?? false;
     ship.damageScale = opts.damageScale ?? 1;
+    ship.flares = opts.flares ?? 0;
     this.scene.add(ship.root);
     this.ships.push(ship);
     return ship;
@@ -372,9 +388,11 @@ export class Game implements CombatContext {
     this.hintText = null;
     this.lockProgress = 0;
     this.damageFlash = 0;
+    this.bounties = 0;
 
+    const fit = this.playerFit;
     const player = this.spawnShip(
-      'kite',
+      fit ? fit.cls : 'kite',
       'player',
       'Rook',
       new THREE.Vector3(140, 60, 560),
@@ -382,6 +400,8 @@ export class Game implements CombatContext {
       { speed: 40 },
     );
     player.isPlayer = true;
+    if (fit) for (const e of fit.fitted.equipment) player.equipment.add(e);
+    player.flares = player.equipment.has('flares') ? 10 : 0;
     player.controls.throttle = 0.4;
     this.player = player;
     this.spawnTraffic();
@@ -455,6 +475,7 @@ export class Game implements CombatContext {
     if (this.player && ship.pos.distanceTo(this.player.pos) < 120) this.shake += big ? 2 : 0.8;
     ship.dispose(this.scene);
     if (by) by.kills++;
+    if (by?.isPlayer && !ship.isPlayer) this.bounties += ship.cls.bounty ?? 300;
     for (const cb of this.killListeners) cb(ship, by);
     if (ship.isPlayer) {
       this.objective = '';
@@ -521,6 +542,20 @@ export class Game implements CombatContext {
     if (this.input.pressed('matchSpeed') && p.target) {
       c.throttle = clamp(p.target.speed / p.cls.maxSpeed, 0, 1);
     }
+    if (this.input.pressed('flares')) this.dropFlare(p);
+    const power: [Parameters<Input['pressed']>[0], PowerMode][] = [
+      ['powerShields', 'shields'],
+      ['powerGuns', 'guns'],
+      ['powerEngines', 'engines'],
+      ['powerBalanced', 'balanced'],
+    ];
+    for (const [action, mode] of power) {
+      if (this.input.pressed(action)) this.setPower(p, p.power === mode ? 'balanced' : mode);
+    }
+    if (this.input.pressed('powerCycle')) {
+      const order: PowerMode[] = ['balanced', 'shields', 'guns', 'engines'];
+      this.setPower(p, order[(order.indexOf(p.power) + 1) % order.length]);
+    }
     if (this.input.pressed('targetNearest')) this.cycleTarget(true);
     if (this.input.pressed('targetNext')) this.cycleTarget(false);
     if (this.input.pressed('camera')) this.cockpit = !this.cockpit;
@@ -528,6 +563,20 @@ export class Game implements CombatContext {
       this.input.centerCursor();
       this.aimQuat.copy(p.quat);
     }
+  }
+
+  dropFlare(ship: Ship): void {
+    if (ship.flares <= 0) {
+      if (ship.isPlayer) this.audio.blip(300, 0.08, 0.08);
+      return;
+    }
+    ship.flares--;
+    this.missiles.dropFlare(ship, this);
+  }
+
+  private setPower(p: Ship, mode: PowerMode): void {
+    p.power = mode;
+    this.audio.blip(mode === 'balanced' ? 900 : mode === 'shields' ? 1200 : mode === 'guns' ? 1500 : 1800, 0.08, 0.06);
   }
 
   private cycleTarget(nearest: boolean): void {
@@ -557,7 +606,9 @@ export class Game implements CombatContext {
 
   private fireGuns(ship: Ship): void {
     const gun = ship.cls.gun;
-    if (ship.gunTimer > 0 || ship.energy < gun.energyCost) return;
+    const pw = POWER[ship.power];
+    const cost = gun.energyCost * pw.gunCost;
+    if (ship.gunTimer > 0 || ship.energy < cost) return;
     ship.forward(_v);
     const gunLocal = ship.model.guns[ship.gunSide++ % ship.model.guns.length];
     const origin = ship.toWorld(gunLocal, _v2).clone();
@@ -573,7 +624,7 @@ export class Game implements CombatContext {
       dir.copy(ship.pos).addScaledVector(_v, 450).sub(origin).normalize();
       if (ship.isPlayer && t && t.alive && this.hasLead) {
         _n.subVectors(this.lead, origin).normalize();
-        const assist = this.input.device === 'gamepad' ? 0.07 : 0.035;
+        const assist = (this.input.device === 'gamepad' ? 0.07 : 0.035) * (ship.equipment.has('targeting') ? 2 : 1);
         if (_n.angleTo(_v) < assist) dir.copy(_n);
       }
     }
@@ -584,16 +635,27 @@ export class Game implements CombatContext {
       dir.z += rand(-spread, spread);
       dir.normalize();
     }
-    ship.gunTimer = gun.cooldown;
-    ship.energy -= gun.energyCost;
+    ship.gunTimer = gun.cooldown * pw.gunRate;
+    ship.energy -= cost;
     if (ship.isPlayer) {
       this.shake = Math.max(this.shake, 0.1);
       this.camLag.addScaledVector(_v, -0.06);
     }
     ship.shotsFired++;
-    const vel = _n.copy(dir).multiplyScalar(gun.boltSpeed).add(ship.vel);
     const palette = FACTIONS[ship.faction].palette;
-    this.bolts.spawn(origin, vel, gun.damage, ship, palette.bolt, gun.range);
+    const pellets = gun.pellets ?? 1;
+    for (let i = 0; i < pellets; i++) {
+      const d = _v.copy(dir);
+      if (pellets > 1) {
+        const sp = gun.spread ?? 0.03;
+        d.x += rand(-sp, sp);
+        d.y += rand(-sp, sp);
+        d.z += rand(-sp, sp);
+        d.normalize();
+      }
+      const vel = _n.copy(d).multiplyScalar(gun.boltSpeed * (pellets > 1 ? rand(0.95, 1.05) : 1)).add(ship.vel);
+      this.bolts.spawn(origin, vel, gun.damage, ship, palette.bolt, gun.range, gun.boltScale ?? 1);
+    }
     this.fx.particles.emit(origin, ship.vel, {
       life: 0.06,
       size0: 4,
@@ -602,7 +664,9 @@ export class Game implements CombatContext {
       color1: new THREE.Color(palette.bolt),
     });
     const kind: LaserKind = ship.isPlayer
-      ? 'player'
+      ? gun.sound && gun.sound !== 'pulse'
+        ? gun.sound
+        : 'player'
       : gun.turretArc !== undefined
         ? 'heavy'
         : ship.faction === 'wake'
@@ -613,18 +677,27 @@ export class Game implements CombatContext {
 
   private fireMissile(ship: Ship): void {
     if (ship.missiles <= 0) return;
-    const target = ship.target;
-    if (!target || !target.alive) return;
+    const spec = ship.cls.missile ?? DEFAULT_MISSILE;
+    const guided = spec.lockTime > 0;
+    const target = ship.target && ship.target.alive ? ship.target : null;
+    if (guided && !target) return;
     if (ship.isPlayer) {
-      if (this.lockProgress < 1 || ship.missileTimer > 0) {
+      if ((guided && this.lockProgress < 1) || ship.missileTimer > 0) {
         if (ship.missileTimer <= 0) this.audio.blip(300, 0.1, 0.1);
         return;
       }
-      ship.missileTimer = 0.7;
+      ship.missileTimer = spec.refire;
     }
     ship.missiles--;
-    this.missiles.launch(ship, target, this);
-    if (target.isPlayer && this.checkpoint >= 0) this.hint('Missile inbound! Break hard or weave through structures to shake it', 4);
+    for (let i = 0; i < spec.salvo; i++) this.missiles.launch(ship, target, this, spec, i, spec.salvo);
+    if (target?.isPlayer && this.checkpoint >= 0) {
+      this.hint(
+        target.flares > 0
+          ? `Missile inbound! Drop a flare (${this.input.label('flares')}) or break hard through the structures`
+          : 'Missile inbound! Break hard or weave through structures to shake it',
+        4,
+      );
+    }
   }
 
   private collide(ship: Ship, normal: THREE.Vector3): void {
@@ -757,11 +830,17 @@ export class Game implements CombatContext {
       }
       p.forward(_v2);
       const angle = _v2.angleTo(_v.normalize());
-      if (p.missiles > 0 && dist < 1600 && angle < 0.24) this.lockProgress = Math.min(1, this.lockProgress + dt / 1.1);
+      const lockTime = (p.cls.missile ?? DEFAULT_MISSILE).lockTime;
+      if (lockTime > 0 && p.missiles > 0 && dist < 1600 && angle < 0.24) this.lockProgress = Math.min(1, this.lockProgress + dt / lockTime);
       else this.lockProgress = Math.max(0, this.lockProgress - dt * 2.5);
     } else this.lockProgress = 0;
     this.audio.setLock(this.lockProgress >= 1 ? 'locked' : this.lockProgress > 0 ? 'locking' : 'none');
 
+    if (p.shieldCellFired) {
+      p.shieldCellFired = false;
+      this.audio.blip(660, 0.15, 0.25);
+      this.hint('Emergency shield cell discharged', 2.5);
+    }
     const incoming = this.missiles.incoming(p);
     let warn = 0;
     for (const m of incoming) warn = Math.max(warn, 1 - m.pos.distanceTo(p.pos) / 900);
@@ -948,6 +1027,15 @@ export class Game implements CombatContext {
       this.damageFlash = Math.max(0, this.damageFlash - dt * 1.5);
     }
 
+    if (this.state === 'hangar') {
+      this.hangar.update(dt);
+      this.sky.update(this.hangar.camera);
+      if (this.audio.ready) {
+        this.audio.update(dt, { speed: 0, thrust: 0, boost: false, proximity: 0, windPan: 0, active: false });
+        this.audio.music.intensity += (0.15 - this.audio.music.intensity) * dampFactor(0.5, dt);
+      }
+      return;
+    }
     if (this.state !== 'paused') {
       for (const s of this.ships) if (s.alive) s.updateVisuals(dt, this.fx, this.time);
       this.fx.update(dt);
@@ -991,6 +1079,16 @@ export class Game implements CombatContext {
   }
 
   private render(): void {
+    if (this.state === 'hangar') {
+      this.mainPass.scene = this.hangar.scene;
+      this.mainPass.camera = this.hangar.camera;
+      this.lens.set({ time: this.time, boost: 0, damage: 0, sun: this.sunScreen, sunVis: 0, aspect: this.camera.aspect });
+      this.composer.render();
+      this.hud.clear();
+      return;
+    }
+    this.mainPass.scene = this.scene;
+    this.mainPass.camera = this.camera;
     const p = this.player;
     this.lighting.update(p && p.alive && this.state !== 'title' ? p.pos : this.camera.position);
     this.clouds.update(this.camera.position);
@@ -1073,6 +1171,12 @@ export class Game implements CombatContext {
   onPauseChange: ((paused: boolean) => void) | null = null;
   /** Set by the UI: true while an options/controls menu is open. */
   menuOpen: () => boolean = () => false;
+
+  /** Leaves any mission and shows the hangar. */
+  enterHangar(): void {
+    this.quitToTitle();
+    this.state = 'hangar';
+  }
 
   /** Abandons the mission and returns to the orbiting title camera. */
   quitToTitle(): void {

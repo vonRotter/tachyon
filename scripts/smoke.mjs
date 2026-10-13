@@ -47,6 +47,9 @@ await page.screenshot({ path: `${OUT}01-title.png` });
 
 await page.click('#launch');
 await page.waitForTimeout(1500);
+await page.screenshot({ path: `${OUT}02-hangar.png` });
+await page.click('#hangar-launch');
+await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}02-launch.png` });
 
 const report = async (label) => {

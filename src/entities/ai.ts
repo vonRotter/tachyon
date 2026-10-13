@@ -9,6 +9,7 @@ export interface AIContext {
   world: CollisionWorld;
   ships: Ship[];
   missiles: MissileSystem;
+  dropFlare(ship: Ship): void;
 }
 
 const _rel = new THREE.Vector3();
@@ -91,6 +92,10 @@ export class AIPilot {
     const threats = this.ctx.missiles.incoming(ship);
     if (threats.length && this.state !== 'evade' && Math.random() < dt * (1 + this.skill * 2)) {
       this.enterEvade(ship, threats[0].pos);
+    }
+    // pilots carrying flares pop one when a missile gets close, better pilots closer to impact
+    if (ship.flares > 0 && threats.some((m) => m.pos.distanceToSquared(ship.pos) < (260 - this.skill * 120) ** 2) && Math.random() < dt * 4) {
+      this.ctx.dropFlare(ship);
     }
 
     if (this.stateTimer > 0) {

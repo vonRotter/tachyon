@@ -34,6 +34,7 @@ function raiderWave(
       playerBias: 0.55,
     });
     ship.missiles = i < missiles ? 3 : 0;
+    ship.flares = i < missiles ? 2 : 0;
     ships.push(ship);
   }
   return ships;

@@ -36,10 +36,30 @@ export type BindAction =
   | 'matchSpeed'
   | 'camera'
   | 'centerMouse'
+  | 'flares'
+  | 'powerShields'
+  | 'powerGuns'
+  | 'powerEngines'
+  | 'powerBalanced'
+  | 'dock'
   | 'pause';
 
 /** One-shot actions the game polls with `pressed()`. `confirm` is fixed (Enter / pad A). */
-export type Action = 'targetNext' | 'targetNearest' | 'camera' | 'pause' | 'centerMouse' | 'matchSpeed' | 'confirm';
+export type Action =
+  | 'targetNext'
+  | 'targetNearest'
+  | 'camera'
+  | 'pause'
+  | 'centerMouse'
+  | 'matchSpeed'
+  | 'confirm'
+  | 'flares'
+  | 'powerShields'
+  | 'powerGuns'
+  | 'powerEngines'
+  | 'powerBalanced'
+  | 'powerCycle'
+  | 'dock';
 
 export type Bindings = Record<BindAction, string[]>;
 
@@ -65,6 +85,12 @@ export const BIND_LABELS: [BindAction, string][] = [
   ['matchSpeed', 'Match target speed'],
   ['camera', 'Toggle camera'],
   ['centerMouse', 'Recentre mouse stick'],
+  ['flares', 'Drop flare'],
+  ['powerShields', 'Power to shields'],
+  ['powerGuns', 'Power to guns'],
+  ['powerEngines', 'Power to engines'],
+  ['powerBalanced', 'Balance power'],
+  ['dock', 'Request docking'],
   ['pause', 'Pause (Esc always works)'],
 ];
 
@@ -90,6 +116,12 @@ export const DEFAULT_BINDINGS: Bindings = {
   matchSpeed: ['KeyZ'],
   camera: ['KeyC'],
   centerMouse: ['KeyX'],
+  flares: ['KeyV'],
+  powerShields: ['Digit1'],
+  powerGuns: ['Digit2'],
+  powerEngines: ['Digit3'],
+  powerBalanced: ['Digit4'],
+  dock: ['KeyB'],
   pause: ['KeyP'],
 };
 
@@ -99,6 +131,12 @@ const EDGE_ACTIONS: Partial<Record<BindAction, Action>> = {
   matchSpeed: 'matchSpeed',
   camera: 'camera',
   centerMouse: 'centerMouse',
+  flares: 'flares',
+  powerShields: 'powerShields',
+  powerGuns: 'powerGuns',
+  powerEngines: 'powerEngines',
+  powerBalanced: 'powerBalanced',
+  dock: 'dock',
   pause: 'pause',
 };
 
@@ -333,7 +371,10 @@ export class Input {
     const edge = (i: number) => this.padButtons[i] && !this.padPrev[i];
     if (edge(PAD.LB)) this.actionsPressed.add('targetNext');
     if (edge(PAD.Y)) this.actionsPressed.add('targetNearest');
-    if (edge(PAD.BACK) || edge(PAD.R3)) this.actionsPressed.add('camera');
+    if (edge(PAD.BACK)) this.actionsPressed.add('camera');
+    if (edge(PAD.R3)) this.actionsPressed.add('powerCycle');
+    if (edge(PAD.B)) this.actionsPressed.add('flares');
+    if (edge(PAD.X)) this.actionsPressed.add('dock');
     if (edge(PAD.START)) this.actionsPressed.add('pause');
     if (edge(PAD.L3)) this.actionsPressed.add('matchSpeed');
     if (edge(PAD.A)) this.actionsPressed.add('confirm');
@@ -428,7 +469,7 @@ export class Input {
       const b = this.padButtons;
       out.strafeX += (b[PAD.RIGHT] ? 1 : 0) - (b[PAD.LEFT] ? 1 : 0);
       out.strafeY += (b[PAD.UP] ? 1 : 0) - (b[PAD.DOWN] ? 1 : 0);
-      out.boost ||= !!b[PAD.A] || !!b[PAD.X];
+      out.boost ||= !!b[PAD.A];
       out.slide ||= this.padTriggers.lt > 0.4;
       out.fire ||= this.padTriggers.rt > 0.35;
       out.missile ||= this.padMissileEdge;

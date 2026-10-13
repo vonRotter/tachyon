@@ -30,7 +30,7 @@
         <h1>VEIL REACH</h1>
         <p class="tag">Cold Guns: a vertical slice</p>
         <div class="menu">
-          <button id="launch" class="primary">Launch</button>
+          <button id="launch" class="primary">Play</button>
           <button data-open="options">Options</button>
           <button data-open="controls">Controls</button>
         </div>
@@ -41,6 +41,36 @@
       </div>
     </div>
 
+    <div id="hangar">
+      <header class="hangar-top">
+        <div class="where"><b>HANGAR</b> · Kestrel Station, bay 4</div>
+        <div class="credits" id="credits"></div>
+      </header>
+      <aside class="hangar-left">
+        <nav class="tabs">
+          <button data-tab="ships">Ships</button>
+          <button data-tab="upgrades">Upgrades</button>
+          <button data-tab="weapons">Weapons</button>
+          <button data-tab="equipment">Equipment</button>
+        </nav>
+        <div id="shop-list" class="shop-list"></div>
+      </aside>
+      <aside class="hangar-right">
+        <h3 id="ship-name"></h3>
+        <p id="ship-desc" class="fineprint"></p>
+        <div id="ship-stats" class="statbars"></div>
+        <div id="ship-fit" class="fit"></div>
+        <h3 class="missions-head">Contracts</h3>
+        <div id="mission-list" class="mission-list"></div>
+        <div class="hangar-actions">
+          <button id="hangar-launch" class="primary">Launch</button>
+          <button data-open="options">Options</button>
+          <button id="hangar-title">Title</button>
+        </div>
+        <p class="fineprint">Drag to look around the ship. Scroll to zoom.</p>
+      </aside>
+    </div>
+
     <div id="pause" class="overlay">
       <div class="panel small">
         <h2>Paused</h2>
@@ -49,6 +79,7 @@
           <button data-open="options">Options</button>
           <button data-open="controls">Controls</button>
           <button id="restart">Restart mission</button>
+          <button id="abandon">Abandon to hangar</button>
           <button id="quit">Quit to title</button>
         </div>
       </div>
@@ -104,6 +135,7 @@
         <ul class="padlist">
           <li><b>Right stick</b> pitch &amp; yaw · <b>Left stick</b> roll (X) and throttle (Y)</li>
           <li><b>RT / R2</b> guns · <b>RB / R1</b> missile · <b>LT / L2</b> slide · <b>A / ✕</b> boost</li>
+          <li><b>B / ○</b> flare · <b>X / □</b> request docking · <b>R3</b> cycle power routing</li>
           <li><b>Y / △</b> nearest target · <b>LB / L1</b> next · <b>D-pad</b> strafe</li>
           <li><b>L3</b> match speed · <b>View / Share</b> camera · <b>Start / Options</b> pause</li>
         </ul>
@@ -120,7 +152,8 @@
         <div id="debrief-stats" class="stats"></div>
         <div id="debrief-choice" class="choice"></div>
         <div class="row">
-          <button id="retry" class="primary">Retry from checkpoint</button>
+          <button id="to-hangar" class="primary">Return to hangar</button>
+          <button id="retry">Retry from checkpoint</button>
           <button id="restart2">Restart mission</button>
         </div>
       </div>

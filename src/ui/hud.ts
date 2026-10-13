@@ -346,7 +346,7 @@ export class Hud {
     const g = this.ctx;
     const p = d.player;
     const x = 28;
-    const y = this.h - 120;
+    const y = this.h - 150;
     const w = 220;
     g.textAlign = 'left';
     g.font = `600 12px ${FONT}`;
@@ -361,8 +361,35 @@ export class Hud {
       g.fillText(label, x, yy);
       this.bar(x + 64, yy - 5, w - 64, 10, frac, color);
     });
+    // power routing: four pills, the active one lit
+    const modes = [
+      ['balanced', 'BAL'],
+      ['shields', 'SHD'],
+      ['guns', 'GUN'],
+      ['engines', 'ENG'],
+    ] as const;
+    const pw = (w - 64 - 9) / 4;
     g.fillStyle = 'rgba(255,255,255,0.7)';
-    g.fillText(`MISSILES  ${p.missiles}`, x, y + 80);
+    g.fillText('POWER', x, y + 78);
+    modes.forEach(([mode, label], i) => {
+      const px = x + 64 + i * (pw + 3);
+      const on = p.power === mode;
+      g.fillStyle = on ? (mode === 'shields' ? '#5fd0ff' : mode === 'guns' ? '#ff9a3c' : mode === 'engines' ? '#c08bff' : '#4dfcd2') : 'rgba(0,0,0,0.45)';
+      g.fillRect(px, y + 70, pw, 13);
+      g.fillStyle = on ? '#08101c' : 'rgba(255,255,255,0.55)';
+      g.textAlign = 'center';
+      g.font = `700 11px ${FONT}`;
+      g.fillText(label, px + pw / 2, y + 81);
+    });
+    g.textAlign = 'left';
+    g.font = `600 12px ${FONT}`;
+    g.fillStyle = 'rgba(255,255,255,0.7)';
+    const kind = p.cls.missile?.kind ?? 'seeker';
+    const missileName = { seeker: 'SEEKER', rocket: 'ROCKETS', swarm: 'SWARM', torpedo: 'TORPEDO' }[kind];
+    const parts = [`${missileName}  ${p.missiles}`];
+    if (p.equipment.has('flares')) parts.push(`FLARES  ${p.flares}`);
+    if (p.equipment.has('shieldCell')) parts.push(p.shieldCellTimer > 0 ? `CELL  ${Math.ceil(p.shieldCellTimer)}s` : 'CELL  READY');
+    g.fillText(parts.join('   ·   '), x, y + 106);
 
     // speed block bottom right
     const rx = this.w - 28;

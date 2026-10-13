@@ -83,6 +83,16 @@ const _up = new THREE.Vector3();
 
 let nextShipId = 1;
 
+/** Where spare reactor output goes: Tachyon-style energy routing. */
+export type PowerMode = 'balanced' | 'shields' | 'guns' | 'engines';
+
+export const POWER: Record<PowerMode, { shieldRegen: number; shieldDelay: number; energyRegen: number; speed: number; gunCost: number; gunRate: number }> = {
+  balanced: { shieldRegen: 1, shieldDelay: 1, energyRegen: 1, speed: 1, gunCost: 1, gunRate: 1 },
+  shields: { shieldRegen: 1.9, shieldDelay: 0.6, energyRegen: 0.65, speed: 1, gunCost: 1, gunRate: 1 },
+  guns: { shieldRegen: 0.55, shieldDelay: 1, energyRegen: 1, speed: 1, gunCost: 0.6, gunRate: 0.85 },
+  engines: { shieldRegen: 0.55, shieldDelay: 1, energyRegen: 1.35, speed: 1.1, gunCost: 1, gunRate: 1 },
+};
+
 export class Ship {
   readonly id = nextShipId++;
   readonly root = new THREE.Group();
@@ -128,6 +138,15 @@ export class Ship {
   kills = 0;
   shotsFired = 0;
   shotsHit = 0;
+
+  /** Fitted equipment ids (player ships). */
+  readonly equipment = new Set<string>();
+  flares = 0;
+  power: PowerMode = 'balanced';
+  /** Seconds until the emergency shield cell is ready again. */
+  shieldCellTimer = 0;
+  /** Set when the shield cell fires; the game consumes it for sound and HUD. */
+  shieldCellFired = false;
 
   constructor(
     readonly cls: ShipClass,
@@ -258,16 +277,17 @@ export class Ship {
     this.up(_up);
 
     // energy and boost
+    const pw = POWER[this.power];
     const wantsBoost = c.boost && this.energy > 2;
     this.boosting = wantsBoost;
     if (wantsBoost) this.energy = Math.max(0, this.energy - cls.boostDrain * dt);
-    else this.energy = Math.min(cls.energy, this.energy + cls.energyRegen * dt);
+    else this.energy = Math.min(cls.energy, this.energy + cls.energyRegen * pw.energyRegen * dt);
     this.sliding = c.slide;
 
     if (!c.slide) {
       // Forward speed is driven by a thrust-limited motor; sideways velocity is bled off by the
       // flight computer at a finite rate ("grip"), so hard turns carve with some slip.
-      const targetSpeed = wantsBoost ? cls.boostSpeed : clamp(c.throttle, 0, 1) * cls.maxSpeed;
+      const targetSpeed = (wantsBoost ? cls.boostSpeed : clamp(c.throttle, 0, 1) * cls.maxSpeed) * pw.speed;
       const along = this.vel.dot(_fwd);
       const thrustAccel = wantsBoost ? cls.boostSpeed * 0.55 : cls.maxSpeed * 0.6;
       const brakeAccel = cls.maxSpeed * 0.75;
@@ -286,14 +306,18 @@ export class Ship {
       this.vel.addScaledVector(_up, c.strafeY * cls.strafeSpeed * 1.2 * dt);
       if (wantsBoost) this.vel.addScaledVector(_fwd, cls.boostSpeed * 0.9 * dt);
       const sp = this.vel.length();
-      if (sp > cls.boostSpeed) this.vel.multiplyScalar(cls.boostSpeed / sp);
+      if (sp > cls.boostSpeed * pw.speed) this.vel.multiplyScalar((cls.boostSpeed * pw.speed) / sp);
       this.thrust = wantsBoost ? 1 : 0.1;
     }
 
     // shields
-    if (this.age - this.lastDamageTime > cls.shieldDelay) {
-      this.shields = Math.min(cls.shields, this.shields + cls.shieldRegen * dt);
+    if (this.age - this.lastDamageTime > cls.shieldDelay * pw.shieldDelay) {
+      this.shields = Math.min(cls.shields, this.shields + cls.shieldRegen * pw.shieldRegen * dt);
     }
+    if (this.equipment.has('repair') && this.age - this.lastDamageTime > 6) {
+      this.hull = Math.min(cls.hull, this.hull + 3 * dt);
+    }
+    if (this.shieldCellTimer > 0) this.shieldCellTimer -= dt;
     if (this.gunTimer > 0) this.gunTimer -= dt;
     if (this.missileTimer > 0) this.missileTimer -= dt;
   }
@@ -309,6 +333,12 @@ export class Ship {
       this.shields -= absorbed;
       amount -= absorbed;
       this.shieldFlash = 1;
+      if (this.shields <= 0 && this.equipment.has('shieldCell') && this.shieldCellTimer <= 0) {
+        this.shields = this.cls.shields * 0.6;
+        this.shieldCellTimer = 30;
+        this.shieldCellFired = true;
+        amount = 0;
+      }
     }
     if (amount > 0) this.hull -= amount;
     if (this.hull <= 0) {

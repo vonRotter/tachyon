@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, rand } from './math';
 import { Radio } from './radio';
 
-export type LaserKind = 'player' | 'enemy' | 'ally' | 'heavy';
+export type LaserKind = 'player' | 'enemy' | 'ally' | 'heavy' | 'rapid' | 'cannon' | 'scatter';
 
 const _rel = new THREE.Vector3();
 const midi = (m: number): number => 440 * Math.pow(2, (m - 69) / 12);
@@ -245,6 +245,9 @@ export class AudioEngine {
       enemy: { f0: 950, f1: 90, vol: 0.32, dur: 0.18, type: 'sawtooth' as OscillatorType },
       ally: { f0: 2100, f1: 320, vol: 0.26, dur: 0.14, type: 'square' as OscillatorType },
       heavy: { f0: 520, f1: 60, vol: 0.4, dur: 0.24, type: 'sawtooth' as OscillatorType },
+      rapid: { f0: 2400, f1: 600, vol: 0.13, dur: 0.08, type: 'square' as OscillatorType },
+      cannon: { f0: 380, f1: 38, vol: 0.42, dur: 0.34, type: 'sawtooth' as OscillatorType },
+      scatter: { f0: 900, f1: 120, vol: 0.3, dur: 0.2, type: 'square' as OscillatorType },
     }[kind];
     const v = this.voice(pos, presets.vol, presets.dur + 0.05);
     if (!v) return;
@@ -269,6 +272,29 @@ export class AudioEngine {
       o.stop(t + presets.dur + 0.02);
     }
     filt.connect(e).connect(v.input);
+    if (kind === 'cannon' || kind === 'scatter') {
+      // a noise crack on top for the heavy guns
+      const n = this.noiseSource(t, 0.15, 0.7);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 900;
+      n.connect(hp).connect(this.env(t, 0.002, 0.12, 0.7)).connect(v.input);
+    }
+  }
+
+  /** Flare pop: a bright crackle and hiss. */
+  flare(): void {
+    const v = this.voice(null, 0.35, 0.6);
+    if (!v) return;
+    const ctx = this.context;
+    const t = ctx.currentTime;
+    const n = this.noiseSource(t, 0.5, 1.4);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(4200, t);
+    bp.frequency.exponentialRampToValueAtTime(1200, t + 0.5);
+    n.connect(bp).connect(this.env(t, 0.003, 0.45)).connect(v.input);
+    this.blip(1900, 0.06, 0.04);
   }
 
   explosion(pos: THREE.Vector3 | null, size = 1): void {

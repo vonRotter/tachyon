@@ -1,6 +1,9 @@
 import './style.css';
 import { Game } from './game/game';
-import { runKestrelMission } from './game/mission';
+import { fitShip, migrateCampaign, missionPayout, type Campaign } from './game/loadout';
+import { missionById, type MissionDef } from './game/missions';
+import { SHIP_CLASSES } from './entities/shipClasses';
+import { Shop } from './ui/shop';
 import { detectQuality, type QualityLevel } from './core/quality';
 import { BIND_LABELS, DEFAULT_BINDINGS, keyLabel, type BindAction, type Bindings, type MouseMode } from './core/input';
 
@@ -20,11 +23,6 @@ interface Settings {
   sensitivity: number;
   quality: 'auto' | QualityLevel;
   mouseMode: MouseMode;
-}
-
-interface Campaign {
-  credits: number;
-  allegiance: 'combine' | 'drift' | null;
 }
 
 const load = <T>(key: string, fallback: T): T => {
@@ -58,10 +56,11 @@ const settings = load<Settings>('veil.settings', {
 });
 // the old browser-TTS toggle is now `tts`
 delete (settings as Partial<Settings> & { voice?: boolean }).voice;
-const campaign = load<Campaign>('veil.campaign', { credits: 0, allegiance: null });
+let campaign: Campaign = migrateCampaign(load<Partial<Campaign> | null>('veil.campaign', null));
+const saveCampaign = () => save('veil.campaign', campaign);
 
 const game = new Game($('game'), $<HTMLCanvasElement>('hud'));
-game.missionRunner = runKestrelMission;
+let mission: MissionDef = missionById('cold-guns');
 (window as unknown as { __game: Game }).__game = game;
 game.input.setBindings({ ...DEFAULT_BINDINGS, ...load<Partial<Bindings>>('veil.bindings', {}) });
 
@@ -153,6 +152,7 @@ function closeMenu(): void {
 
 function baseMenu(): string | null {
   if (game.state === 'title') return 'title';
+  if (game.state === 'hangar') return 'hangar';
   if (game.state === 'paused') return 'pause';
   return null;
 }
@@ -265,24 +265,56 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// --- Session flow ---------------------------------------------------------------------------
-function begin(checkpoint: number): void {
+// --- Hangar ---------------------------------------------------------------------------------
+const shop = new Shop(campaign);
+shop.onChange = saveCampaign;
+shop.onShowShip = (id) => game.hangar.showShip(SHIP_CLASSES[id]);
+shop.onLaunch = (id) => begin(missionById(id), 0);
+
+function startAudio(): void {
   game.audio.init();
   game.audio.music.start();
   applySettings();
+}
+
+function openHangar(): void {
+  startAudio();
   closeAllMenus();
   show('title', false);
   show('pause', false);
   show('debrief', false);
+  game.enterHangar();
+  show('hangar', true);
+  shop.setCampaign(campaign);
+}
+
+// --- Session flow ---------------------------------------------------------------------------
+function begin(m: MissionDef, checkpoint: number): void {
+  mission = m;
+  startAudio();
+  closeAllMenus();
+  show('title', false);
+  show('pause', false);
+  show('debrief', false);
+  show('hangar', false);
+  game.missionRunner = m.run;
+  game.playerFit = fitShip(campaign.activeShip, campaign.fits[campaign.activeShip]);
   game.startMission(checkpoint);
   game.input.requestPointerLock();
 }
 
-$('launch').addEventListener('click', () => begin(0));
+$('launch').addEventListener('click', () => openHangar());
 $('resume').addEventListener('click', () => game.resume());
-$('restart').addEventListener('click', () => begin(0));
-$('restart2').addEventListener('click', () => begin(0));
-$('retry').addEventListener('click', () => begin(game.checkpoint));
+$('restart').addEventListener('click', () => begin(mission, 0));
+$('restart2').addEventListener('click', () => begin(mission, 0));
+$('retry').addEventListener('click', () => begin(mission, game.checkpoint));
+$('abandon').addEventListener('click', () => openHangar());
+$('to-hangar').addEventListener('click', () => openHangar());
+$('hangar-title').addEventListener('click', () => {
+  show('hangar', false);
+  game.quitToTitle();
+  show('title', true);
+});
 $('quit').addEventListener('click', () => {
   closeAllMenus();
   show('pause', false);
@@ -312,41 +344,48 @@ game.onMissionEnd = (result) => {
   const seconds = Math.floor(game.missionTime % 60)
     .toString()
     .padStart(2, '0');
-  const pay = result === 'victory' ? 8000 + kills * 1500 : 0;
-  $('debrief-title').textContent = result === 'victory' ? 'Kestrel Station holds' : 'Signal lost';
-  $('debrief-stats').innerHTML = [
+  // bounties are paid either way; the contract only on success, reduced on repeat runs
+  const pay = missionPayout(campaign, mission.id, result === 'victory' ? mission.pay : 0, game.bounties);
+  campaign.credits += pay.total;
+  if (result === 'victory') campaign.completed[mission.id] = (campaign.completed[mission.id] ?? 0) + 1;
+  saveCampaign();
+  $('debrief-title').textContent = result === 'victory' ? mission.victoryTitle : 'Signal lost';
+  const stats: [string, string][] = [
     ['KILLS', String(kills)],
     ['ACCURACY', `${acc}%`],
     ['TIME', `${minutes}:${seconds}`],
-    ['PAYMENT', `${pay.toLocaleString()} cr`],
-  ]
-    .map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`)
-    .join('');
+    ['CONTRACT', `${pay.base.toLocaleString()} cr`],
+    ['BOUNTIES', `${pay.bounties.toLocaleString()} cr`],
+    ['PAID', `${pay.total.toLocaleString()} cr${pay.replayFactor < 1 ? ' (repeat run, 40%)' : ''}`],
+  ];
+  $('debrief-stats').innerHTML = stats.map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
   const choice = $('debrief-choice');
   choice.innerHTML = '';
   $('retry').style.display = result === 'victory' ? 'none' : '';
-  if (result === 'victory') {
-    campaign.credits += pay;
-    save('veil.campaign', campaign);
+  if (result === 'victory' && mission.id === 'cold-guns') {
     const options: [Campaign['allegiance'], string, string][] = [
       ['combine', 'Dock with the Sovereign Dawn', 'Commander Tessaine and the Helion Combine. Money, ships and questions you are told not to ask.'],
       ['drift', 'Meet Mother Sorrel', 'The Drift Union. Fewer credits, more friends, and a story about that carrier.'],
     ];
+    const note = document.createElement('p');
     for (const [id, title, desc] of options) {
       const b = document.createElement('button');
       b.innerHTML = `${title}<small>${desc}</small>`;
       if (campaign.allegiance === id) b.classList.add('chosen');
       b.addEventListener('click', () => {
         campaign.allegiance = id;
-        save('veil.campaign', campaign);
+        saveCampaign();
         for (const el of choice.querySelectorAll('button')) el.classList.remove('chosen');
         b.classList.add('chosen');
-        note.textContent = `Choice recorded. Credits: ${campaign.credits.toLocaleString()} cr. The branching campaign, hangar and shop come next. This build ends here.`;
+        note.textContent = 'Choice recorded. Your next contracts will follow from it.';
       });
       choice.appendChild(b);
     }
+    note.textContent = `Credits: ${campaign.credits.toLocaleString()} cr. Two offers are waiting.`;
+    choice.appendChild(note);
+  } else {
     const note = document.createElement('p');
-    note.textContent = `Credits banked: ${campaign.credits.toLocaleString()} cr. Two offers are waiting.`;
+    note.textContent = `Credits: ${campaign.credits.toLocaleString()} cr.`;
     choice.appendChild(note);
   }
   show('debrief', true);
@@ -365,5 +404,13 @@ requestAnimationFrame(loop);
 
 // gamepad (A / Cross) or Enter starts from the title screen
 game.onTitleConfirm = () => {
-  if (!menuStack.length) begin(0);
+  if (!menuStack.length) openHangar();
+};
+
+// test hooks
+(window as unknown as { __campaign: () => Campaign; __setCampaign: (c: Partial<Campaign>) => void }).__campaign = () => campaign;
+(window as unknown as { __setCampaign: (c: Partial<Campaign>) => void }).__setCampaign = (c) => {
+  campaign = migrateCampaign({ ...campaign, ...c });
+  saveCampaign();
+  shop.setCampaign(campaign);
 };
