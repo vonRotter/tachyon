@@ -1081,7 +1081,69 @@ function miner(p: Palette): ShipModel {
   };
 }
 
-const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat, cannon, gannet, bulwark, fang, interdictor, talon, wren, drone, container, hospital, liner, miner };
+/**
+ * Scarlet Rose: the Baron's fighter, a nod to a certain red triplane. A slim crimson fuselage
+ * with a glowing ring cowl at the nose, three stacked wings of falling span braced with
+ * interplane struts, twin guns over the cowl, a cream rose roundel, and a small tail.
+ */
+function scarlet(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  // fuselage, tapering to the tail
+  b.hull(
+    [v3(0.9, 0, -3.2), v3(-0.9, 0, -3.2), v3(0, 0.95, -3.2), v3(0, -0.9, -3.2), v3(1.0, 0.1, 0), v3(-1.0, 0.1, 0), v3(0, 1.1, 0), v3(0, -0.95, 0), v3(0.25, 0.25, 6.4), v3(-0.25, 0.25, 6.4), v3(0, 0.55, 6.4), v3(0, -0.05, 6.4)],
+    p.primary,
+  );
+  // ring cowl at the nose with glowing intakes behind it
+  b.cylinder(v3(0, 0, -3.9), 1.25, 1.4, p.primary, { ...NO, quat: X90, sides: 16, radiusTop: 1.05 });
+  b.torus(v3(0, 0, -4.5), 1.16, 0.16, p.accent, { radial: 5, tubular: 24 });
+  b.cylinder(v3(0, 0, -4.62), 0.9, 0.1, p.engine, { ...NO, quat: X90, sides: 16, glow: 1.4 });
+  b.cylinder(v3(0, 0, -4.7), 0.3, 0.4, DARK, { ...NO, quat: X90, sides: 8 });
+  // twin guns over the cowl
+  for (const s of [1, -1]) b.cylinder(v3(s * 0.32, 1.05, -3.6), 0.11, 2.4, DARK, { ...NO, quat: X90, sides: 6 });
+  // open cockpit with a small windscreen and a headrest
+  b.hull([v3(0, 1.0, -1.6), v3(0.5, 1.0, -1.1), v3(-0.5, 1.0, -1.1), v3(0, 1.45, -1.2)], p.canopy, 1.1);
+  b.hull([v3(0.3, 1.0, 0.2), v3(-0.3, 1.0, 0.2), v3(0, 1.5, 0.6), v3(0, 1.05, 1.6)], p.primary);
+  // three stacked wings, falling span, braced with struts
+  const wings = [
+    { y: 1.9, span: 5.4, z: -1.8, chord: 1.5 },
+    { y: 0.5, span: 4.9, z: -1.3, chord: 1.4 },
+    { y: -0.9, span: 4.4, z: -0.9, chord: 1.3 },
+  ];
+  for (const w of wings) {
+    b.bevel(v3(0, w.y, w.z), v3(w.span * 2, 0.22, w.chord), 0.08, w.y > 1 ? p.primary : p.primary, NO);
+    b.box(v3(0, w.y + 0.12, w.z + w.chord * 0.3), v3(w.span * 2 - 0.4, 0.04, 0.2), p.secondary, NO);
+  }
+  for (const s of [1, -1]) {
+    // interplane struts and the cabane over the fuselage
+    b.strut(v3(s * 4.2, -0.9, -0.9), v3(s * 4.6, 1.9, -1.8), 0.08, DARK, { ...NO, sides: 4 });
+    b.strut(v3(s * 0.5, 0.9, -1.4), v3(s * 0.7, 1.9, -1.8), 0.07, DARK, { ...NO, sides: 4 });
+    // rose roundel on the top wing
+    const c = v3(s * 3.6, 2.03, -1.8);
+    const flat = new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2);
+    b.torus(c, 0.5, 0.12, p.secondary, { quat: flat, radial: 4, tubular: 16 });
+    b.sphere(c, 0.28, p.accent, { ...NO, detail: 0, scale: v3(1, 0.3, 1) });
+    nav(b, s * 5.4, 1.9, -1.8);
+  }
+  // tailplane and fin, with a cream band round the rear fuselage
+  b.hull(plate([v3(0.3, 0.3, 5.0), v3(0.3, 0.3, 6.4), v3(2.0, 0.3, 6.6), v3(2.0, 0.3, 5.8)], UPN, 0.12), p.primary);
+  b.hull(plate([v3(-0.3, 0.3, 5.0), v3(-0.3, 0.3, 6.4), v3(-2.0, 0.3, 6.6), v3(-2.0, 0.3, 5.8)], UPN, 0.12), p.primary);
+  b.hull(plate([v3(0, 0.5, 4.6), v3(0, 0.5, 6.4), v3(0, 1.9, 6.6), v3(0, 1.7, 5.6)], SIDEN, 0.12), p.primary);
+  b.box(v3(0, 0.25, 3.4), v3(1.0, 1.05, 0.5), p.secondary, NO);
+  // engines at the tail
+  for (const s of [1, -1]) {
+    b.cylinder(v3(s * 0.45, -0.1, 6.0), 0.36, 1.2, DARK, { ...NO, quat: X90, sides: 10 });
+    b.cylinder(v3(s * 0.45, -0.1, 6.62), 0.3, 0.08, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
+  }
+  return {
+    group: b.build('scarlet', 'ship'),
+    engines: [v3(0.45, -0.1, 6.7), v3(-0.45, -0.1, 6.7)],
+    engineRadius: 0.3,
+    guns: [v3(0.32, 1.05, -4.9), v3(-0.32, 1.05, -4.9)],
+    cameraOffset: v3(0, 3.6, 14),
+  };
+}
+
+const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat, cannon, gannet, bulwark, fang, interdictor, talon, wren, drone, container, hospital, liner, miner, scarlet };
 const cache = new Map<string, ShipModel>();
 
 /** Builds (once) and clones a ship model. Clones share geometry and materials. */

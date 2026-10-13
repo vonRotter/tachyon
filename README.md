@@ -73,6 +73,22 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 - **Side jobs** for anyone, whichever side you fly for, paid in full every time: a Reach Patrol
   bounty hunt in the Ashfall alongside two Patrol Interdictors, a convoy run bringing container
   ships in to Vantage, and guarding Kestrel's ore barges from Wake strip-miners.
+- **Side arc: "The Scarlet Baron".** Baron Rafe Delacourt is a former Combine ace turned gentleman
+  pirate who flies a crimson fighter with three stacked wings (a nod to a certain red
+  triplane). He announces himself, never fires on the helpless or on ejected pilots, and robs
+  only those who can afford it. He transmits on an old set that crackles like a gramophone,
+  with his wing of Rosebuds and the irrepressible Petal. Four parts, each ending on a choice:
+  1. *A Rose for the Lady* (Vantage): he robs the liner you escort. Hold your fire and watch a
+     civilised robbery, or fight him off.
+  2. *Pistols at Dawn* (Ashfall): a duel at the dead destroyer, guns only, or the Reach Patrol's
+     trap. Fly to the one you choose. Beat him fairly and he yields: spare him or shoot him down.
+  3. *The Gilded Cage* (Bastion): his heist on a Combine treasury barge. Fire on the escorts to
+     ride with him, on his Rosebuds to stop him, or just watch. If you trapped him, he comes for
+     the barge, and for you.
+  4. *Last Dance* (the Rookery, his hideout in a broken liner with a chapel on its back): as his
+     friend you defend it against the Red Wake and he gives you his spare fighter, the Scarlet
+     Rose; as his enemy you break his defences with the Patrol and duel him, then decide whether
+     he lives.
 - **Odd jobs**, civilian one-shots for cash with no story consequences: a cold-chain courier run
   through ten gates round Kestrel against the clock, a search for escape pods drifting in the
   Ashfall before their air runs out, and a salvage race against Wake scavenger tugs in Vantage's

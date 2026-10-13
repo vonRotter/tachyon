@@ -1,6 +1,6 @@
 import './style.css';
 import { Game } from './game/game';
-import { defect, fitShip, migrateCampaign, missionPayout, newCampaign, type Campaign, type Side } from './game/loadout';
+import { defect, fitShip, migrateCampaign, missionPayout, newCampaign, newFit, type Campaign, type Side } from './game/loadout';
 import { missionById, type MissionDef } from './game/missions';
 import { SHIP_CLASSES } from './entities/shipClasses';
 import { Shop } from './ui/shop';
@@ -417,6 +417,12 @@ game.onMissionEnd = (result) => {
     for (const [k, v] of Object.entries(game.missionFlags)) {
       if (k === 'allegiance') campaign.allegiance = v as Campaign['allegiance'];
       else if (k === 'defect') confiscated = defect(campaign, v as Side);
+      else if (k === 'gift') {
+        if (!campaign.ships.includes(v)) {
+          campaign.ships.push(v);
+          campaign.fits[v] = newFit(v);
+        }
+      }
       else campaign.flags[k] = v;
     }
     if (flewFor && flewFor === campaign.allegiance && !game.missionFlags.defect) {
@@ -437,6 +443,16 @@ game.onMissionEnd = (result) => {
     'dawn:saved': 'Four hundred lives',
     'records:broadcast': 'Every station has it',
     'records:silenced': 'The Reach hears nothing',
+    'baron:friend': 'A rose in your hangar',
+    'baron:exiled': 'Adieu, Baron',
+    'baron:dead': 'A good morning',
+    'baron3:joined': 'Half the vault',
+    'baron3:betrayed': 'Et tu, Rook',
+    'baron2:spared': 'A debt of honour',
+    'baron2:downed': 'Well flown',
+    'baron2:trapped': 'No honour among contractors',
+    'baron1:let': 'A civilised robbery',
+    'baron1:fought': 'A waltz',
     'finale:combine': 'The Reach under the Combine',
     'finale:drift': 'The Combine leaves the Reach',
   };
@@ -468,7 +484,8 @@ game.onMissionEnd = (result) => {
   };
   const defected = result === 'victory' ? game.missionFlags.defect : undefined;
   const lost = confiscated.length ? ` They kept what was theirs: ${confiscated.join(', ')}.` : '';
-  note.textContent = `${side ? `${sides[side]} ` : ''}${defected ? `${turned[defected]}${lost} ` : ''}Credits: ${campaign.unlimited ? '∞ (test mode)' : `${campaign.credits.toLocaleString()} cr`}.`;
+  const gift = result === 'victory' && game.missionFlags.gift ? `The ${SHIP_CLASSES[game.missionFlags.gift]?.name ?? 'ship'} is waiting in your hangar. ` : '';
+  note.textContent = `${side ? `${sides[side]} ` : ''}${defected ? `${turned[defected]}${lost} ` : ''}${gift}Credits: ${campaign.unlimited ? '∞ (test mode)' : `${campaign.credits.toLocaleString()} cr`}.`;
   choice.appendChild(note);
   show('debrief', true);
 };

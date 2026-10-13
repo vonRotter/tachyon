@@ -230,7 +230,7 @@ export class Shop {
       const head = el('div', 'yard-head');
       head.style.borderColor = FACTIONS[yard].hudColor;
       head.appendChild(el('div', 'yard-name', design?.yard ?? FACTIONS[yard].name));
-      const gate = yard === 'kestrel' ? 'Open to all' : yard === 'patrol' ? 'Not for sale' : c.allegiance === yard ? 'You fly for them' : 'Test cheat';
+      const gate = yard === 'kestrel' ? 'Open to all' : yard === 'patrol' ? 'Not for sale' : yard === 'rose' ? (c.ships.includes('scarlet') ? 'A gift' : 'Test cheat') : c.allegiance === yard ? 'You fly for them' : 'Test cheat';
       head.appendChild(el('div', 'yard-gate', gate));
       list.appendChild(head);
       if (design) {

@@ -52,6 +52,10 @@ CAST = {
     "sorrel": {"voice": "bf_emma", "lang": "en-gb", "speed": 0.9},
     "kit": {"voice": "af_kore", "lang": "en-us", "speed": 1.08},
     "magpie": {"voice": "am_michael", "lang": "en-us", "speed": 0.98},
+    # The Scarlet Baron and his Rosebuds: theatrical
+    "baron": {"voice": "bm_daniel", "lang": "en-gb", "speed": 1.02},
+    "petal": {"voice": "af_sky", "lang": "en-us", "speed": 1.1},
+    "strand": {"voice": "bf_alice", "lang": "en-gb", "speed": 0.94},
     # Reach Patrol: brisk and procedural
     "okafor": {"voice": "af_sarah", "lang": "en-us", "speed": 1.06},
     # Vantage Station: a tired academic

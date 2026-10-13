@@ -25,7 +25,8 @@ export type ModelId =
   | 'container'
   | 'hospital'
   | 'liner'
-  | 'miner';
+  | 'miner'
+  | 'scarlet';
 
 export interface GunSpec {
   damage: number;
@@ -897,5 +898,63 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
       [0, 0, 24, 10],
     ],
     civilian: true,
+  },
+  scarlet: {
+    id: 'scarlet',
+    maker: 'rose',
+    forSale: false,
+    strengths: 'Turns tighter than anything else in the Reach. Fast, well shielded, four hardpoints.',
+    weaknesses: 'Never sold. You have to earn it.',
+    name: 'Scarlet Rose',
+    model: 'scarlet',
+    radius: 3.6,
+    hull: 260,
+    shields: 240,
+    shieldRegen: 22,
+    shieldDelay: 2.4,
+    maxSpeed: 118,
+    boostSpeed: 240,
+    strafeSpeed: 36,
+    accel: 2.6,
+    pitchRate: 2.5,
+    yawRate: 1.8,
+    rollRate: 4.0,
+    turnResponse: 8.5,
+    energy: 140,
+    energyRegen: 22,
+    boostDrain: 22,
+    gun: { damage: 13, cooldown: 0.09, boltSpeed: 760, energyCost: 1.2, range: 960 },
+    missiles: 6,
+    equipSlots: 3,
+    weaponSlots: 4,
+    defaultWeapons: ['pulse', 'pulse', 'rapid', 'seeker'],
+    description: 'The Baron\'s spare: a crimson fuselage, a glowing ring cowl, three stacked wings braced with struts and twin guns over the nose. Built for one man\'s idea of a fair fight.',
+    bounty: 4000,
+    price: 0,
+  },
+  rosebud: {
+    id: 'rosebud',
+    name: 'Rosebud',
+    model: 'scarlet',
+    radius: 3.6,
+    hull: 170,
+    shields: 150,
+    shieldRegen: 16,
+    shieldDelay: 2.8,
+    maxSpeed: 112,
+    boostSpeed: 225,
+    strafeSpeed: 32,
+    accel: 2.4,
+    pitchRate: 2.2,
+    yawRate: 1.55,
+    rollRate: 3.6,
+    turnResponse: 7.5,
+    energy: 110,
+    energyRegen: 18,
+    boostDrain: 22,
+    gun: { damage: 8, cooldown: 0.12, boltSpeed: 720, energyCost: 1.2, range: 900 },
+    missiles: 2,
+    bounty: 1500,
+    price: 0,
   },
 };

@@ -8,6 +8,7 @@ import { runOpenChannel } from './missionOpenChannel';
 import { runBastion, runLastLight } from './missionFinale';
 import { runBounty, runConvoy, runOreGuard } from './missionJobs';
 import { runCourier, runRescue, runSalvage } from './missionCivil';
+import { runBaronDuel, runBaronFinale, runBaronHeist, runBaronRobbery } from './missionBaron';
 
 export interface MissionDef {
   id: string;
@@ -166,6 +167,60 @@ export const MISSIONS: MissionDef[] = [
     kind: 'job',
     available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
     victoryTitle: 'The crews are safe',
+  },
+  {
+    id: 'baron-1',
+    name: 'A Rose for the Lady',
+    location: 'Vantage Station',
+    map: 'vantage',
+    briefing: 'Escort the Combine liner Aurelian Dawn past Vantage. Lady Imelda Strand is aboard with her late husband\'s art collection, and a certain gentleman pirate has been asking after it.',
+    pay: 9000,
+    run: (g) => runBaronRobbery(g),
+    kind: 'baron',
+    available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
+    victoryTitle: 'A rose for the lady',
+  },
+  {
+    id: 'baron-2',
+    name: 'Pistols at Dawn',
+    location: 'The Ashfall',
+    map: 'ashfall',
+    briefing: 'A single red rose arrived at your hangar, with a card: the old destroyer in the Ashfall, one on one, guns only. The Reach Patrol has read the card too, and has its own idea.',
+    pay: 8000,
+    run: (g, _cp, c) => runBaronDuel(g, c),
+    kind: 'baron',
+    available: (c) => (c.completed['baron-1'] ?? 0) > 0,
+    victoryTitle: 'Pistols at dawn',
+  },
+  {
+    id: 'baron-3',
+    name: 'The Gilded Cage',
+    location: 'Bastion',
+    map: 'bastion',
+    briefing: (c) =>
+      c.flags.baron2 === 'trapped'
+        ? 'The Combine Treasury wants an escort for the barge Gilded Cage, carrying the Reach\'s taxes past Bastion. The Baron has not forgotten your trap.'
+        : 'The Baron has a proposition: the Combine treasury barge Gilded Cage passes Bastion today, and he would love company. Half the vault, he says.',
+    pay: 10000,
+    run: (g, _cp, c) => runBaronHeist(g, c),
+    kind: 'baron',
+    available: (c) => (c.completed['baron-2'] ?? 0) > 0,
+    victoryTitle: 'The Gilded Cage',
+  },
+  {
+    id: 'baron-4',
+    name: 'Last Dance',
+    location: 'The Rookery',
+    map: 'rookery',
+    briefing: (c) =>
+      c.flags.baron3 === 'joined' || c.flags.baron3 === 'stood'
+        ? 'An invitation to the Rookery, the Baron\'s hideout in an ice field: a broken liner with a chapel on its back. Bring an appetite, the card says. Petal has added: do not drink the tea.'
+        : 'The Reach Patrol has found the Rookery, the Baron\'s hideout in an ice field. Sergeant Okafor wants you along to finish it.',
+    pay: 15000,
+    run: (g, _cp, c) => runBaronFinale(g, c),
+    kind: 'baron',
+    available: (c) => (c.completed['baron-3'] ?? 0) > 0,
+    victoryTitle: 'Last dance',
   },
   {
     id: 'civ-courier',

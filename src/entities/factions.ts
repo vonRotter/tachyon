@@ -1,4 +1,4 @@
-export type FactionId = 'player' | 'kestrel' | 'wake' | 'combine' | 'drift' | 'patrol';
+export type FactionId = 'player' | 'kestrel' | 'wake' | 'combine' | 'drift' | 'patrol' | 'rose';
 
 export interface Palette {
   primary: string;
@@ -95,6 +95,19 @@ export const FACTIONS: Record<FactionId, FactionInfo> = {
       bolt: '#7fb0ff',
     },
   },
+  rose: {
+    id: 'rose',
+    name: 'The Scarlet Baron',
+    hudColor: '#ff6a8a',
+    palette: {
+      primary: '#b3122e',
+      secondary: '#f2e8d2',
+      accent: '#ffcf5a',
+      canopy: '#ffd9a8',
+      engine: '#ff8a6a',
+      bolt: '#ff4d6d',
+    },
+  },
 };
 
 /**
@@ -138,6 +151,12 @@ export const FACTION_DESIGN: Partial<Record<FactionId, FactionDesign>> = {
     principle: 'Teeth. Hooked blades, forward fangs, lopsided silhouettes, crimson over black.',
     doctrine: 'Speed and close-range punch. Hard-hitting short guns, little protection.',
     livery: { secondary: '#c0142f', accent: '#ffd030', engine: '#ff5a3a' },
+  },
+  rose: {
+    yard: 'The Baron\'s hangar',
+    principle: 'Old-world gallantry. Stacked wings braced with struts, twin guns over the nose, crimson and cream with a gold rose.',
+    doctrine: 'The best-turning hulls in the Reach, built for one pilot\'s idea of a fair fight. Never sold: given, if at all.',
+    livery: { primary: '#b3122e', secondary: '#f2e8d2', accent: '#ffcf5a' },
   },
   patrol: {
     yard: 'Reach Patrol',

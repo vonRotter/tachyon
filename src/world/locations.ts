@@ -6,6 +6,7 @@ import { buildAshfall } from './ashfall';
 import { buildVantage } from './vantage';
 import { buildHaven } from './haven';
 import { buildBastion } from './bastion';
+import { buildRookery } from './rookery';
 
 const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x, y, z);
 
@@ -182,4 +183,16 @@ const bastion: Builder = (world) => {
   };
 };
 
-export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall, vantage, haven, bastion };
+const rookery: Builder = (world) => {
+  const den = buildRookery(world);
+  return {
+    ...merge('rookery', 'The Rookery', [den], ['rookery']),
+    traffic: [],
+    start: { pos: v(0, 160, 2000), look: v(0, 0, 0) },
+    arena: { center: v(0, 0, 600), warn: 3600, limit: 4400 },
+    orbit: { center: v(0, 40, 0), radius: 900, height: 220 },
+    frames: {},
+  };
+};
+
+export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall, vantage, haven, bastion, rookery };

@@ -11,19 +11,20 @@ import { DEFAULT_MISSILE, SHIP_CLASSES, type GunSpec, type MissileSpec, type Shi
 // Catalogue
 
 /** Every hull the player can fly, grouped by the yard that builds it. */
-export const PLAYER_SHIPS = ['wren', 'kite', 'warden', 'lancer', 'talon', 'corsair', 'sabre', 'halberd', 'gannet', 'bulwark', 'fang', 'interdictor'] as const;
+export const PLAYER_SHIPS = ['wren', 'kite', 'warden', 'lancer', 'talon', 'corsair', 'sabre', 'halberd', 'gannet', 'bulwark', 'fang', 'interdictor', 'scarlet'] as const;
 export type PlayerShipId = (typeof PLAYER_SHIPS)[number];
 
 /**
  * Whether a yard shows up in the shop at all: the independent yards always, a faction's yards
  * once you have proven yourself to it (or with the test cheat on).
  */
-export function yardVisible(yard: FactionId, c: Pick<Campaign, 'allegiance' | 'unlimited' | 'standing'>): boolean {
+export function yardVisible(yard: FactionId, c: Pick<Campaign, 'allegiance' | 'unlimited' | 'standing' | 'ships'>): boolean {
+  if (yard === 'rose') return c.unlimited || c.ships.includes('scarlet');
   return yard === 'kestrel' || c.unlimited || proven(c, yard);
 }
 
 /** Yards in shop order. */
-export const YARDS: FactionId[] = ['kestrel', 'combine', 'drift', 'wake', 'patrol'];
+export const YARDS: FactionId[] = ['kestrel', 'combine', 'drift', 'wake', 'patrol', 'rose'];
 
 export interface Availability {
   /** Can be bought now. */
