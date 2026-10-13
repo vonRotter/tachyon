@@ -581,7 +581,7 @@ export class Shop {
     strip.appendChild(this.campaignStrip());
     // the next story contract first, then anything new, then what you have already flown
     const next = nextStory(c);
-    const rank = (m: MissionDef) => (m === next ? 0 : c.completed[m.id] ? 2 : 1);
+    const rank = (m: MissionDef) => (m === next ? 0 : m.repeatable ? 2 : c.completed[m.id] ? 3 : 1);
     const missions = MISSIONS.filter((m) => m.available(c)).sort((a, b) => rank(a) - rank(b));
     if (!missions.some((m) => m.id === this.selectedMission)) this.selectedMission = (next ?? missions[0]).id;
     for (const m of missions) root.appendChild(this.missionCard(m));
@@ -612,9 +612,9 @@ export class Shop {
   private missionCard(m: MissionDef): HTMLElement {
     const done = this.campaign.completed[m.id] ?? 0;
     // flown contracts fold down to one line unless selected
-    const brief = done && m.id !== this.selectedMission ? '' : briefingText(m, this.campaign);
+    const brief = (done || m.repeatable) && m.id !== this.selectedMission ? '' : briefingText(m, this.campaign);
     const card = this.card(`${m.name} · ${m.location}`, brief, {
-      status: done ? `FLOWN ×${done} · ${cr(Math.round(m.pay * 0.4))}+` : `${cr(m.pay)}+`,
+      status: done && !m.repeatable ? `FLOWN ×${done} · ${cr(Math.round(m.pay * 0.4))}+` : `${done ? `×${done} · ` : ''}${cr(m.pay)}+`,
       active: m.id === this.selectedMission,
     });
     card.addEventListener('click', () => {

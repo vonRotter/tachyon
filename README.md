@@ -70,6 +70,9 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   Cold Guns, then Launch Order (Combine) or Flotsam (Drift), Open Channel, The Accord, and
   Last Light (Combine) or The Bastion (Drift). The next story contract is picked for you when
   you return to the hangar; flown contracts fold down and can be replayed.
+- **Side jobs** for anyone, whichever side you fly for, paid in full every time: a Reach Patrol
+  bounty hunt in the Ashfall alongside two Patrol Interdictors, a convoy run bringing container
+  ships in to Vantage, and guarding Kestrel's ore barges from Wake strip-miners.
 - **Mission "Cold Guns"** at Kestrel Station: three Red Wake raider waves ending with a gunship,
   radio drama between the station, the Helion Combine and the Drift Union. You choose a side by
   where you land: Kestrel's bay 1 (Drift Union) or the Sovereign Dawn (Combine). Checkpoints let

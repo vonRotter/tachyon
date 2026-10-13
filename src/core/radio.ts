@@ -2,10 +2,11 @@
  * Radio voice playback. Dialogue is pre-recorded clean speech (see scripts/voices); each faction's
  * transmitter colours it differently, so who is talking can be told by ear as well as by name:
  * Kestrel militia sets are a plain comms band, the Red Wake's are overdriven and crackling, the
- * Combine's are wide and clean, and the Drift Union's are old gear that hisses and wavers.
+ * Combine's are wide and clean, the Drift Union's are old gear that hisses and wavers, and the
+ * Reach Patrol's are crisp digital sets with a two-tone chirp.
  */
 
-export type RadioBand = 'kestrel' | 'wake' | 'combine' | 'drift';
+export type RadioBand = 'kestrel' | 'wake' | 'combine' | 'drift' | 'patrol';
 
 interface BandSpec {
   highpass: number;
@@ -28,6 +29,7 @@ const BANDS: Record<RadioBand, BandSpec> = {
   wake: { highpass: 420, lowpass: 2700, presence: 6, drive: 5, hiss: 0.022, crackle: 5, warble: 0, gain: 0.55 },
   combine: { highpass: 140, lowpass: 7500, presence: 2, drive: 0, hiss: 0, crackle: 0, warble: 0, gain: 1.4 },
   drift: { highpass: 360, lowpass: 3000, presence: 5, drive: 2.2, hiss: 0.02, crackle: 1.5, warble: 450, gain: 0.85 },
+  patrol: { highpass: 220, lowpass: 5200, presence: 5, drive: 0.8, hiss: 0.004, crackle: 0, warble: 0, gain: 1.15 },
 };
 
 const shapers = new Map<number, Float32Array<ArrayBuffer>>();
@@ -241,6 +243,11 @@ export class Radio {
       case 'drift':
         this.burst(t, 0.04, 0.3, 2200);
         this.tone('triangle', 990, t + 0.05, 0.1, 0.1);
+        break;
+      case 'patrol':
+        this.tone('square', 1175, t, 0.05, 0.05);
+        this.tone('square', 880, t + 0.06, 0.05, 0.05);
+        this.tone('square', 1175, t + 0.12, 0.05, 0.05);
         break;
     }
   }

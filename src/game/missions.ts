@@ -6,6 +6,7 @@ import { runFlotsam } from './missionFlotsam';
 import { runAccord } from './missionAccord';
 import { runOpenChannel } from './missionOpenChannel';
 import { runBastion, runLastLight } from './missionFinale';
+import { runBounty, runConvoy, runOreGuard } from './missionJobs';
 
 export interface MissionDef {
   id: string;
@@ -23,6 +24,8 @@ export interface MissionDef {
   available: (c: Campaign) => boolean;
   /** Debrief headline on victory. */
   victoryTitle: string;
+  /** Side job: pays in full every time and is not part of the story. */
+  repeatable?: boolean;
   /** Whose contract it is: completing it earns standing with them ('current': whoever you fly for). */
   faction?: Side | 'current';
 }
@@ -121,6 +124,42 @@ export const MISSIONS: MissionDef[] = [
     faction: 'drift',
     available: (c) => c.allegiance === 'drift' && (c.completed.accord ?? 0) > 0,
     victoryTitle: 'The Combine leaves the Reach',
+  },
+  {
+    id: 'job-bounty',
+    name: 'Side job: Patrol Bounty',
+    location: 'The Ashfall',
+    map: 'ashfall',
+    briefing: 'The Reach Patrol has posted a bounty on a Red Wake raiding party hiding in the Ashfall. Fly with two Patrol Interdictors and collect per hull. Pays in full every time.',
+    pay: 9000,
+    run: (g) => runBounty(g),
+    repeatable: true,
+    available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
+    victoryTitle: 'Bounties filed',
+  },
+  {
+    id: 'job-convoy',
+    name: 'Side job: Convoy Run',
+    location: 'Vantage Station',
+    map: 'vantage',
+    briefing: 'Two container ships with spares for Vantage\'s array, and the Red Wake know they are coming. Bring them in through the rock ring. Bonus for every ship that arrives. Pays in full every time.',
+    pay: 8000,
+    run: (g) => runConvoy(g),
+    repeatable: true,
+    available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
+    victoryTitle: 'Convoy in',
+  },
+  {
+    id: 'job-ore',
+    name: 'Side job: Ore Guard',
+    location: 'Kestrel Station',
+    map: 'kestrel',
+    briefing: 'Wake strip-miners have been hitting Kestrel\'s ore barges in the rock field. Keep three crews alive through the raids. Bonus for every barge that makes it. Pays in full every time.',
+    pay: 6000,
+    run: (g) => runOreGuard(g),
+    repeatable: true,
+    available: (c) => (c.completed['cold-guns'] ?? 0) > 0,
+    victoryTitle: 'The crews are safe',
   },
 ];
 

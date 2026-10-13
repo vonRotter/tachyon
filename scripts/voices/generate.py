@@ -52,6 +52,8 @@ CAST = {
     "sorrel": {"voice": "bf_emma", "lang": "en-gb", "speed": 0.9},
     "kit": {"voice": "af_kore", "lang": "en-us", "speed": 1.08},
     "magpie": {"voice": "am_michael", "lang": "en-us", "speed": 0.98},
+    # Reach Patrol: brisk and procedural
+    "okafor": {"voice": "af_sarah", "lang": "en-us", "speed": 1.06},
     # Vantage Station: a tired academic
     "halloran": {"voice": "am_eric", "lang": "en-us", "speed": 0.96},
 }

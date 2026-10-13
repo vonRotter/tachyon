@@ -407,7 +407,7 @@ game.onMissionEnd = (result) => {
     .toString()
     .padStart(2, '0');
   // bounties are paid either way; the contract only on success, reduced on repeat runs
-  const pay = missionPayout(campaign, mission.id, result === 'victory' ? mission.pay + game.bonusPay : 0, game.bounties);
+  const pay = missionPayout(campaign, mission.id, result === 'victory' ? mission.pay + game.bonusPay : 0, game.bounties, mission.repeatable);
   campaign.credits += pay.total;
   for (const id of game.seenClasses) if (!campaign.seen.includes(id)) campaign.seen.push(id);
   let confiscated: string[] = [];

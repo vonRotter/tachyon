@@ -31,9 +31,17 @@
     "duration": 2.43,
     "speaker": "halloran"
   },
+  "0e52bdf0": {
+    "duration": 3.67,
+    "speaker": "vey"
+  },
   "10909197": {
     "duration": 5.88,
     "speaker": "juno"
+  },
+  "10fb8c01": {
+    "duration": 3.95,
+    "speaker": "halloran"
   },
   "11795025": {
     "duration": 5.08,
@@ -131,6 +139,10 @@
     "duration": 8.83,
     "speaker": "sorrel"
   },
+  "380afd6c": {
+    "duration": 2.76,
+    "speaker": "varga"
+  },
   "39514b9a": {
     "duration": 4.0,
     "speaker": "tessaine"
@@ -154,6 +166,10 @@
   "41967f65": {
     "duration": 3.68,
     "speaker": "quell"
+  },
+  "42badfb0": {
+    "duration": 5.53,
+    "speaker": "okafor"
   },
   "4633ccb4": {
     "duration": 3.62,
@@ -183,6 +199,10 @@
     "duration": 6.1,
     "speaker": "tessaine"
   },
+  "4e7a5fab": {
+    "duration": 1.89,
+    "speaker": "halloran"
+  },
   "534ee4de": {
     "duration": 1.84,
     "speaker": "vale"
@@ -202,6 +222,10 @@
   "5b5aa5bd": {
     "duration": 3.71,
     "speaker": "juno"
+  },
+  "5da40293": {
+    "duration": 2.3,
+    "speaker": "varga"
   },
   "5e263231": {
     "duration": 3.11,
@@ -226,6 +250,10 @@
   "65342e94": {
     "duration": 4.24,
     "speaker": "vale"
+  },
+  "662e5772": {
+    "duration": 7.89,
+    "speaker": "varga"
   },
   "6935d7b3": {
     "duration": 4.02,
@@ -419,6 +447,14 @@
     "duration": 5.22,
     "speaker": "tessaine"
   },
+  "aebf7777": {
+    "duration": 9.12,
+    "speaker": "okafor"
+  },
+  "aecdd7f9": {
+    "duration": 1.99,
+    "speaker": "halloran"
+  },
   "af5c24c2": {
     "duration": 6.67,
     "speaker": "varga"
@@ -430,6 +466,10 @@
   "b16c839b": {
     "duration": 10.23,
     "speaker": "sorrel"
+  },
+  "b32a15f7": {
+    "duration": 3.6,
+    "speaker": "okafor"
   },
   "b3e3e2fc": {
     "duration": 2.0,
@@ -471,6 +511,10 @@
     "duration": 1.48,
     "speaker": "juno"
   },
+  "c533c1f8": {
+    "duration": 7.99,
+    "speaker": "okafor"
+  },
   "c621f48b": {
     "duration": 1.84,
     "speaker": "vey"
@@ -478,6 +522,10 @@
   "c7f25ffc": {
     "duration": 6.14,
     "speaker": "halloran"
+  },
+  "cb05407b": {
+    "duration": 4.19,
+    "speaker": "okafor"
   },
   "cc251d82": {
     "duration": 10.08,
@@ -583,6 +631,10 @@
     "duration": 3.35,
     "speaker": "varga"
   },
+  "ebfb924a": {
+    "duration": 2.16,
+    "speaker": "okafor"
+  },
   "eca06cdc": {
     "duration": 7.47,
     "speaker": "sorrel"
@@ -602,6 +654,10 @@
   "f3a0c6ad": {
     "duration": 2.9,
     "speaker": "magpie"
+  },
+  "f4ea46d6": {
+    "duration": 3.45,
+    "speaker": "varga"
   },
   "f700c5ad": {
     "duration": 4.68,

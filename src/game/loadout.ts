@@ -494,7 +494,7 @@ export interface Payout {
 }
 
 /** Mission pay plus bounties; repeat runs of a mission pay 40% so the shop cannot be farmed fast. */
-export function missionPayout(campaign: Campaign, missionId: string, basePay: number, bounties: number): Payout {
-  const replayFactor = (campaign.completed[missionId] ?? 0) > 0 ? 0.4 : 1;
+export function missionPayout(campaign: Campaign, missionId: string, basePay: number, bounties: number, repeatable = false): Payout {
+  const replayFactor = !repeatable && (campaign.completed[missionId] ?? 0) > 0 ? 0.4 : 1;
   return { base: basePay, bounties, replayFactor, total: Math.round((basePay + bounties) * replayFactor) };
 }
