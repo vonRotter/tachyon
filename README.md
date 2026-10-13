@@ -1,8 +1,8 @@
 # Veil Reach (working title)
 
 A fast, colourful space-combat game in the spirit of *Tachyon: The Fringe*, built with three.js
-and TypeScript. This is the first vertical slice: one mission, one flyable ship, a station and a
-carrier to dodge through, AI pursuers and the slide mechanic.
+and TypeScript. Fly contracts, earn credits, and spend them in the hangar on ships, upgrades,
+weapons and equipment.
 
 ## Play it
 
@@ -23,12 +23,25 @@ npm run build      # production build in dist/
 
 Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox or Safari).
 
-## What is in the slice
+## What is in the game
 
+- **Hangar and shop** between missions. Your ship hovers on a turntable in a station bay (drag
+  to look around). Buy and switch between five ships (Kite, Warden, Lancer, Corsair, Halberd),
+  install three tiers of six upgrades per ship, and buy gun types, missile types and equipment
+  that you can move between ships. Hovering anything previews it on the stat bars.
+- **Credits** come from contract pay plus a bounty per kill. Repeat runs of a mission pay 40%.
+  The campaign (credits, ships, fits, faction choice) is saved in `localStorage`.
+- **Weapons.** Pulse, rapid, mass driver and scatter guns. Seeker missiles, unguided rocket
+  pods, swarm packs and slow, heavy torpedoes.
+- **Equipment.** Flares, an emergency shield cell, repair drones, an afterburner tank, an
+  extended magazine, a targeting computer and a docking computer.
+- **Power routing.** Send spare power to shields, guns or engines.
+- **Docking.** Request clearance and fly the holographic gates into a bay; the clamps take over
+  once you are inside and slow enough. Kestrel Station has a hangar on its hub, and the Combine
+  carrier lands you inside its hangar tunnel.
 - **Mission "Cold Guns"** at Kestrel Station: three Red Wake raider waves ending with a gunship,
-  radio drama between the station, the Helion Combine carrier and the Drift Union, and a closing
-  choice of which faction to meet. The choice and earned credits are saved in `localStorage`.
-  Checkpoints let you retry a wave after dying.
+  radio drama between the station, the Helion Combine carrier and the Drift Union, docking, and a
+  closing choice of which faction to meet. Checkpoints let you retry a wave after dying.
 - **Arcade flight with slide.** Hold slide to keep your momentum while you spin to aim anywhere.
   The velocity marker on the HUD shows where you are actually going.
 - **Flying through structures.** The station has a habitat ring, braced spokes, solar wings and
@@ -78,15 +91,18 @@ table below lists the defaults.
 | Action | Mouse & keyboard | Gamepad |
 |---|---|---|
 | Pitch / yaw | Mouse aim: point the circle, the ship follows (**X** recentres). Virtual stick available in Options | Right stick |
-| Roll | Q / E | Left stick X |
+| Roll (the camera rolls with the ship) | Q / E | Left stick X |
 | Throttle | W / S (**Z** matches target speed) | Left stick Y (L3 matches speed) |
 | Strafe | A / D, R / F | D-pad |
 | Boost | Shift | A / Cross |
 | Slide | Space (hold) | LT / L2 (hold) |
 | Guns | Left click | RT / R2 |
-| Missile (needs lock) | Right click or G | RB / R1 |
+| Missile (most types need a lock) | Right click or G | RB / R1 |
+| Drop flare | V | B / Circle |
+| Power to shields / guns / engines / balanced | 1 / 2 / 3 / 4 (press again to balance) | R3 cycles |
+| Request docking (again: docking computer) | B | X / Square |
 | Target nearest / next | T / Tab | Y (Triangle) / LB (L1) |
-| Camera | C | View/Share or R3 |
+| Camera | C | View/Share |
 | Pause | Esc / P | Start/Options |
 
 ## Code layout
@@ -152,9 +168,7 @@ is enough game to ship.
 
 ## Next steps
 
-- Hangar and shop between missions: buy the Lancer heavy fighter, upgrade guns, shields, engines
 - Branching campaign that follows the Combine or Drift choice, with consequences carried forward
-- Countermeasures, more weapon types, energy routing between shields, guns and engines
 - More locations: derelicts, a mining rig, a Combine shipyard
 - Floating origin, needed once maps grow beyond about 10 km
 - Optional CC0 photo textures (Poly Haven, ambientCG) as a detail layer on the hull shader

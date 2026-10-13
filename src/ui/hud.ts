@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { clamp } from '../core/math';
 import { FACTIONS, hostile } from '../entities/factions';
 import type { Ship } from '../entities/ship';
+import type { DockGuide } from '../game/docking';
 
 export interface HudData {
   player: Ship;
@@ -20,6 +21,7 @@ export interface HudData {
   damageFlash: number;
   time: number;
   gamepad: boolean;
+  dock: DockGuide | null;
 }
 
 const _v = new THREE.Vector3();
@@ -297,6 +299,7 @@ export class Hud {
 
     this.statusPanel(d);
     this.radar(d);
+    if (d.dock) this.dockGuide(d, d.dock);
 
     // objective & hint
     g.textAlign = 'center';
@@ -312,6 +315,54 @@ export class Hud {
       g.font = `700 18px ${FONT}`;
       g.fillStyle = '#ff9a3c';
       g.fillText('LEAVING THE OPERATIONS AREA. TURN BACK', this.w / 2, this.h * 0.34);
+    }
+  }
+
+  /** Docking marker (or an edge arrow towards it) and the instruction line. */
+  private dockGuide(d: HudData, dock: DockGuide): void {
+    const g = this.ctx;
+    const color = dock.tooFast ? '#ff5a4a' : '#5fe8ff';
+    if (dock.stage !== 'landing' && dock.stage !== 'docked') {
+      const sp = this.project(dock.marker, d.camera);
+      g.strokeStyle = color;
+      g.fillStyle = color;
+      g.lineWidth = 2;
+      const onScreen = sp && sp.x > 30 && sp.x < this.w - 30 && sp.y > 30 && sp.y < this.h - 30;
+      if (sp && onScreen) {
+        const r = 14 + Math.sin(d.time * 5) * 2;
+        g.beginPath();
+        g.moveTo(sp.x, sp.y - r);
+        g.lineTo(sp.x + r, sp.y);
+        g.lineTo(sp.x, sp.y + r);
+        g.lineTo(sp.x - r, sp.y);
+        g.closePath();
+        g.stroke();
+        g.font = `700 13px ${FONT}`;
+        g.textAlign = 'center';
+        g.fillText(`DOCK  ${Math.round(dock.distance)} m`, sp.x, sp.y + r + 16);
+      } else {
+        const e = this.edge(dock.marker, d.camera);
+        g.save();
+        g.translate(e.x, e.y);
+        g.rotate(e.a);
+        g.beginPath();
+        g.moveTo(16, 0);
+        g.lineTo(-6, -11);
+        g.lineTo(-2, 0);
+        g.lineTo(-6, 11);
+        g.closePath();
+        g.fill();
+        g.restore();
+      }
+      g.lineWidth = 1.5;
+    }
+    g.textAlign = 'center';
+    g.font = `700 17px ${FONT}`;
+    g.fillStyle = color;
+    g.fillText(dock.label, this.w / 2, this.h * 0.24);
+    if (dock.stage === 'entry') {
+      g.font = `600 14px ${FONT}`;
+      g.fillText(dock.tooFast ? `TOO FAST · ${Math.round(d.player.speed)} / ${dock.speedLimit} M/S` : `SPEED ${Math.round(d.player.speed)} / ${dock.speedLimit} M/S`, this.w / 2, this.h * 0.24 + 20);
     }
   }
 

@@ -19,6 +19,7 @@ import { POWER, Ship, type PowerMode } from '../entities/ship';
 import { DEFAULT_MISSILE, SHIP_CLASSES, type ShipClass } from '../entities/shipClasses';
 import type { Fitted } from './loadout';
 import { Hangar } from './hangar';
+import { DockPilot, Docking, type DockGuide } from './docking';
 import { FACTIONS, hostile, type FactionId } from '../entities/factions';
 import { AIPilot, WaypointPilot } from '../entities/ai';
 import { Instructor } from '../entities/instructor';
@@ -135,6 +136,12 @@ export class Game implements CombatContext {
   playerFit: { cls: ShipClass; fitted: Fitted } | null = null;
   /** Bounties earned by the player this sortie. */
   bounties = 0;
+  readonly docking: Docking;
+  private dockGuide: DockGuide | null = null;
+  private dockPilot: DockPilot;
+  /** The docking computer is flying (equipment, or the test autopilot). */
+  private autoDock = false;
+  private autopilot = false;
   /** Set by the mission runner. */
   onMissionEnd: ((result: 'victory' | 'defeat') => void) | null = null;
   missionRunner: ((game: Game, checkpoint: number) => Promise<void>) | null = null;
@@ -173,6 +180,9 @@ export class Game implements CombatContext {
     const rocks = buildAsteroids(this.world, new THREE.Vector3(-1200, -120, 650), 420, 46);
     this.scene.add(rocks.group);
     this.beacons.push(...station.beacons, ...carrier.beacons);
+    this.docking = new Docking(this.scene);
+    this.docking.add([...(station.docks ?? []), ...(carrier.docks ?? [])]);
+    this.dockPilot = new DockPilot(this.world);
     this.spinners.push(...(station.spinners ?? []));
     for (const [k, v] of Object.entries(station.points)) this.points[`station.${k}`] = v;
     for (const [k, v] of Object.entries(carrier.points)) this.points[`carrier.${k}`] = v;
@@ -298,6 +308,40 @@ export class Game implements CombatContext {
     this.hintTimer = seconds;
   }
 
+  /** Opens docking at the given ports (the player requests clearance with the dock key). */
+  allowDocking(ids: string[]): void {
+    this.docking.allowed = new Set(ids);
+  }
+
+  /** Resolves once the player has landed at one of `ids`. */
+  async dock(ids: string[]): Promise<string> {
+    this.allowDocking(ids);
+    await this.until(() => this.docking.stage === 'docked' && !!this.docking.active && ids.includes(this.docking.active.id));
+    return this.docking.active?.id ?? ids[0];
+  }
+
+  /** Dock key: clearance for the nearest open port; pressed again with a docking computer, it flies you in. */
+  requestDock(): void {
+    const p = this.player;
+    if (!p || !p.alive) return;
+    if (this.docking.active) {
+      if (p.equipment.has('dockingComputer') || this.autopilot) {
+        this.autoDock = !this.autoDock;
+        this.hint(this.autoDock ? 'Docking computer engaged' : 'Docking computer off: you have the controls', 2.5);
+      } else this.hint(`Cleared for ${this.docking.active.name}. Follow the gates`, 3);
+      return;
+    }
+    const port = this.docking.nearest(p.pos);
+    if (!port) {
+      this.audio.blip(300, 0.1, 0.1);
+      this.hint(this.docking.allowed ? 'Too far from an open docking bay' : 'No docking clearance right now', 2.5);
+      return;
+    }
+    this.docking.begin(port);
+    this.audio.blip(1320, 0.1, 0.06);
+    this.hint(`Docking clearance: ${port.name}. Fly through the gates${p.equipment.has('dockingComputer') ? `, or press ${this.input.label('dock')} again for the docking computer` : ''}`, 5);
+  }
+
   onKill(cb: (ship: Ship, by: Ship | null) => void): void {
     this.killListeners.push(cb);
   }
@@ -389,6 +433,9 @@ export class Game implements CombatContext {
     this.lockProgress = 0;
     this.damageFlash = 0;
     this.bounties = 0;
+    this.docking.reset();
+    this.dockGuide = null;
+    this.autoDock = false;
 
     const fit = this.playerFit;
     const player = this.spawnShip(
@@ -491,6 +538,13 @@ export class Game implements CombatContext {
     if (!p || !p.alive) return;
     const f = this.input.read();
     const c = p.controls;
+    if (p.held || (this.autoDock && this.docking.active)) {
+      // the clamps or the docking computer have the ship; keep the view behind the nose
+      this.input.takeAimDelta();
+      this.aimQuat.slerp(p.quat, dampFactor(4, dt));
+      if (this.input.pressed('dock')) this.requestDock();
+      return;
+    }
     if (this.input.mouseAimActive) {
       // Mouse aim: the mouse turns the aim frame, the instructor flies the ship towards it.
       const d = this.input.takeAimDelta();
@@ -539,10 +593,13 @@ export class Game implements CombatContext {
     c.fire = f.fire;
     c.missile = f.missile;
     c.throttle = clamp(c.throttle + f.throttleDelta * dt * 0.8, 0, 1);
+    const cap = Docking.approachThrottle(this.dockGuide, p);
+    if (cap !== null && f.throttleDelta <= 0) c.throttle = Math.min(c.throttle, cap);
     if (this.input.pressed('matchSpeed') && p.target) {
       c.throttle = clamp(p.target.speed / p.cls.maxSpeed, 0, 1);
     }
     if (this.input.pressed('flares')) this.dropFlare(p);
+    if (this.input.pressed('dock')) this.requestDock();
     const power: [Parameters<Input['pressed']>[0], PowerMode][] = [
       ['powerShields', 'shields'],
       ['powerGuns', 'guns'],
@@ -793,6 +850,7 @@ export class Game implements CombatContext {
     this.missionTime += dt;
     for (const s of this.ships) {
       if (!s.alive) continue;
+      if (s.held) continue;
       if (s.ai) s.ai.update(s, dt);
       s.updateFlight(dt);
       this.moveShip(s, dt);
@@ -806,6 +864,20 @@ export class Game implements CombatContext {
     this.bolts.update(dt, this);
     this.missiles.update(dt, this);
     this.ships = this.ships.filter((s) => s.alive || s.isPlayer);
+  }
+
+  private updateDocking(dt: number): void {
+    const p = this.player;
+    if (!p || !p.alive || !this.docking.active) {
+      this.dockGuide = null;
+      return;
+    }
+    // the autopilot test hook requests clearance itself once docking opens
+    this.dockGuide = this.docking.update(p, dt);
+    const g = this.dockGuide;
+    p.held = !!g && (g.stage === 'landing' || g.stage === 'docked');
+    if (g && !p.held && this.autoDock) this.dockPilot.fly(p, g, dt);
+    if (p.held) p.syncTransform();
   }
 
   private updatePlayerSystems(dt: number): void {
@@ -972,6 +1044,7 @@ export class Game implements CombatContext {
   /** Test hook: hands the player ship to an AI pilot. */
   enableAutopilot(skill = 0.9): void {
     if (this.player) this.player.ai = new AIPilot(this, skill);
+    this.autopilot = true;
   }
 
   /**
@@ -1009,9 +1082,18 @@ export class Game implements CombatContext {
 
     if (this.state === 'playing') {
       this.applyPlayerInput(dt);
+      if (this.autopilot && this.player?.alive) {
+        // test autopilot: take docking clearance when it opens and let the docking computer fly
+        if (this.docking.allowed && !this.docking.active) this.requestDock();
+        if (this.docking.active) {
+          this.autoDock = true;
+          this.player.ai = null;
+        }
+      }
       const steps = Math.ceil(dt / (1 / 90));
       const h = dt / steps;
       for (let i = 0; i < steps; i++) this.step(h);
+      this.updateDocking(dt);
       this.updatePlayerSystems(dt);
       // resolve waiters
       const ready = this.waiters.filter((w) => w.until());
@@ -1124,6 +1206,7 @@ export class Game implements CombatContext {
         damageFlash: this.damageFlash,
         time: this.time,
         gamepad: this.input.device === 'gamepad',
+        dock: this.dockGuide,
       });
     } else this.hud.clear();
   }
@@ -1189,6 +1272,8 @@ export class Game implements CombatContext {
     this.player = null;
     this.bolts.clear();
     this.missiles.clear();
+    this.docking.reset();
+    this.dockGuide = null;
     this.objective = '';
     this.hintText = null;
     this.audio.silenceLoops();

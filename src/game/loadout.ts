@@ -149,7 +149,7 @@ export const UPGRADES: UpgradeType[] = [
 ];
 export const MAX_TIER = 3;
 
-export type EquipmentId = 'flares' | 'shieldCell' | 'repair' | 'afterburner' | 'magazine' | 'targeting';
+export type EquipmentId = 'flares' | 'shieldCell' | 'repair' | 'afterburner' | 'magazine' | 'targeting' | 'dockingComputer';
 
 export interface EquipmentType {
   id: EquipmentId;
@@ -194,6 +194,12 @@ export const EQUIPMENT: Record<EquipmentId, EquipmentType> = {
     name: 'Targeting computer',
     description: 'Missile locks form 45% faster and gun lead assist is twice as strong.',
     price: 8000,
+  },
+  dockingComputer: {
+    id: 'dockingComputer',
+    name: 'Docking computer',
+    description: 'Once you have clearance, press the dock key again and it flies you in. For pilots with better things to do.',
+    price: 4000,
   },
 };
 

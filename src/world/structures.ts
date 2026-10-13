@@ -24,12 +24,32 @@ export interface Spinner {
   speed: number;
 }
 
+/**
+ * A place to land. Positions are world space (or local to `parent` when it moves). Ships fly in
+ * along -outward, through the mouth, and settle on the pad.
+ */
+export interface DockSpec {
+  id: string;
+  name: string;
+  pad: THREE.Vector3;
+  /** Unit vector from the pad out through the bay mouth. */
+  outward: THREE.Vector3;
+  up: THREE.Vector3;
+  /** Distance from the pad to the mouth. */
+  mouth: number;
+  /** Half-size of the bay opening (width, height), for the guide rings. */
+  opening: [number, number];
+  maxSpeed: number;
+  parent?: THREE.Object3D;
+}
+
 export interface StructureResult {
   group: THREE.Group;
   beacons: Beacon[];
   /** Named waypoints (world space) used by AI and missions. */
   points: Record<string, THREE.Vector3>;
   spinners?: Spinner[];
+  docks?: DockSpec[];
 }
 
 /**
@@ -73,6 +93,39 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
       collide: false,
     });
   }
+
+
+  // --- Docking bay on the hub, above the sweep of the spokes ----------------------------------
+  const bayDir = v3(0.97, 0, -0.24).normalize();
+  const bayA = Math.atan2(bayDir.z, bayDir.x);
+  const baySide = v3(-bayDir.z, 0, bayDir.x);
+  const bayY = 64;
+  const bq = quatY(-bayA);
+  const at = (r: number, y: number, sd: number) => bayDir.clone().multiplyScalar(r).addScaledVector(baySide, sd).setY(bayY + y);
+  const bayIn = 36;
+  const bayOut = 132;
+  const bayLen = bayOut - bayIn;
+  const bayMid = (bayIn + bayOut) / 2;
+  b.box(at(bayMid, -19, 0), v3(bayLen, 4, 66), '#2b2f45', { quat: bq });
+  b.box(at(bayMid, 19, 0), v3(bayLen, 4, 66), teal, { quat: bq });
+  for (const sd of [-1, 1]) b.box(at(bayMid, 0, sd * 33), v3(bayLen, 42, 4), cream, { quat: bq });
+  b.box(at(bayIn - 2, 0, 0), v3(4, 42, 66), '#1b6f69', { quat: bq });
+  // frame, lights and the landing pad
+  for (const sd of [-1, 1]) b.box(at(bayOut, 0, sd * 31.5), v3(3, 38, 2), yellow, { quat: bq, glow: 1.5, collide: false });
+  b.box(at(bayOut, 16.8, 0), v3(3, 1, 62), yellow, { quat: bq, glow: 1.5, collide: false });
+  b.box(at(bayOut, -16.8, 0), v3(3, 1, 62), yellow, { quat: bq, glow: 1.5, collide: false });
+  for (let r = bayIn + 8; r < bayOut; r += 12) {
+    b.box(at(r, 16.6, 0), v3(1.2, 0.4, 50), '#dff4ff', { quat: bq, glow: 1.4, collide: false });
+    for (const sd of [-1, 1]) b.box(at(r, -16.7, sd * 9), v3(4, 0.3, 0.8), '#5fe8ff', { quat: bq, glow: 1.6, collide: false });
+  }
+  b.cylinder(at(70, -16.8, 0), 12, 0.4, '#5fe8ff', { sides: 32, glow: 1.2, collide: false });
+  b.cylinder(at(70, -16.7, 0), 10.5, 0.45, '#2b2f45', { sides: 32, collide: false });
+  for (let k = 0; k < 8; k++) {
+    for (const sd of [-1, 1]) {
+      beacons.push({ position: at(bayOut + 8 + k * 14, -17, sd * 30), color: new THREE.Color('#5fe8ff'), phase: 8 - k, kind: 'chase' });
+    }
+  }
+  const bayPad = at(70, -12.5, 0);
 
   // Everything from here to the towers rotates slowly for spin gravity, so it is built separately
   // and attached to the collision world as a moving sub-world.
@@ -278,6 +331,7 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
   });
   const hubDir = v3(0.24, 0, 0.97).normalize();
   group.add(placeHologram(createHologram(['WELCOME TO THE VEIL REACH'], '#4dfcd2', 64, 7), hubDir.clone().multiplyScalar(47), hubDir));
+  group.add(placeHologram(createHologram(['DOCKING BAY 1'], '#ffd84d', 40, 9), at(bayOut + 2, 27, 0), bayDir));
 
   const dish = db.build('sensor-dish');
   group.add(dish);
@@ -297,7 +351,20 @@ export function buildKestrelStation(world: CollisionWorld): StructureResult {
       towerTop: v3(0, 400, 0),
       towerBottom: v3(0, -400, 0),
       ring: v3(R, 0, 0),
+      bay: bayPad.clone(),
     },
+    docks: [
+      {
+        id: 'kestrel.bay1',
+        name: 'Kestrel Station, bay 1',
+        pad: bayPad,
+        outward: bayDir.clone(),
+        up: v3(0, 1, 0),
+        mouth: bayOut - 70,
+        opening: [30, 16],
+        maxSpeed: 45,
+      },
+    ],
   };
 }
 
@@ -418,6 +485,18 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
   return {
     group,
     beacons: worldBeacons,
+    docks: [
+      {
+        id: 'carrier.hangar',
+        name: 'Sovereign Dawn, hangar deck',
+        pad: v3(0, -20, -75).applyMatrix4(transform),
+        outward: v3(1, 0, 0).transformDirection(transform),
+        up: v3(0, 1, 0).transformDirection(transform),
+        mouth: hx,
+        opening: [38, 23],
+        maxSpeed: 60,
+      },
+    ],
     points: {
       hangarPort: v3(-hx - 60, 0, -75).applyMatrix4(transform),
       hangarStarboard: v3(hx + 60, 0, -75).applyMatrix4(transform),

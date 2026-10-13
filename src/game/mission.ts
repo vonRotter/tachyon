@@ -143,7 +143,16 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
     await g.say('tessaine', 'Impressive flying, Rook. The Combine pays well for talent, and better for discretion. Dock with the Sovereign Dawn. We should talk.');
     await g.say('sorrel', 'Rook. Before you go to them, come see me. Ask yourself why a Combine carrier went quiet the moment the Wake arrived.');
     await g.say('varga', "Your slot's open, Rook. They're both waiting for you. Choose carefully. Out here, choices stick.");
-    await g.wait(1);
+    g.objective = 'Dock at Kestrel Station, bay 1';
+    g.hint(
+      pad() ? 'Press X to request docking clearance, then fly through the gates' : `Press ${key('dock')} to request docking clearance, then fly through the gates`,
+      8,
+    );
+    await g.say('varga', 'Bay one is the hangar on the hub, above the spokes. Follow the gates in and keep it under forty-five.');
+    await g.dock(['kestrel.bay1']);
+    g.objective = '';
+    await g.say('varga', 'Clamps are on. Welcome to Kestrel, Rook.');
+    await g.wait(0.5);
     g.endMission('victory');
   }
 }

@@ -139,6 +139,8 @@ export class Ship {
   shotsFired = 0;
   shotsHit = 0;
 
+  /** Held by docking clamps: physics and controls are suspended. */
+  held = false;
   /** Fitted equipment ids (player ships). */
   readonly equipment = new Set<string>();
   flares = 0;
