@@ -582,7 +582,7 @@ export class Shop {
     // the next story contract first, then anything new, then what you have already flown
     const next = nextStory(c);
     const rank = (m: MissionDef) => (m === next ? 0 : m.repeatable ? 2 : c.completed[m.id] ? 3 : 1);
-    const missions = MISSIONS.filter((m) => m.available(c)).sort((a, b) => rank(a) - rank(b));
+    const missions = MISSIONS.filter((m) => c.unlimited || m.available(c)).sort((a, b) => rank(a) - rank(b));
     if (!missions.some((m) => m.id === this.selectedMission)) this.selectedMission = (next ?? missions[0]).id;
     const groups: [string, MissionDef[]][] = [
       ['Story', missions.filter((m) => (m.kind ?? 'story') === 'story')],
@@ -615,6 +615,26 @@ export class Shop {
     if (path.length === 1) row.appendChild(el('span', 'campaign-pip later', 'Where you land decides the rest'));
     strip.appendChild(row);
     if (done) strip.appendChild(el('p', 'tab-note', 'Every contract can be flown again, at reduced pay.'));
+    if (c.unlimited) {
+      // test mode: every contract is listed, and the side can be switched to try both paths
+      const tools = el('div', 'campaign-pips');
+      tools.appendChild(el('span', 'campaign-head', 'Test side:'));
+      for (const [label, value] of [
+        ['Combine', 'combine'],
+        ['Drift', 'drift'],
+        ['None', null],
+      ] as const) {
+        const b = this.button(label, () => {
+          c.allegiance = value;
+          if (value) c.standing[value] = Math.max(1, c.standing[value] ?? 0);
+          this.commit();
+        });
+        b.classList.add('test-side');
+        b.classList.toggle('on', c.allegiance === value);
+        tools.appendChild(b);
+      }
+      strip.appendChild(tools);
+    }
     return strip;
   }
 

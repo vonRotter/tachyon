@@ -30,6 +30,14 @@ import { BoltSystem, MissileSystem, type CombatContext } from '../entities/weapo
 import { Hud } from '../ui/hud';
 import { Comms } from '../ui/comms';
 
+
+export type Difficulty = 'easy' | 'normal' | 'hard';
+/** Damage the player takes, and how much sharper (or duller) hostile pilots and gunners fly. */
+export const DIFFICULTY: Record<Difficulty, { damageTaken: number; skill: number }> = {
+  easy: { damageTaken: 0.6, skill: -0.12 },
+  normal: { damageTaken: 1, skill: 0 },
+  hard: { damageTaken: 1.35, skill: 0.1 },
+};
 export type GameState = 'title' | 'hangar' | 'playing' | 'paused' | 'debrief';
 
 export class MissionAbort extends Error {
@@ -498,9 +506,11 @@ export class Game implements CombatContext {
     if (faction !== 'player') this.seenClasses.add(ship.cls.id);
     ship.placeAt(pos, lookAt, opts.speed ?? ship.cls.maxSpeed * 0.8);
     if (opts.turret) {
-      ship.ai = new TurretAI(this, opts.skill ?? 0.5, opts.playerBias ?? 0.4);
+      const skill = (opts.skill ?? 0.5) + (hostile('player', faction) ? DIFFICULTY[this.difficulty].skill : 0);
+      ship.ai = new TurretAI(this, clamp(skill, 0.15, 0.98), opts.playerBias ?? 0.4);
     } else if (opts.skill !== undefined) {
-      const ai = new AIPilot(this, opts.skill);
+      const skill = hostile('player', faction) ? clamp(opts.skill + DIFFICULTY[this.difficulty].skill, 0.15, 0.98) : opts.skill;
+      const ai = new AIPilot(this, skill);
       ai.tactic = opts.tactic ?? FACTION_TACTICS[faction] ?? 'swarm';
       ai.playerBias = opts.playerBias ?? 0.5;
       ai.patrolPoint.copy(this.points['station.hub'] ?? this.points['gallows.center'] ?? this.location.arena.center);
@@ -703,6 +713,8 @@ export class Game implements CombatContext {
   private readonly friendlyFire = new Map<FactionId, number>();
   /** How much friendly fire a faction tolerates before turning on the player (missions may change it). */
   friendlyFireLimit = 220;
+  /** Player damage taken and hostile pilot skill. */
+  difficulty: Difficulty = 'normal';
   /** Called when a faction turns hostile because of the player's fire. */
   onBetrayal: ((faction: FactionId) => void) | null = null;
 
@@ -741,6 +753,7 @@ export class Game implements CombatContext {
     ship.vel.addScaledVector(_v, (kind === 'missile' ? 24 : damage * 0.35) / mass);
     ship.angVel.add(_v2.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar((kind === 'missile' ? 1.4 : 0.12) / mass));
     if (ship.isPlayer) this.camLag.addScaledVector(_v, kind === 'missile' ? 1.5 : 0.25);
+    if (ship.isPlayer) damage *= DIFFICULTY[this.difficulty].damageTaken;
     const killed = ship.damage(damage, source);
     _n.subVectors(point, ship.pos).normalize();
     this.fx.impact(point, _n, hadShields ? '#7fd8ff' : '#ffb347');

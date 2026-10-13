@@ -1107,7 +1107,7 @@ function scarlet(p: Palette): ShipModel {
   /** A wing from the body out to `tip`, as a slab of the given chord. */
   const wing = (tip: THREE.Vector3, chord: number, color: string) => {
     const n = new THREE.Vector3(-tip.y, tip.x, 0).normalize();
-    b.hull(plate([root.clone().add(v3(0, 0, -chord * 0.6)), root.clone().add(v3(0, 0, chord * 0.4)), tip.clone().add(v3(0, 0, chord * 0.25)), tip.clone().add(v3(0, 0, -chord * 0.45))], n, 0.2), color);
+    b.hull(plate([root.clone().add(v3(0, 0, -chord * 0.6)), root.clone().add(v3(0, 0, chord * 0.4)), tip.clone().add(v3(0, 0, chord * 0.25)), tip.clone().add(v3(0, 0, -chord * 0.45))], n, 0.5), color);
     return n;
   };
   /** Starfury-style engine pod with a cannon running forward along it. */
@@ -1123,8 +1123,8 @@ function scarlet(p: Palette): ShipModel {
   // the long pair: upper starboard and lower port, swept back to their pods
   const tipA = v3(5.6, 2.6, 3.0);
   const tipB = v3(-5.0, -2.4, 3.2);
-  wing(tipA, 2.6, p.primary);
-  wing(tipB, 2.4, p.primary);
+  wing(tipA, 3.2, p.primary);
+  wing(tipB, 3.0, p.primary);
   pod(tipA);
   pod(tipB);
   // cream leading-edge stripes on the long wings

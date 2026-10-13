@@ -890,3 +890,14 @@ button:disabled {
   color: var(--muted);
   margin: 8px 0 4px;
 }
+
+.test-side {
+  font-size: 12px;
+  padding: 2px 8px;
+  margin: 0;
+}
+
+.test-side.on {
+  border-color: #ffd36b;
+  color: #ffd36b;
+}

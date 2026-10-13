@@ -1,5 +1,5 @@
 import './style.css';
-import { Game } from './game/game';
+import { Game, type Difficulty } from './game/game';
 import { defect, fitShip, migrateCampaign, missionPayout, newCampaign, newFit, type Campaign, type Side } from './game/loadout';
 import { missionById, type MissionDef } from './game/missions';
 import { SHIP_CLASSES } from './entities/shipClasses';
@@ -23,6 +23,7 @@ interface Settings {
   sensitivity: number;
   quality: 'auto' | QualityLevel;
   mouseMode: MouseMode;
+  difficulty: Difficulty;
 }
 
 const load = <T>(key: string, fallback: T): T => {
@@ -53,6 +54,7 @@ const settings = load<Settings>('veil.settings', {
   sensitivity: 1,
   quality: 'auto',
   mouseMode: 'aim',
+  difficulty: 'normal',
 });
 // the old browser-TTS toggle is now `tts`
 delete (settings as Partial<Settings> & { voice?: boolean }).voice;
@@ -75,6 +77,7 @@ function applySettings(): void {
   game.audio.music.enabled = settings.musicVolume > 0;
   game.audio.setVolumes(settings.sfxVolume, settings.musicVolume * 0.5, settings.voiceVolume);
   game.setGlow(settings.glow);
+  game.difficulty = settings.difficulty;
   save('veil.settings', settings);
 }
 
@@ -104,6 +107,13 @@ bindRange('opt-sfx-vol', 'sfxVolume');
 bindRange('opt-voice-vol', 'voiceVolume');
 bindRange('opt-glow', 'glow');
 bindRange('opt-sens', 'sensitivity');
+const difficultySelect = $<HTMLSelectElement>('opt-difficulty');
+difficultySelect.value = settings.difficulty;
+difficultySelect.addEventListener('change', () => {
+  settings.difficulty = difficultySelect.value as Difficulty;
+  save('veil.settings', settings);
+  applySettings();
+});
 const mouseModeSelect = $<HTMLSelectElement>('opt-mouse-mode');
 mouseModeSelect.value = settings.mouseMode;
 mouseModeSelect.addEventListener('change', () => {

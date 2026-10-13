@@ -55,7 +55,10 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 - **Ship database** in the hangar: every fighter, gunship, capital ship, civilian hull and
   installation in the Reach, with facts, a description, and a turntable model you can repaint
   in each operator's colours.
-- **Test cheat:** Ctrl+P toggles unlimited credits and opens every yard.
+- **Difficulty** (Options): Easy, Normal or Hard scales the damage you take and how sharply
+  hostile pilots and gunners fly.
+- **Test cheat:** Ctrl+P toggles unlimited credits, opens every yard, lists every contract and
+  adds a side switch above the contracts so both campaign paths can be tried.
 - **Credits** come from contract pay plus a bounty per kill. Repeat runs of a mission pay 40%.
   The campaign (credits, ships, fits, faction choice) is saved in `localStorage`.
 - **Weapons.** Pulse, rapid, mass driver and scatter guns. Seeker missiles, unguided rocket
