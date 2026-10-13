@@ -282,6 +282,28 @@ export class AudioEngine {
     }
   }
 
+  /** Catapult launch: a deep clunk and a rising rush. */
+  catapult(pos: THREE.Vector3 | null): void {
+    const v = this.voice(pos, pos ? 0.8 : 0.6, 1.6, 140);
+    if (!v) return;
+    const ctx = this.context;
+    const t = ctx.currentTime;
+    const thump = ctx.createOscillator();
+    thump.type = 'sine';
+    thump.frequency.setValueAtTime(90, t);
+    thump.frequency.exponentialRampToValueAtTime(30, t + 0.4);
+    thump.connect(this.env(t, 0.003, 0.45, 1.3)).connect(v.input);
+    thump.start(t);
+    thump.stop(t + 0.5);
+    const n = this.noiseSource(t, 1.4, 0.8);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(220, t);
+    bp.frequency.exponentialRampToValueAtTime(2400, t + 1.1);
+    n.connect(bp).connect(this.env(t, 0.08, 1.2, 0.9)).connect(v.input);
+  }
+
   /** Flare pop: a bright crackle and hiss. */
   flare(): void {
     const v = this.voice(null, 0.35, 0.6);

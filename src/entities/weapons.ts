@@ -133,7 +133,9 @@ export class BoltSystem {
       let bestT = step;
       let bestShip: Ship | null = null;
       for (const s of ctx.ships) {
-        if (!s.alive || s === this.owner[i] || !hostile(this.faction[i], s.faction)) continue;
+        if (!s.alive || s === this.owner[i]) continue;
+        // the player's guns can hit friendlies (with consequences); everyone else only shoots enemies
+        if (!hostile(this.faction[i], s.faction) && !(this.owner[i]?.isPlayer && s.faction !== 'player')) continue;
         const pad = s.spheres.length > 1 ? 1 : 1.15;
         for (const sph of s.spheres) {
           const t = raySphere(_p, _d, sph.c, sph.r * pad, bestT);

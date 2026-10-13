@@ -297,6 +297,7 @@ function begin(m: MissionDef, checkpoint: number): void {
   show('pause', false);
   show('debrief', false);
   show('hangar', false);
+  game.loadLocation(m.map);
   game.missionRunner = m.run;
   game.playerFit = fitShip(campaign.activeShip, campaign.fits[campaign.activeShip]);
   game.startMission(checkpoint);
@@ -345,11 +346,24 @@ game.onMissionEnd = (result) => {
     .toString()
     .padStart(2, '0');
   // bounties are paid either way; the contract only on success, reduced on repeat runs
-  const pay = missionPayout(campaign, mission.id, result === 'victory' ? mission.pay : 0, game.bounties);
+  const pay = missionPayout(campaign, mission.id, result === 'victory' ? mission.pay + game.bonusPay : 0, game.bounties);
   campaign.credits += pay.total;
-  if (result === 'victory') campaign.completed[mission.id] = (campaign.completed[mission.id] ?? 0) + 1;
+  if (result === 'victory') {
+    campaign.completed[mission.id] = (campaign.completed[mission.id] ?? 0) + 1;
+    for (const [k, v] of Object.entries(game.missionFlags)) {
+      if (k === 'allegiance') campaign.allegiance = v as Campaign['allegiance'];
+      else campaign.flags[k] = v;
+    }
+  }
   saveCampaign();
-  $('debrief-title').textContent = result === 'victory' ? mission.victoryTitle : 'Signal lost';
+  const outcomeTitles: Record<string, string> = {
+    burned: 'The Gallows burns',
+    watched: 'The Gallows falls',
+    defended: 'You stood between them',
+    lost: 'Too late',
+  };
+  $('debrief-title').textContent =
+    result === 'victory' ? (outcomeTitles[game.missionFlags.gallows ?? ''] ?? mission.victoryTitle) : 'Signal lost';
   const stats: [string, string][] = [
     ['KILLS', String(kills)],
     ['ACCURACY', `${acc}%`],

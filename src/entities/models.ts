@@ -382,7 +382,131 @@ function halberd(p: Palette): ShipModel {
   };
 }
 
-const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd };
+function sabre(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.hull(
+    [
+      v3(0, 0.2, -7.5),
+      v3(1.1, 0.1, -3.5),
+      v3(-1.1, 0.1, -3.5),
+      v3(0, 1.1, -3),
+      v3(0, -0.7, -3),
+      v3(1.6, 0.2, 2.5),
+      v3(-1.6, 0.2, 2.5),
+      v3(0, 1.3, 2.5),
+      v3(0, -0.9, 2.5),
+      v3(1.1, 0.3, 4.8),
+      v3(-1.1, 0.3, 4.8),
+      v3(0, 0.9, 4.8),
+      v3(0, -0.6, 4.8),
+    ],
+    p.primary,
+  );
+  b.hull([v3(0, 0.8, -3.6), v3(0.55, 0.7, -1.6), v3(-0.55, 0.7, -1.6), v3(0, 1.5, -1), v3(0, 1.2, 0.6)], p.canopy, 1.15);
+  // swept crescent wings with gold leading edges
+  b.hullMirrored(plate([v3(1.3, 0, -1.5), v3(1.4, 0, 3.6), v3(7.2, -0.3, 4.4), v3(5.4, -0.2, 0.6)], UPN, 0.24), p.primary);
+  b.hullMirrored(plate([v3(1.4, 0.14, -1.4), v3(1.6, 0.14, -0.7), v3(5.6, -0.06, 1.1), v3(5.4, -0.06, 0.5)], UPN, 0.08), p.secondary);
+  b.hullMirrored(plate([v3(6.6, -0.3, 3.4), v3(7.2, -0.3, 4.4), v3(7.4, 1.4, 4.9), v3(7.1, 1.4, 4.2)], SIDEN, 0.12), p.secondary);
+  b.box(v3(0, 1.0, 2.2), v3(0.5, 0.2, 3.6), p.accent, { ...NO, glow: 1.4 });
+  for (const s of [1, -1]) {
+    b.cylinder(v3(s * 1.15, 0.2, 3.9), 0.55, 2.4, '#2b2f45', { ...NO, quat: X90, sides: 8 });
+    b.cylinder(v3(s * 1.15, 0.2, 5.15), 0.45, 0.1, p.engine, { ...NO, quat: X90, sides: 8, glow: 1.0 });
+    b.cylinder(v3(s * 3.4, -0.2, -1.6), 0.13, 3, '#2b2f45', { ...NO, quat: X90, sides: 6 });
+    b.sphere(v3(s * 7.3, 1.4, 4.6), 0.16, s > 0 ? '#30ff70' : '#ff2040', { ...NO, glow: 3, detail: 0 });
+  }
+  return {
+    group: b.build('sabre', 'ship'),
+    engines: [v3(1.15, 0.2, 5.2), v3(-1.15, 0.2, 5.2)],
+    engineRadius: 0.48,
+    guns: [v3(3.4, -0.2, -3.2), v3(-3.4, -0.2, -3.2)],
+    cameraOffset: v3(0, 3.4, 14),
+  };
+}
+
+function shuttle(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.hull(
+    [v3(-3, -2.5, -11), v3(3, -2.5, -11), v3(-2.4, 2, -10), v3(2.4, 2, -10), v3(-4.5, -3.5, 8), v3(4.5, -3.5, 8), v3(-4, 3.5, 8), v3(4, 3.5, 8), v3(0, 0, -13)],
+    p.primary,
+  );
+  b.hull([v3(-1.8, 1.4, -11.4), v3(1.8, 1.4, -11.4), v3(-1.4, 2.4, -9), v3(1.4, 2.4, -9), v3(0, 0.6, -12.6)], p.canopy, 1.2);
+  b.box(v3(0, 3.8, 1), v3(6, 0.6, 12), p.secondary, NO);
+  for (const s of [1, -1]) {
+    b.box(v3(s * 5.2, -1, 2), v3(1.6, 3, 10), p.secondary, NO);
+    b.box(v3(s * 4.7, 0.5, -2), v3(0.3, 0.8, 9), p.accent, { ...NO, glow: 1.3 });
+    b.cylinder(v3(s * 2.6, -0.5, 8.6), 1.3, 1.6, '#2b2f45', { ...NO, quat: X90, sides: 10 });
+    b.cylinder(v3(s * 2.6, -0.5, 9.45), 1.1, 0.1, p.engine, { ...NO, quat: X90, sides: 10, glow: 1.0 });
+    b.sphere(v3(s * 6, -1, 7), 0.25, s > 0 ? '#30ff70' : '#ff2040', { ...NO, glow: 3, detail: 0 });
+  }
+  return {
+    group: b.build('shuttle', 'ship'),
+    engines: [v3(2.6, -0.5, 9.5), v3(-2.6, -0.5, 9.5)],
+    engineRadius: 1.1,
+    guns: [v3(0, 0, -13)],
+    cameraOffset: v3(0, 8, 32),
+  };
+}
+
+function turret(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.cylinder(v3(0, -4, 0), 6, 3, '#2b2f45', { ...NO, sides: 12 });
+  b.cylinder(v3(0, -6, 0), 3, 6, '#3a3440', { ...NO, sides: 8 });
+  b.sphere(v3(0, -1, 0), 4.2, p.primary, { ...NO, detail: 1, scale: v3(1, 0.75, 1.1) });
+  for (const s of [1, -1]) {
+    b.cylinder(v3(s * 1.4, -0.6, -5), 0.45, 7, '#2b2f45', { ...NO, quat: X90, sides: 8 });
+    b.cylinder(v3(s * 1.4, -0.6, -8.6), 0.6, 0.6, p.accent, { ...NO, quat: X90, sides: 8, glow: 1.6 });
+  }
+  b.sphere(v3(0, 2.2, 1), 0.5, '#ff2040', { ...NO, glow: 3, detail: 0 });
+  b.box(v3(0, 0.6, -2.4), v3(3.4, 0.5, 0.3), p.engine, { ...NO, glow: 1.6 });
+  return {
+    group: b.build('turret', 'ship'),
+    engines: [],
+    engineRadius: 0,
+    guns: [v3(1.4, -0.6, -9), v3(-1.4, -0.6, -9)],
+    cameraOffset: v3(0, 8, 24),
+  };
+}
+
+function relay(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.cylinder(v3(0, -6, 0), 5, 14, '#2b2f45', { ...NO, sides: 10 });
+  b.box(v3(0, 1.5, 0), v3(16, 3, 16), p.secondary, NO);
+  for (const [x, z, r, tilt] of [
+    [0, 0, 12, 0.3],
+    [9, 6, 6, -0.5],
+    [-8, -7, 7, 0.6],
+  ] as const) {
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt, x * 0.1, 0));
+    b.cylinder(v3(x, 6, z), r, 2, '#d8d2c6', { ...NO, sides: 18, radiusTop: r * 0.25, quat: q });
+    b.sphere(v3(x, 8, z), 0.8, '#ff2040', { ...NO, glow: 3, detail: 0 });
+  }
+  b.strut(v3(0, 3, 0), v3(0, 22, 0), 0.4, '#2b2f45', NO);
+  b.sphere(v3(0, 22.5, 0), 0.9, p.accent, { ...NO, glow: 3, detail: 0 });
+  b.box(v3(0, 3.1, 8.1), v3(12, 1.2, 0.2), p.accent, { ...NO, glow: 1.8 });
+  return { group: b.build('relay', 'ship'), engines: [], engineRadius: 0, guns: [v3(0, 0, -8)], cameraOffset: v3(0, 20, 60) };
+}
+
+function habitat(p: Palette): ShipModel {
+  const b = new StructureBuilder();
+  b.cylinder(v3(0, 0, 0), 36, 100, '#c9b8a2', { ...NO, quat: X90, sides: 24 });
+  for (const z of [-50, 50]) b.sphere(v3(0, 0, z), 30, '#b8a690', { ...NO, detail: 2, scale: v3(1.15, 1.15, 0.6) });
+  // painted bands, warm windows, washing lines of colourful cloth
+  for (const z of [-34, 0, 34]) b.torus(v3(0, 0, z), 36.4, 1.4, p.primary, { quat: new THREE.Quaternion(), tubular: 48 });
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    for (const z of [-22, -8, 8, 22]) {
+      if ((i + z) % 3 === 0) continue;
+      const pos = v3(Math.cos(a) * 36.3, Math.sin(a) * 36.3, z);
+      b.box(pos, v3(0.4, 4, 6), i % 5 === 0 ? '#9fe8ff' : '#ffd27a', { ...NO, glow: 1.5, quat: new THREE.Quaternion().setFromAxisAngle(v3(0, 0, 1), a) });
+    }
+  }
+  const cloth = ['#ff4d4d', '#ffcf33', '#2fb7ff', '#3ee07a', '#ff7ad9', '#9b6bff'];
+  for (let i = 0; i < 12; i++) b.box(v3(-30 + i * 5.5, -37.5, 46 - (i % 3)), v3(3, 4, 0.2), cloth[i % cloth.length], NO);
+  b.box(v3(0, 38, 0), v3(10, 4, 70), '#5a6078', NO);
+  return { group: b.build('habitat', 'ship'), engines: [], engineRadius: 0, guns: [v3(0, 0, -50)], cameraOffset: v3(0, 60, 200) };
+}
+
+const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat };
 const cache = new Map<string, ShipModel>();
 
 /** Builds (once) and clones a ship model. Clones share geometry and materials. */

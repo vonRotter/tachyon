@@ -43,8 +43,14 @@ CAST = {
     "vey": {"voice": {"am_fenrir": 0.3, "am_onyx": 0.7}, "lang": "en-us", "speed": 0.92},
     # Helion Combine: British, measured
     "tessaine": {"voice": "bm_george", "lang": "en-gb", "speed": 0.94},
+    "nessa": {"voice": "af_nova", "lang": "en-us", "speed": 1.05},
+    # Helion Combine: British, measured
+    "quell": {"voice": "bf_isabella", "lang": "en-gb", "speed": 1.02},
+    "vale": {"voice": "bm_fable", "lang": "en-gb", "speed": 1.0},
     # Drift Union: British, older and warmer
     "sorrel": {"voice": "bf_emma", "lang": "en-gb", "speed": 0.9},
+    "kit": {"voice": "af_kore", "lang": "en-us", "speed": 1.08},
+    "magpie": {"voice": "am_michael", "lang": "en-us", "speed": 0.98},
 }
 
 SAY = re.compile(r"""say\(\s*'(\w+)'\s*,\s*(['"])((?:\\.|(?!\2).)*)\2\s*\)""")

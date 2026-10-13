@@ -84,7 +84,21 @@ export const FACTIONS: Record<FactionId, FactionInfo> = {
   },
 };
 
-/** For this slice, only the Red Wake is hostile, and hostile to everyone. */
+/** Mission-set overrides on top of the default: the Red Wake against everyone. */
+const overrides = new Map<string, boolean>();
+const pairKey = (a: FactionId, b: FactionId): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
+
 export function hostile(a: FactionId, b: FactionId): boolean {
+  if (a === b) return false;
+  const o = overrides.get(pairKey(a, b));
+  if (o !== undefined) return o;
   return (a === 'wake') !== (b === 'wake');
+}
+
+export function setHostile(a: FactionId, b: FactionId, value: boolean): void {
+  overrides.set(pairKey(a, b), value);
+}
+
+export function resetRelations(): void {
+  overrides.clear();
 }

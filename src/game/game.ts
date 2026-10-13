@@ -13,15 +13,16 @@ import { setHullDetail } from '../world/hullMaterial';
 import { DynamicResolution, QUALITY_PROFILES, detectQuality, type QualityLevel, type QualityProfile } from '../core/quality';
 import { LensPass, SanitizePass } from '../fx/postfx';
 import { updateHolograms } from '../world/holograms';
-import { buildAsteroids, buildCarrier, buildKestrelStation, type Beacon, type Spinner } from '../world/structures';
+import type { Beacon, Spinner } from '../world/structures';
+import { LOCATIONS, type Location } from '../world/locations';
 import { Effects } from '../fx/effects';
 import { POWER, Ship, type PowerMode } from '../entities/ship';
 import { DEFAULT_MISSILE, SHIP_CLASSES, type ShipClass } from '../entities/shipClasses';
 import type { Fitted } from './loadout';
 import { Hangar } from './hangar';
 import { DockPilot, Docking, type DockGuide } from './docking';
-import { FACTIONS, hostile, type FactionId } from '../entities/factions';
-import { AIPilot, WaypointPilot } from '../entities/ai';
+import { FACTIONS, hostile, resetRelations, setHostile, type FactionId } from '../entities/factions';
+import { AIPilot, TurretAI, WaypointPilot } from '../entities/ai';
 import { Instructor } from '../entities/instructor';
 import { BoltSystem, MissileSystem, type CombatContext } from '../entities/weapons';
 import { Hud } from '../ui/hud';
@@ -48,6 +49,8 @@ export interface SpawnOptions {
   flares?: number;
   speed?: number;
   damageScale?: number;
+  /** Fixed gun emplacement AI instead of a pilot. */
+  turret?: boolean;
 }
 
 const _v = new THREE.Vector3();
@@ -58,8 +61,6 @@ const _relVel = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const hit = makeRayHit();
 
-const ARENA_WARN = 3200;
-const ARENA_LIMIT = 4000;
 
 export class Game implements CombatContext {
   readonly renderer: THREE.WebGLRenderer;
@@ -89,10 +90,12 @@ export class Game implements CombatContext {
   readonly comms = new Comms();
   readonly bolts: BoltSystem;
   readonly missiles: MissileSystem;
-  readonly points: Record<string, THREE.Vector3> = {};
-  private readonly beacons: Beacon[] = [];
-  private readonly spinners: Spinner[] = [];
-  private readonly beaconMesh: THREE.InstancedMesh;
+  points: Record<string, THREE.Vector3> = {};
+  private beacons: Beacon[] = [];
+  private spinners: Spinner[] = [];
+  private beaconMesh: THREE.InstancedMesh | null = null;
+  /** The map currently built into the scene. */
+  location!: Location;
 
   ships: Ship[] = [];
   player: Ship | null = null;
@@ -167,44 +170,53 @@ export class Game implements CombatContext {
     this.scene.add(this.dust.mesh);
     this.scene.add(this.clouds.group);
 
-    // world
-    const station = buildKestrelStation(this.world);
-    this.scene.add(station.group);
-    const carrierTransform = new THREE.Matrix4().compose(
-      new THREE.Vector3(1250, 140, -650),
-      new THREE.Quaternion().setFromEuler(new THREE.Euler(0.05, 0.9, 0.02)),
-      new THREE.Vector3(1, 1, 1),
-    );
-    const carrier = buildCarrier(this.world, carrierTransform);
-    this.scene.add(carrier.group);
-    const rocks = buildAsteroids(this.world, new THREE.Vector3(-1200, -120, 650), 420, 46);
-    this.scene.add(rocks.group);
-    this.beacons.push(...station.beacons, ...carrier.beacons);
     this.docking = new Docking(this.scene);
-    this.docking.add([...(station.docks ?? []), ...(carrier.docks ?? [])]);
     this.dockPilot = new DockPilot(this.world);
-    this.spinners.push(...(station.spinners ?? []));
-    for (const [k, v] of Object.entries(station.points)) this.points[`station.${k}`] = v;
-    for (const [k, v] of Object.entries(carrier.points)) this.points[`carrier.${k}`] = v;
-    this.points['rocks.center'] = rocks.points.center;
-
-    this.beaconMesh = new THREE.InstancedMesh(
-      new THREE.IcosahedronGeometry(1.6, 1),
-      new THREE.MeshBasicMaterial({ toneMapped: false }),
-      this.beacons.length,
-    );
-    const m = new THREE.Matrix4();
-    this.beacons.forEach((b, i) => {
-      this.beaconMesh.setMatrixAt(i, m.makeTranslation(b.position.x, b.position.y, b.position.z));
-      this.beaconMesh.setColorAt(i, b.color);
-    });
-    this.scene.add(this.beaconMesh);
+    this.loadLocation('kestrel');
 
     this.hangar = new Hangar(this.scene.environment);
     this.hangar.attachControls(this.renderer.domElement, () => this.state === 'hangar');
     this.comms.radio = () => this.audio.radio;
     window.addEventListener('resize', () => this.resize());
     this.applyQuality(detectQuality(this.renderer));
+  }
+
+  /** Builds a location into the scene, replacing the current one (no-op if already loaded). */
+  loadLocation(id: string): void {
+    if (this.location?.id === id) return;
+    if (this.location) {
+      this.scene.remove(this.location.group);
+      this.location.group.traverse((o) => {
+        const g = (o as THREE.Mesh).geometry;
+        if (g) g.dispose();
+      });
+    }
+    this.world.clear();
+    const loc = LOCATIONS[id](this.world);
+    this.location = loc;
+    this.scene.add(loc.group);
+    this.beacons = loc.beacons;
+    this.spinners = loc.spinners;
+    this.points = loc.points;
+    this.docking.setPorts(loc.docks);
+    if (this.beaconMesh) {
+      this.scene.remove(this.beaconMesh);
+      this.beaconMesh.dispose();
+    }
+    const mesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.6, 1), new THREE.MeshBasicMaterial({ toneMapped: false }), Math.max(1, this.beacons.length));
+    mesh.count = this.beacons.length;
+    const m = new THREE.Matrix4();
+    this.beacons.forEach((bc, i) => {
+      mesh.setMatrixAt(i, m.makeTranslation(bc.position.x, bc.position.y, bc.position.z));
+      mesh.setColorAt(i, bc.color);
+    });
+    this.beaconMesh = mesh;
+    this.scene.add(mesh);
+    // new geometry needs the current shadow setting
+    this.scene.traverse((o) => {
+      const mat = (o as THREE.Mesh).material;
+      if (mat) for (const mm of Array.isArray(mat) ? mat : [mat]) mm.needsUpdate = true;
+    });
   }
 
   /** Switches graphics preset: shadows, AO, MSAA, surface detail, resolution cap. */
@@ -308,6 +320,49 @@ export class Game implements CombatContext {
     this.hintTimer = seconds;
   }
 
+  /** Outcome flags the mission records for the campaign ("gallows" -> "burned", ...). */
+  missionFlags: Record<string, string> = {};
+  /** Extra pay a mission awards on top of the contract (bonuses). */
+  bonusPay = 0;
+
+  /** Holds a ship still on a deck (carrier launch queue). The player can look around meanwhile. */
+  park(ship: Ship, pos: THREE.Vector3, look: THREE.Vector3): void {
+    ship.placeAt(pos, look, 0);
+    ship.controls.throttle = 0;
+    ship.held = true;
+    if (ship.isPlayer) {
+      this.aimQuat.copy(ship.quat);
+      this.camQuat.copy(ship.quat);
+    }
+  }
+
+  /** Releases a parked ship off the catapult at boost speed. */
+  catapult(ship: Ship): void {
+    ship.held = false;
+    ship.forward(_v);
+    ship.vel.copy(_v).multiplyScalar(ship.cls.boostSpeed * 1.05);
+    ship.controls.throttle = 1;
+    if (ship.isPlayer) {
+      this.shake += 1.4;
+      this.aimQuat.copy(ship.quat);
+      this.audio.catapult(null);
+    } else {
+      this.audio.catapult(ship.pos);
+    }
+    for (const e of ship.model.engines) {
+      ship.toWorld(_v2.copy(e), _v3);
+      this.fx.particles.emit(_v3, _n.copy(_v).multiplyScalar(-40), {
+        life: 0.6,
+        size0: 8,
+        size1: 22,
+        color0: new THREE.Color(FACTIONS[ship.faction].palette.engine).multiplyScalar(2),
+        color1: new THREE.Color('#202030'),
+        drag: 2,
+        alpha: 0.7,
+      });
+    }
+  }
+
   /** Opens docking at the given ports (the player requests clearance with the dock key). */
   allowDocking(ids: string[]): void {
     this.docking.allowed = new Set(ids);
@@ -356,10 +411,12 @@ export class Game implements CombatContext {
   ): Ship {
     const ship = new Ship(typeof classId === 'string' ? SHIP_CLASSES[classId] : classId, faction, name);
     ship.placeAt(pos, lookAt, opts.speed ?? ship.cls.maxSpeed * 0.8);
-    if (opts.skill !== undefined) {
+    if (opts.turret) {
+      ship.ai = new TurretAI(this, opts.skill ?? 0.5, opts.playerBias ?? 0.4);
+    } else if (opts.skill !== undefined) {
       const ai = new AIPilot(this, opts.skill);
       ai.playerBias = opts.playerBias ?? 0.5;
-      ai.patrolPoint.copy(this.points['station.hub'] ?? new THREE.Vector3());
+      ai.patrolPoint.copy(this.points['station.hub'] ?? this.points['gallows.center'] ?? this.location.arena.center);
       ship.ai = ai;
     }
     ship.invulnerable = opts.invulnerable ?? false;
@@ -372,15 +429,10 @@ export class Game implements CombatContext {
 
   /** Civilian haulers on slow loops through the area: moving cover and something to dodge. */
   private spawnTraffic(): void {
-    const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
-    const routes: [THREE.Vector3[], string][] = [
-      [[v(800, -120, 0), v(560, -60, 560), v(0, -20, 800), v(-560, -60, 560), v(-800, -120, 0), v(-560, -180, -560), v(0, -220, -800), v(560, -180, -560)], 'Bulk Hauler Ostrava'],
-      [[v(-1400, 300, -400), v(-600, 260, -1000), v(500, 200, -1150), v(1050, 120, -250), v(500, 150, 750), v(-300, 250, 1000)], 'Bulk Hauler Tamsin'],
-    ];
-    for (const [points, name] of routes) {
-      const start = points[0];
-      const ship = this.spawnShip('freighter', 'drift', name, start.clone(), points[1], { speed: 35 });
-      ship.ai = new WaypointPilot(points, 0.85);
+    for (const route of this.location.traffic) {
+      const pts = route.points;
+      const ship = this.spawnShip('freighter', 'drift', route.name, pts[0].clone(), pts[1], { speed: route.speed });
+      ship.ai = new WaypointPilot(pts, 0.85);
       ship.invulnerable = true;
     }
   }
@@ -436,16 +488,15 @@ export class Game implements CombatContext {
     this.docking.reset();
     this.dockGuide = null;
     this.autoDock = false;
+    resetRelations();
+    this.missionFlags = {};
+    this.bonusPay = 0;
+    this.friendlyFire.clear();
+    this.friendlyFireLimit = 220;
+    this.onBetrayal = null;
 
     const fit = this.playerFit;
-    const player = this.spawnShip(
-      fit ? fit.cls : 'kite',
-      'player',
-      'Rook',
-      new THREE.Vector3(140, 60, 560),
-      new THREE.Vector3(0, 40, 0),
-      { speed: 40 },
-    );
+    const player = this.spawnShip(fit ? fit.cls : 'kite', 'player', 'Rook', this.location.start.pos.clone(), this.location.start.look, { speed: 40 });
     player.isPlayer = true;
     if (fit) for (const e of fit.fitted.equipment) player.equipment.add(e);
     player.flares = player.equipment.has('flares') ? 10 : 0;
@@ -482,11 +533,44 @@ export class Game implements CombatContext {
   // ---------------------------------------------------------------------------------------------
   // Combat context
 
+  /** Damage the player has done to each non-hostile faction this sortie. */
+  private readonly friendlyFire = new Map<FactionId, number>();
+  /** How much friendly fire a faction tolerates before turning on the player (missions may change it). */
+  friendlyFireLimit = 220;
+  /** Called when a faction turns hostile because of the player's fire. */
+  onBetrayal: ((faction: FactionId) => void) | null = null;
+
+  private trackFriendlyFire(ship: Ship, damage: number): void {
+    const f = ship.faction;
+    if (f === 'player' || ship.invulnerable) return;
+    const total = (this.friendlyFire.get(f) ?? 0) + damage;
+    const before = this.friendlyFire.get(f) ?? 0;
+    this.friendlyFire.set(f, total);
+    if (before === 0) this.hint(`Check your fire! That is a ${FACTIONS[f].name} ship`, 3);
+    if (total >= this.friendlyFireLimit && before < this.friendlyFireLimit) {
+      setHostile('player', f, true);
+      this.hint(`${FACTIONS[f].name} ships have turned on you!`, 4);
+      this.onBetrayal?.(f);
+    }
+  }
+
+  /** Mission API: forget earlier friendly fire and set a new tolerance. */
+  resetFriendlyFire(limit: number): void {
+    this.friendlyFire.clear();
+    this.friendlyFireLimit = limit;
+  }
+
+  /** Mission API: change who is fighting whom. */
+  setRelation(a: FactionId, b: FactionId, isHostile: boolean): void {
+    setHostile(a, b, isHostile);
+  }
+
   onShipHit(ship: Ship, damage: number, source: Ship | null, point: THREE.Vector3, kind: 'bolt' | 'missile'): void {
+    if (source?.isPlayer && !hostile('player', ship.faction)) this.trackFriendlyFire(ship, damage);
     const hadShields = ship.shields > 0;
     if (hadShields) ship.shieldImpact(point);
     // impacts shove the hull: light ships get knocked around, the gunship barely notices
-    const mass = Math.max(1, ship.radius * ship.radius * 0.1);
+    const mass = ship.cls.anchored ? 1e9 : Math.max(1, ship.radius * ship.radius * 0.1);
     _v.subVectors(ship.pos, point).normalize();
     ship.vel.addScaledVector(_v, (kind === 'missile' ? 24 : damage * 0.35) / mass);
     ship.angVel.add(_v2.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar((kind === 'missile' ? 1.4 : 0.12) / mass));
@@ -538,6 +622,18 @@ export class Game implements CombatContext {
     if (!p || !p.alive) return;
     const f = this.input.read();
     const c = p.controls;
+    if (p.held && !this.docking.active) {
+      // parked on a deck: free look around, nothing else
+      const d = this.input.takeAimDelta();
+      this.aimQuat.premultiply(_q.setFromAxisAngle(AXIS_Y, -d.x));
+      this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_X, -d.y));
+      if (!this.input.mouseAimActive) {
+        this.aimQuat.premultiply(_q.setFromAxisAngle(AXIS_Y, -f.yaw * dt * 1.5));
+        this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_X, f.pitch * dt * 1.5));
+      }
+      this.aimQuat.normalize();
+      return;
+    }
     if (p.held || (this.autoDock && this.docking.active)) {
       // the clamps or the docking computer have the ship; keep the view behind the nose
       this.input.takeAimDelta();
@@ -823,8 +919,8 @@ export class Game implements CombatContext {
 
   /** Separates two ships along `_n` (pointing from b to a) and applies bounce and damage. */
   private resolveShipContact(a: Ship, b: Ship, overlap: number): void {
-    const ma = a.radius * a.radius;
-    const mb = b.radius * b.radius;
+    const ma = a.cls.anchored ? 1e9 : a.radius * a.radius;
+    const mb = b.cls.anchored ? 1e9 : b.radius * b.radius;
     a.pos.addScaledVector(_n, (overlap * mb) / (ma + mb));
     b.pos.addScaledVector(_n, (-overlap * ma) / (ma + mb));
     a.updateSpheres();
@@ -852,8 +948,17 @@ export class Game implements CombatContext {
       if (!s.alive) continue;
       if (s.held) continue;
       if (s.ai) s.ai.update(s, dt);
-      s.updateFlight(dt);
-      this.moveShip(s, dt);
+      if (s.cls.anchored) {
+        // fixed installations aim (their AI turns them) but never move
+        const q = s.quat.clone();
+        s.updateFlight(dt);
+        s.quat.copy(q);
+        s.vel.set(0, 0, 0);
+        s.angVel.set(0, 0, 0);
+      } else {
+        s.updateFlight(dt);
+        this.moveShip(s, dt);
+      }
       s.updateSpheres();
       if (!s.alive) continue;
       if (s.controls.fire) this.fireGuns(s);
@@ -933,8 +1038,8 @@ export class Game implements CombatContext {
     }
 
     // boundary
-    const r = p.pos.length();
-    if (r > ARENA_LIMIT) {
+    const r = p.pos.distanceTo(this.location.arena.center);
+    if (r > this.location.arena.limit) {
       this.boundaryTimer += dt;
       if (this.boundaryTimer > 1) {
         this.boundaryTimer = 0;
@@ -948,9 +1053,10 @@ export class Game implements CombatContext {
     const p = this.player;
     if (this.state === 'title' || !p) {
       this.titleAngle += dt * 0.05;
-      const r = 900;
-      this.camera.position.set(Math.cos(this.titleAngle) * r, 180 + Math.sin(this.titleAngle * 0.7) * 120, Math.sin(this.titleAngle) * r);
-      this.camera.lookAt(0, 60, 0);
+      const o = this.location.orbit;
+      const r = o.radius;
+      this.camera.position.set(Math.cos(this.titleAngle) * r, o.height + Math.sin(this.titleAngle * 0.7) * 120, Math.sin(this.titleAngle) * r).add(o.center);
+      this.camera.lookAt(o.center);
       return;
     }
     if (p.alive) {
@@ -961,7 +1067,7 @@ export class Game implements CombatContext {
       } else {
         // in mouse aim the camera looks where you aim; otherwise it trails the ship's nose
         // Mouse aim: the camera IS the aim, 1:1 with the mouse, with no smoothing to drag against.
-        if (mouseAim) this.camQuat.copy(this.aimQuat);
+        if (mouseAim || (p.held && !this.docking.active)) this.camQuat.copy(this.aimQuat);
         else this.camQuat.slerp(p.quat, dampFactor(p.sliding ? 6 : 9, dt));
         const off = _v.copy(p.model.cameraOffset);
         off.z += p.boosting ? 2.5 : 0;
@@ -1005,6 +1111,7 @@ export class Game implements CombatContext {
   }
 
   private updateBeacons(): void {
+    if (!this.beaconMesh) return;
     const c = new THREE.Color();
     const m = new THREE.Matrix4();
     let moved = false;
@@ -1202,7 +1309,7 @@ export class Game implements CombatContext {
         aim: this.input.mouseAimActive ? this.aimPoint : null,
         objective: this.objective,
         hint: this.hintText,
-        boundary: p.pos.length() > ARENA_WARN,
+        boundary: p.pos.distanceTo(this.location.arena.center) > this.location.arena.warn,
         damageFlash: this.damageFlash,
         time: this.time,
         gamepad: this.input.device === 'gamepad',

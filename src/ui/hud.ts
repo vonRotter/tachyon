@@ -183,6 +183,8 @@ export class Hud {
     for (const s of d.ships) {
       if (!s.alive || s === p) continue;
       const enemy = hostile(p.faction, s.faction);
+      // parked friendlies on a deck would just clutter the view
+      if (s.held && !enemy) continue;
       const color = enemy ? '#ff3b5c' : FACTIONS[s.faction].hudColor;
       const isTarget = s === p.target;
       const dist = s.pos.distanceTo(p.pos);

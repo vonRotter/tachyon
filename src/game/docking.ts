@@ -89,6 +89,12 @@ export class Docking {
     this.ports.push(...ports);
   }
 
+  setPorts(ports: DockSpec[]): void {
+    this.ports.length = 0;
+    this.ports.push(...ports);
+    this.reset();
+  }
+
   reset(): void {
     this.allowed = null;
     this.active = null;

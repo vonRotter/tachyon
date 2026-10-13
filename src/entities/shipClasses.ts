@@ -1,4 +1,17 @@
-export type ModelId = 'kite' | 'lancer' | 'raider' | 'warden' | 'brute' | 'freighter' | 'corsair' | 'halberd';
+export type ModelId =
+  | 'kite'
+  | 'lancer'
+  | 'raider'
+  | 'warden'
+  | 'brute'
+  | 'freighter'
+  | 'corsair'
+  | 'halberd'
+  | 'sabre'
+  | 'shuttle'
+  | 'turret'
+  | 'relay'
+  | 'habitat';
 
 export interface GunSpec {
   damage: number;
@@ -84,6 +97,8 @@ export interface ShipClass {
   hitSpheres?: [number, number, number, number][];
   /** Civilian traffic: never targeted, never shoots. */
   civilian?: boolean;
+  /** Fixed installation: never moves (turrets, relays, modules). */
+  anchored?: boolean;
 }
 
 /**
@@ -245,6 +260,145 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     equipSlots: 4,
     description: 'Four guns, a torpedo-rated bay and armour like a bulkhead. Built to take on gunships.',
     price: 115000,
+  },
+  sabre: {
+    id: 'sabre',
+    name: 'Combine Sabre',
+    model: 'sabre',
+    radius: 3.5,
+    hull: 170,
+    shields: 160,
+    shieldRegen: 16,
+    shieldDelay: 3,
+    maxSpeed: 104,
+    boostSpeed: 200,
+    strafeSpeed: 28,
+    accel: 2.1,
+    pitchRate: 1.9,
+    yawRate: 1.2,
+    rollRate: 3.1,
+    turnResponse: 6.5,
+    energy: 110,
+    energyRegen: 16,
+    boostDrain: 22,
+    gun: { damage: 8, cooldown: 0.12, boltSpeed: 700, energyCost: 1.3, range: 900 },
+    missiles: 4,
+    bounty: 1200,
+    price: 0,
+  },
+  shuttle: {
+    id: 'shuttle',
+    name: 'Transport shuttle',
+    model: 'shuttle',
+    radius: 7,
+    hull: 600,
+    shields: 300,
+    shieldRegen: 12,
+    shieldDelay: 4,
+    maxSpeed: 70,
+    boostSpeed: 110,
+    strafeSpeed: 10,
+    accel: 1.2,
+    pitchRate: 0.9,
+    yawRate: 0.7,
+    rollRate: 1.2,
+    turnResponse: 3,
+    energy: 100,
+    energyRegen: 10,
+    boostDrain: 10,
+    gun: { damage: 0, cooldown: 99, boltSpeed: 1, energyCost: 0, range: 0 },
+    missiles: 0,
+    hitSpheres: [
+      [0, 0, -6, 6],
+      [0, 0, 5, 6.5],
+    ],
+    civilian: true,
+    price: 0,
+  },
+  turret: {
+    id: 'turret',
+    name: 'Gun turret',
+    model: 'turret',
+    radius: 6,
+    hull: 260,
+    shields: 90,
+    shieldRegen: 8,
+    shieldDelay: 4,
+    maxSpeed: 0,
+    boostSpeed: 0,
+    strafeSpeed: 0,
+    accel: 0,
+    pitchRate: 1.2,
+    yawRate: 1.2,
+    rollRate: 0,
+    turnResponse: 4,
+    energy: 200,
+    energyRegen: 30,
+    boostDrain: 0,
+    gun: { damage: 5, cooldown: 0.16, boltSpeed: 640, energyCost: 1, range: 1100, turretArc: 0.3 },
+    missiles: 0,
+    anchored: true,
+    bounty: 900,
+    price: 0,
+  },
+  relay: {
+    id: 'relay',
+    name: 'Comms relay',
+    model: 'relay',
+    radius: 16,
+    hull: 1100,
+    shields: 400,
+    shieldRegen: 15,
+    shieldDelay: 5,
+    maxSpeed: 0,
+    boostSpeed: 0,
+    strafeSpeed: 0,
+    accel: 0,
+    pitchRate: 0,
+    yawRate: 0,
+    rollRate: 0,
+    turnResponse: 1,
+    energy: 100,
+    energyRegen: 10,
+    boostDrain: 0,
+    gun: { damage: 0, cooldown: 99, boltSpeed: 1, energyCost: 0, range: 0 },
+    missiles: 0,
+    anchored: true,
+    bounty: 3000,
+    price: 0,
+  },
+  habitat: {
+    id: 'habitat',
+    name: 'Habitat module',
+    model: 'habitat',
+    radius: 46,
+    hull: 2600,
+    shields: 0,
+    shieldRegen: 0,
+    shieldDelay: 99,
+    maxSpeed: 0,
+    boostSpeed: 0,
+    strafeSpeed: 0,
+    accel: 0,
+    pitchRate: 0,
+    yawRate: 0,
+    rollRate: 0,
+    turnResponse: 1,
+    energy: 100,
+    energyRegen: 10,
+    boostDrain: 0,
+    gun: { damage: 0, cooldown: 99, boltSpeed: 1, energyCost: 0, range: 0 },
+    missiles: 0,
+    hitSpheres: [
+      [0, 0, -42, 34],
+      [0, 0, -14, 38],
+      [0, 0, 14, 38],
+      [0, 0, 42, 34],
+    ],
+    civilian: true,
+    anchored: true,
+    bounty: 0,
+    price: 0,
   },
   brute: {
     id: 'brute',

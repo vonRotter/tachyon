@@ -399,7 +399,10 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
     b.box(v3(0, 24.6, z), v3(hx * 2, 0.4, 1), '#ffb030', { glow: 1.8, collide: false });
   }
   for (const s of [1, -1]) {
-    b.box(v3(s * (hx + 0.3), 0, -75), v3(0.4, 52, 82), cyan, { glow: 1, collide: false });
+    // lit frame round the tunnel mouth (the opening itself stays clear)
+    b.box(v3(s * (hx + 0.3), 25.6, -75), v3(0.6, 1.2, 82), cyan, { glow: 1.6, collide: false });
+    b.box(v3(s * (hx + 0.3), -25.6, -75), v3(0.6, 1.2, 82), cyan, { glow: 1.6, collide: false });
+    for (const z of [-115.6, -34.4]) b.box(v3(s * (hx + 0.3), 0, z), v3(0.6, 52, 1.2), cyan, { glow: 1.6, collide: false });
     for (const z of [-120, -30]) {
       beacons.push({ position: v3(s * (hx + 2), 0, z), color: new THREE.Color('#30ff70'), phase: z * 0.02 + s });
     }
@@ -477,6 +480,20 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
 
   world.addAll(b.colliders);
   const group = b.build('carrier');
+  const fieldMat = new THREE.MeshBasicMaterial({
+    color: '#5fe8ff',
+    transparent: true,
+    opacity: 0.06,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  for (const s of [1, -1]) {
+    const field = new THREE.Mesh(new THREE.PlaneGeometry(80, 50), fieldMat);
+    field.position.set(s * (hx + 0.2), 0, -75);
+    field.rotation.y = Math.PI / 2;
+    group.add(field);
+  }
   for (const s of [1, -1]) {
     const sign = createHologram(['HELION COMBINE', 'A BRIGHTER TOMORROW, ON SCHEDULE'], '#ffe7a8', 110, 3 + s);
     group.add(placeHologram(sign, v3(s * 77, 22, 315), v3(s, 0, 0)));
@@ -507,19 +524,33 @@ export function buildCarrier(world: CollisionWorld, transform: THREE.Matrix4): S
 }
 
 /** Rock field with glowing crystals. Good cover for shaking pursuers. */
-export function buildAsteroids(world: CollisionWorld, center: THREE.Vector3, spread: number, count: number): StructureResult {
+export interface AsteroidOptions {
+  seed?: number;
+  rockColors?: string[];
+  crystalColors?: string[];
+  /** Keep rocks out of these spheres (around structures and flight lanes). */
+  avoid?: { p: THREE.Vector3; r: number }[];
+  /** Vertical squash of the field (0.5 = half as tall as wide). */
+  flatness?: number;
+  maxRadius?: number;
+}
+
+export function buildAsteroids(world: CollisionWorld, center: THREE.Vector3, spread: number, count: number, opts: AsteroidOptions = {}): StructureResult {
   const b = new StructureBuilder();
-  const rng = new SeededRandom(99);
-  const rockColors = ['#6b4f7a', '#8a5a44', '#4a5d7a', '#5c4a63', '#7a6a55'];
-  const crystalColors = ['#3ffcff', '#ff4fd8', '#a6ff3f'];
-  const placed: { p: THREE.Vector3; r: number }[] = [];
+  const rng = new SeededRandom(opts.seed ?? 99);
+  const rockColors = opts.rockColors ?? ['#6b4f7a', '#8a5a44', '#4a5d7a', '#5c4a63', '#7a6a55'];
+  const crystalColors = opts.crystalColors ?? ['#3ffcff', '#ff4fd8', '#a6ff3f'];
+  const flat = opts.flatness ?? 0.5;
+  const placed: { p: THREE.Vector3; r: number }[] = [...(opts.avoid ?? [])];
   for (let i = 0; i < count; i++) {
-    const r = rng.range(8, i < 6 ? 60 : 32);
+    const r = rng.range(8, i < 6 ? (opts.maxRadius ?? 60) : 32);
     let p = v3(0, 0, 0);
-    for (let tries = 0; tries < 20; tries++) {
-      p = v3(rng.range(-1, 1), rng.range(-0.5, 0.5), rng.range(-1, 1)).multiplyScalar(spread).add(center);
-      if (placed.every((o) => o.p.distanceTo(p) > o.r + r + 45)) break;
+    let ok = false;
+    for (let tries = 0; tries < 30 && !ok; tries++) {
+      p = v3(rng.range(-1, 1), rng.range(-flat, flat), rng.range(-1, 1)).multiplyScalar(spread).add(center);
+      ok = placed.every((o) => o.p.distanceTo(p) > o.r + r + 45);
     }
+    if (!ok) continue;
     placed.push({ p, r });
     const geo = new THREE.IcosahedronGeometry(r, 1);
     const pos = geo.getAttribute('position');

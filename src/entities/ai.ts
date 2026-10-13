@@ -43,6 +43,8 @@ export class AIPilot {
   private reactedTo = -1;
   /** Bias towards attacking the player (0..1). */
   playerBias = 0.5;
+  /** Scripted target that overrides normal target selection while it lives. */
+  forcedTarget: Ship | null = null;
   /** Optional anchor; with no hostiles the pilot circles it. */
   readonly patrolPoint = new THREE.Vector3();
 
@@ -52,6 +54,7 @@ export class AIPilot {
   ) {}
 
   private pickTarget(ship: Ship): Ship | null {
+    if (this.forcedTarget?.alive) return this.forcedTarget;
     let best: Ship | null = null;
     let bestScore = Infinity;
     for (const s of this.ctx.ships) {
@@ -77,7 +80,7 @@ export class AIPilot {
     c.strafeY = 0;
 
     this.retargetTimer -= dt;
-    if (!ship.target || !ship.target.alive || this.retargetTimer <= 0) {
+    if (!ship.target || !ship.target.alive || this.retargetTimer <= 0 || (this.forcedTarget?.alive && ship.target !== this.forcedTarget)) {
       ship.target = this.pickTarget(ship);
       this.retargetTimer = rand(4, 8);
       this.hasLOS = true;
@@ -300,5 +303,65 @@ export class WaypointPilot {
     _desired.subVectors(target, ship.pos).normalize();
     c.throttle = this.cruise;
     steerTowards(ship, _desired, 0.4);
+  }
+}
+
+/**
+ * Fixed gun emplacement: swings towards the nearest hostile in range (leading it) at a limited
+ * slew rate and fires when roughly on target with a clear line of fire.
+ */
+export class TurretAI {
+  private retarget = 0;
+  private readonly aim = new THREE.Vector3();
+  private readonly look = new THREE.Matrix4();
+  private readonly qTarget = new THREE.Quaternion();
+
+  constructor(
+    private readonly ctx: AIContext,
+    readonly skill = 0.5,
+    /** Extra preference for shooting at the player (0..1). */
+    readonly playerBias = 0.4,
+  ) {}
+
+  update(ship: Ship, dt: number): void {
+    const c = ship.controls;
+    c.fire = false;
+    c.missile = false;
+    this.retarget -= dt;
+    const range = ship.cls.gun.range;
+    if (!ship.target || !ship.target.alive || this.retarget <= 0 || ship.target.pos.distanceTo(ship.pos) > range * 1.2) {
+      this.retarget = rand(1.5, 3);
+      let best: Ship | null = null;
+      let bestScore = Infinity;
+      for (const s of this.ctx.ships) {
+        if (!s.alive || s.cls.civilian || s.cls.anchored || !hostile(ship.faction, s.faction)) continue;
+        let score = s.pos.distanceTo(ship.pos);
+        if (score > range * 1.2) continue;
+        if (s.isPlayer) score *= 1 - this.playerBias * 0.6;
+        if (score < bestScore) {
+          bestScore = score;
+          best = s;
+        }
+      }
+      ship.target = best;
+    }
+    const t = ship.target;
+    if (!t) return;
+    _rel.subVectors(t.pos, ship.pos);
+    const ti = interceptTime(_rel, _tmp.subVectors(t.vel, ship.vel), ship.cls.gun.boltSpeed);
+    this.aim.copy(t.pos).addScaledVector(t.vel, Math.max(0, ti));
+    // ships fly along -Z; lookAt(eye, target) points -Z from the eye at the target
+    this.look.lookAt(ship.pos, this.aim, WORLD_UP);
+    this.qTarget.setFromRotationMatrix(this.look);
+    const angle = ship.quat.angleTo(this.qTarget);
+    const slew = (0.7 + this.skill * 0.8) * dt;
+    ship.quat.rotateTowards(this.qTarget, slew);
+    if (angle < 0.12 && _rel.length() < range) {
+      _vdir.copy(_rel).normalize();
+      // start clear of the structure the turret is bolted to
+      _tmp2.copy(ship.pos).addScaledVector(_vdir, ship.radius + 4);
+      const blocked = this.ctx.world.raycast(_tmp2, _vdir, _rel.length() - t.radius - ship.radius - 4, 0.5, hit);
+      c.fire = !blocked;
+    }
   }
 }

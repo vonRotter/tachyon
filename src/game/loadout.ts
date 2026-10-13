@@ -229,6 +229,8 @@ export interface Campaign {
   equipment: EquipmentId[];
   /** Times each mission has been completed (replays pay less). */
   completed: Record<string, number>;
+  /** Story outcomes ("gallows" -> "burned" | "watched" | "defended" | "lost"). */
+  flags: Record<string, string>;
 }
 
 export const newFit = (): ShipFit => ({ upgrades: {}, gun: 'pulse', missile: 'seeker', equipment: [] });
@@ -244,6 +246,7 @@ export function newCampaign(): Campaign {
     missiles: ['seeker'],
     equipment: [],
     completed: {},
+    flags: {},
   };
 }
 

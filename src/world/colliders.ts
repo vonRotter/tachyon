@@ -317,6 +317,13 @@ export class CollisionWorld {
     for (const c of list) this.add(c);
   }
 
+  /** Removes everything (static colliders and attached sub-worlds). */
+  clear(): void {
+    this.colliders.length = 0;
+    this.cells.clear();
+    this.attached.length = 0;
+  }
+
   private gatherSphere(p: THREE.Vector3, r: number): Collider[] {
     const out = this.scratch;
     out.length = 0;

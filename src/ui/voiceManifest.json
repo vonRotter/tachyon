@@ -1,15 +1,55 @@
 {
+  "01a603ee": {
+    "duration": 5.95,
+    "speaker": "vale"
+  },
+  "01c08f8b": {
+    "duration": 5.18,
+    "speaker": "sorrel"
+  },
   "11ad7fc6": {
     "duration": 6.5,
+    "speaker": "vey"
+  },
+  "14dc3a20": {
+    "duration": 2.07,
+    "speaker": "vey"
+  },
+  "1b5eb34c": {
+    "duration": 1.26,
+    "speaker": "nessa"
+  },
+  "1be35b12": {
+    "duration": 3.35,
+    "speaker": "quell"
+  },
+  "1da22d1a": {
+    "duration": 7.78,
+    "speaker": "vey"
+  },
+  "2040f13a": {
+    "duration": 4.95,
     "speaker": "vey"
   },
   "33790f6d": {
     "duration": 3.85,
     "speaker": "varga"
   },
+  "366a2310": {
+    "duration": 5.04,
+    "speaker": "nessa"
+  },
+  "36d0f2e0": {
+    "duration": 4.57,
+    "speaker": "tessaine"
+  },
   "38572be5": {
     "duration": 2.49,
     "speaker": "varga"
+  },
+  "39b8b12d": {
+    "duration": 1.85,
+    "speaker": "quell"
   },
   "3b6754c1": {
     "duration": 6.49,
@@ -23,17 +63,65 @@
     "duration": 2.7,
     "speaker": "varga"
   },
+  "482d6610": {
+    "duration": 4.45,
+    "speaker": "tessaine"
+  },
+  "534ee4de": {
+    "duration": 1.84,
+    "speaker": "vale"
+  },
+  "5692a610": {
+    "duration": 2.07,
+    "speaker": "quell"
+  },
   "64fab097": {
     "duration": 3.47,
     "speaker": "pike"
+  },
+  "6935d7b3": {
+    "duration": 4.02,
+    "speaker": "tessaine"
+  },
+  "766e25e5": {
+    "duration": 7.68,
+    "speaker": "quell"
+  },
+  "768b67f6": {
+    "duration": 1.09,
+    "speaker": "vale"
+  },
+  "770bd33b": {
+    "duration": 5.3,
+    "speaker": "tessaine"
+  },
+  "79b632c0": {
+    "duration": 2.36,
+    "speaker": "vale"
+  },
+  "7e152654": {
+    "duration": 4.94,
+    "speaker": "tessaine"
   },
   "83dd09e7": {
     "duration": 5.91,
     "speaker": "varga"
   },
+  "88b9f9d1": {
+    "duration": 3.41,
+    "speaker": "nessa"
+  },
+  "8a6becc8": {
+    "duration": 5.12,
+    "speaker": "tessaine"
+  },
   "8ad34ccc": {
     "duration": 7.56,
     "speaker": "juno"
+  },
+  "8e610b2b": {
+    "duration": 2.96,
+    "speaker": "vale"
   },
   "91c41a86": {
     "duration": 4.88,
@@ -42,6 +130,10 @@
   "9979db1d": {
     "duration": 7.16,
     "speaker": "sorrel"
+  },
+  "9d35eda1": {
+    "duration": 2.13,
+    "speaker": "tessaine"
   },
   "9d6b7861": {
     "duration": 8.52,
@@ -59,6 +151,26 @@
     "duration": 5.4,
     "speaker": "varga"
   },
+  "b3e3e2fc": {
+    "duration": 2.0,
+    "speaker": "tessaine"
+  },
+  "b5241d97": {
+    "duration": 3.28,
+    "speaker": "tessaine"
+  },
+  "bcd0e9a7": {
+    "duration": 2.37,
+    "speaker": "sorrel"
+  },
+  "bf8bcb4d": {
+    "duration": 7.11,
+    "speaker": "sorrel"
+  },
+  "c00949ba": {
+    "duration": 2.02,
+    "speaker": "vale"
+  },
   "c143dbaa": {
     "duration": 6.4,
     "speaker": "sorrel"
@@ -71,9 +183,17 @@
     "duration": 1.84,
     "speaker": "vey"
   },
+  "cd6e3f92": {
+    "duration": 1.23,
+    "speaker": "vale"
+  },
   "ce16cf50": {
     "duration": 2.42,
     "speaker": "sorrel"
+  },
+  "cf765197": {
+    "duration": 10.47,
+    "speaker": "tessaine"
   },
   "dcfb4d89": {
     "duration": 2.33,
@@ -90,5 +210,9 @@
   "faff3611": {
     "duration": 4.34,
     "speaker": "varga"
+  },
+  "fb0ddcbd": {
+    "duration": 4.92,
+    "speaker": "tessaine"
   }
 }
