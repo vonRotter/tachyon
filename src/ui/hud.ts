@@ -12,6 +12,8 @@ export interface HudData {
   locked: boolean;
   incoming: THREE.Vector3[];
   cursor: { x: number; y: number } | null;
+  /** Mouse-aim point in world space (where the instructor is flying to). */
+  aim: THREE.Vector3 | null;
   objective: string;
   hint: string | null;
   boundary: boolean;
@@ -129,6 +131,24 @@ export class Hud {
         g.moveTo(pv.x, pv.y - 6);
         g.lineTo(pv.x, pv.y - 12);
         g.stroke();
+      }
+    }
+
+    // mouse-aim reticle: put this on the target and the ship follows
+    if (d.aim) {
+      const ap = this.project(d.aim, cam);
+      if (ap) {
+        g.strokeStyle = 'rgba(255,255,255,0.85)';
+        g.lineWidth = 1.5;
+        g.beginPath();
+        for (let i = 0; i < 4; i++) {
+          const a0 = (i * Math.PI) / 2 + 0.35;
+          g.moveTo(ap.x + Math.cos(a0) * 11, ap.y + Math.sin(a0) * 11);
+          g.arc(ap.x, ap.y, 11, a0, a0 + Math.PI / 2 - 0.7);
+        }
+        g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.85)';
+        g.fillRect(ap.x - 1, ap.y - 1, 2, 2);
       }
     }
 

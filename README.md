@@ -77,7 +77,7 @@ table below lists the defaults.
 
 | Action | Mouse & keyboard | Gamepad |
 |---|---|---|
-| Pitch / yaw | Mouse (virtual stick, **X** recentres) | Right stick |
+| Pitch / yaw | Mouse aim: point the circle, the ship follows (**X** recentres). Virtual stick available in Options | Right stick |
 | Roll | Q / E | Left stick X |
 | Throttle | W / S (**Z** matches target speed) | Left stick Y (L3 matches speed) |
 | Strafe | A / D, R / F | D-pad |

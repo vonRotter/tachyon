@@ -236,12 +236,16 @@ export class Ship {
     const cls = this.cls;
     this.age += dt;
 
-    // rotation: rates build up and bleed off rather than snapping
+    // rotation: rates build up and bleed off rather than snapping. Agility depends on speed, as
+    // in a fighter: sharpest around cruise, sluggish when crawling, widest when boosting.
     const k = dampFactor(cls.turnResponse * 0.6, dt);
+    const sf = this.vel.length() / cls.maxSpeed;
+    const agility = sf < 0.35 ? 0.75 + (sf / 0.35) * 0.35 : sf <= 0.9 ? 1.1 : Math.max(0.68, 1.1 - (sf - 0.9) * 0.4);
     const slideBonus = c.slide ? 1.25 : 1;
-    this.angVel.x += (c.pitch * cls.pitchRate * slideBonus - this.angVel.x) * k;
-    this.angVel.y += (-c.yaw * cls.yawRate * slideBonus - this.angVel.y) * k;
-    this.angVel.z += (-c.roll * cls.rollRate - this.angVel.z) * k;
+    const turn = c.slide ? slideBonus : agility;
+    this.angVel.x += (c.pitch * cls.pitchRate * turn - this.angVel.x) * k;
+    this.angVel.y += (-c.yaw * cls.yawRate * turn - this.angVel.y) * k;
+    this.angVel.z += (-c.roll * cls.rollRate * (0.85 + 0.15 * turn) - this.angVel.z) * k;
     const angle = this.angVel.length() * dt;
     if (angle > 1e-6) {
       _v.copy(this.angVel).normalize();
@@ -269,6 +273,9 @@ export class Ship {
       const brakeAccel = cls.maxSpeed * 0.75;
       const dv = clamp(targetSpeed - along, -brakeAccel * dt, thrustAccel * dt);
       this.vel.addScaledVector(_fwd, dv);
+      // energy: pulling hard bleeds speed the thrusters then have to win back
+      const pull = Math.abs(this.angVel.x) + Math.abs(this.angVel.y) * 0.6;
+      if (along > 20) this.vel.addScaledVector(_fwd, -Math.min(along * 0.5, pull * along * 0.22) * dt);
       _desired.copy(this.vel).addScaledVector(_fwd, -this.vel.dot(_fwd));
       _v2.copy(_right).multiplyScalar(c.strafeX * cls.strafeSpeed).addScaledVector(_up, c.strafeY * cls.strafeSpeed);
       this.vel.addScaledVector(_v2.sub(_desired), dampFactor(cls.accel * 0.85, dt));

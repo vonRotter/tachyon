@@ -2,7 +2,7 @@ import './style.css';
 import { Game } from './game/game';
 import { runKestrelMission } from './game/mission';
 import { detectQuality, type QualityLevel } from './core/quality';
-import { BIND_LABELS, DEFAULT_BINDINGS, keyLabel, type BindAction, type Bindings } from './core/input';
+import { BIND_LABELS, DEFAULT_BINDINGS, keyLabel, type BindAction, type Bindings, type MouseMode } from './core/input';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -15,6 +15,7 @@ interface Settings {
   invertPad: boolean;
   sensitivity: number;
   quality: 'auto' | QualityLevel;
+  mouseMode: MouseMode;
 }
 
 interface Campaign {
@@ -47,6 +48,7 @@ const settings = load<Settings>('veil.settings', {
   invertPad: false,
   sensitivity: 1,
   quality: 'auto',
+  mouseMode: 'aim',
 });
 const campaign = load<Campaign>('veil.campaign', { credits: 0, allegiance: null });
 
@@ -59,6 +61,7 @@ function applySettings(): void {
   game.input.settings.invertMouseY = settings.invertMouse;
   game.input.settings.invertPadY = settings.invertPad;
   game.input.settings.mouseSensitivity = settings.sensitivity;
+  game.input.settings.mouseMode = settings.mouseMode;
   game.comms.voiceEnabled = settings.voice;
   game.audio.music.enabled = settings.musicVolume > 0;
   game.audio.setVolumes(settings.sfxVolume, settings.musicVolume * 0.5);
@@ -90,6 +93,12 @@ bindRange('opt-music-vol', 'musicVolume');
 bindRange('opt-sfx-vol', 'sfxVolume');
 bindRange('opt-glow', 'glow');
 bindRange('opt-sens', 'sensitivity');
+const mouseModeSelect = $<HTMLSelectElement>('opt-mouse-mode');
+mouseModeSelect.value = settings.mouseMode;
+mouseModeSelect.addEventListener('change', () => {
+  settings.mouseMode = mouseModeSelect.value as MouseMode;
+  applySettings();
+});
 
 // URL overrides for testing: ?quality=high&dynres=0
 const params = new URLSearchParams(location.search);

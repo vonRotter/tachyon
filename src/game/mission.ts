@@ -69,7 +69,7 @@ export async function runKestrelMission(g: Game, checkpoint: number): Promise<vo
     g.hint(
       pad()
         ? 'Right stick: steer · Left stick: roll & throttle · A: boost · RT: fire'
-        : `Mouse: steer · ${key('throttleUp')}/${key('throttleDown')}: throttle · ${key('rollLeft')}/${key('rollRight')}: roll · ${key('boost')}: boost · ${key('fire')}: fire · Esc: options`,
+        : `${g.input.settings.mouseMode === 'aim' ? 'Mouse: aim, the ship flies to the circle' : 'Mouse: steer'} · ${key('throttleUp')}/${key('throttleDown')}: throttle · ${key('rollLeft')}/${key('rollRight')}: roll · ${key('boost')}: boost · ${key('fire')}: fire · Esc: options`,
       9,
     );
     await g.say('varga', 'Rook, Kestrel Control. Your docking slot got bumped. A Combine carrier came in unannounced and took the whole east cradle.');

@@ -162,10 +162,14 @@ const deadzone = (v: number, dz = 0.12): number => {
 
 const curve = (v: number, p = 1.6): number => Math.sign(v) * Math.pow(Math.abs(v), p);
 
+export type MouseMode = 'aim' | 'stick';
+
 export interface InputSettings {
   invertMouseY: boolean;
   invertPadY: boolean;
   mouseSensitivity: number;
+  /** 'aim': the mouse points the camera and the flight computer follows (War Thunder style). */
+  mouseMode: MouseMode;
 }
 
 /**
@@ -173,7 +177,9 @@ export interface InputSettings {
  * buttons go through a rebindable action map; mouse buttons appear as "Mouse0".."Mouse4".
  */
 export class Input {
-  readonly settings: InputSettings = { invertMouseY: false, invertPadY: false, mouseSensitivity: 1 };
+  readonly settings: InputSettings = { invertMouseY: false, invertPadY: false, mouseSensitivity: 1, mouseMode: 'aim' };
+  /** Accumulated mouse-aim rotation in radians since the last `takeAimDelta()`. */
+  private readonly aimDelta = { x: 0, y: 0 };
   device: 'mouse' | 'gamepad' = 'mouse';
   bindings: Bindings = cloneBindings(DEFAULT_BINDINGS);
   private codeToActions = new Map<string, BindAction[]>();
@@ -208,6 +214,13 @@ export class Input {
     window.addEventListener('blur', () => this.held.clear());
     window.addEventListener('mousemove', (e) => {
       if (!this.pointerLocked) return;
+      if (this.settings.mouseMode === 'aim') {
+        const a = 0.0016 * this.settings.mouseSensitivity;
+        this.aimDelta.x += e.movementX * a;
+        this.aimDelta.y += e.movementY * a * (this.settings.invertMouseY ? -1 : 1);
+        this.device = 'mouse';
+        return;
+      }
       const s = 0.0028 * this.settings.mouseSensitivity;
       this.cursor.x += e.movementX * s;
       this.cursor.y += e.movementY * s;
@@ -338,6 +351,18 @@ export class Input {
     this.anyKeyPressed = false;
   }
 
+  /** Mouse-aim rotation (radians) accumulated since the last call. */
+  takeAimDelta(): { x: number; y: number } {
+    const d = { x: this.aimDelta.x, y: this.aimDelta.y };
+    this.aimDelta.x = 0;
+    this.aimDelta.y = 0;
+    return d;
+  }
+
+  get mouseAimActive(): boolean {
+    return this.settings.mouseMode === 'aim' && this.pointerLocked && this.device === 'mouse';
+  }
+
   centerCursor(): void {
     this.cursor.x = 0;
     this.cursor.y = 0;
@@ -359,8 +384,8 @@ export class Input {
     };
     if (this.suspended) return out;
 
-    // Mouse virtual stick
-    if (this.pointerLocked) {
+    // Mouse virtual stick (mouse-aim mode is handled by the game's flight instructor)
+    if (this.pointerLocked && this.settings.mouseMode === 'stick') {
       const dz = 0.05;
       const len = Math.hypot(this.cursor.x, this.cursor.y);
       if (len > dz) {

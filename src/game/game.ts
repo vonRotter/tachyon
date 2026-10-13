@@ -5,7 +5,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { AudioEngine, type LaserKind } from '../core/audio';
 import { Input } from '../core/input';
-import { clamp, dampFactor, interceptTime, rand, raySphere } from '../core/math';
+import { AXIS_X, AXIS_Y, AXIS_Z, clamp, dampFactor, interceptTime, rand, raySphere } from '../core/math';
 import { CollisionWorld, makeRayHit } from '../world/colliders';
 import { GasClouds, Lighting, SUN_DIRECTION, Sky, SpaceDust, buildEnvironment } from '../world/environment';
 import { hullMaterials } from '../world/builder';
@@ -19,6 +19,7 @@ import { Ship } from '../entities/ship';
 import { SHIP_CLASSES } from '../entities/shipClasses';
 import { FACTIONS, hostile, type FactionId } from '../entities/factions';
 import { AIPilot, WaypointPilot } from '../entities/ai';
+import { instruct } from '../entities/instructor';
 import { BoltSystem, MissileSystem, type CombatContext } from '../entities/weapons';
 import { Hud } from '../ui/hud';
 import { Comms } from '../ui/comms';
@@ -98,6 +99,9 @@ export class Game implements CombatContext {
   private waiters: Waiter[] = [];
   private missionToken = 0;
   private readonly camQuat = new THREE.Quaternion();
+  /** Mouse-aim frame: where the player is looking and wants the ship to go. */
+  private readonly aimQuat = new THREE.Quaternion();
+  private readonly aimPoint = new THREE.Vector3();
   /** Camera offset driven by the ship's acceleration: it swings out in turns and on boost. */
   private readonly camLag = new THREE.Vector3();
   private readonly prevPlayerVel = new THREE.Vector3();
@@ -374,6 +378,7 @@ export class Game implements CombatContext {
     this.player = player;
     this.spawnTraffic();
     this.camQuat.copy(player.quat);
+    this.aimQuat.copy(player.quat);
     this.input.centerCursor();
     this.state = 'playing';
 
@@ -454,9 +459,34 @@ export class Game implements CombatContext {
     if (!p || !p.alive) return;
     const f = this.input.read();
     const c = p.controls;
-    c.pitch = f.pitch;
-    c.yaw = f.yaw;
-    c.roll = f.roll;
+    if (this.input.mouseAimActive) {
+      // Mouse aim: the mouse turns the aim frame, the instructor flies the ship towards it.
+      const d = this.input.takeAimDelta();
+      this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_Y, -d.x));
+      this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_X, -d.y));
+      if (Math.abs(f.roll) > 0.05) this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_Z, -f.roll * p.cls.rollRate * 0.8 * dt));
+      this.aimQuat.normalize();
+      const manual = Math.abs(f.pitch) > 0.05 || Math.abs(f.yaw) > 0.05;
+      this.aimPoint.copy(this.camera.position).addScaledVector(_v.set(0, 0, -1).applyQuaternion(this.aimQuat), 600);
+      if (manual) {
+        // keyboard pitch/yaw override the instructor; the aim frame follows the nose meanwhile
+        c.pitch = f.pitch;
+        c.yaw = f.yaw;
+        c.roll = f.roll;
+        this.aimQuat.slerp(p.quat, dampFactor(6, dt));
+      } else {
+        const aimUp = _v2.set(0, 1, 0).applyQuaternion(this.aimQuat);
+        // aim through the reticle (which sits on the camera's line of sight), not parallel to it
+        _v3.subVectors(this.aimPoint, p.pos).normalize();
+        instruct(p, _v3, aimUp);
+      }
+    } else {
+      this.input.takeAimDelta();
+      this.aimQuat.slerp(p.quat, dampFactor(8, dt));
+      c.pitch = f.pitch;
+      c.yaw = f.yaw;
+      c.roll = f.roll;
+    }
     c.strafeX = f.strafeX;
     c.strafeY = f.strafeY;
     c.boost = f.boost;
@@ -470,7 +500,10 @@ export class Game implements CombatContext {
     if (this.input.pressed('targetNearest')) this.cycleTarget(true);
     if (this.input.pressed('targetNext')) this.cycleTarget(false);
     if (this.input.pressed('camera')) this.cockpit = !this.cockpit;
-    if (this.input.pressed('centerMouse')) this.input.centerCursor();
+    if (this.input.pressed('centerMouse')) {
+      this.input.centerCursor();
+      this.aimQuat.copy(p.quat);
+    }
   }
 
   private cycleTarget(nearest: boolean): void {
@@ -746,11 +779,13 @@ export class Game implements CombatContext {
       return;
     }
     if (p.alive) {
+      const mouseAim = this.input.mouseAimActive;
       if (this.cockpit) {
-        this.camQuat.copy(p.quat);
+        this.camQuat.copy(mouseAim ? this.aimQuat : p.quat);
         this.camera.position.copy(p.toWorld(_v.set(0, 1.0, -1.2), _v2));
       } else {
-        this.camQuat.slerp(p.quat, dampFactor(p.sliding ? 6 : 9, dt));
+        // in mouse aim the camera looks where you aim; otherwise it trails the ship's nose
+        this.camQuat.slerp(mouseAim ? this.aimQuat : p.quat, dampFactor(mouseAim ? 30 : p.sliding ? 6 : 9, dt));
         const off = _v.copy(p.model.cameraOffset);
         off.z += p.boosting ? 2.5 : 0;
         off.applyQuaternion(this.camQuat);
@@ -950,7 +985,11 @@ export class Game implements CombatContext {
         lockProgress: this.lockProgress,
         locked: this.lockProgress >= 1,
         incoming: this.missiles.incoming(p).map((m) => m.pos),
-        cursor: this.input.pointerLocked && this.input.device === 'mouse' ? this.input.cursor : null,
+        cursor:
+          this.input.pointerLocked && this.input.device === 'mouse' && this.input.settings.mouseMode === 'stick'
+            ? this.input.cursor
+            : null,
+        aim: this.input.mouseAimActive ? this.aimPoint : null,
         objective: this.objective,
         hint: this.hintText,
         boundary: p.pos.length() > ARENA_WARN,
