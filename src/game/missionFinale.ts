@@ -265,7 +265,7 @@ export async function runBastion(g: Game, checkpoint: number, c: Campaign): Prom
       broadside = g.missionTime + 25;
       const live = batteries.filter((s) => s.alive);
       const hit = live[Math.floor(Math.random() * live.length)];
-      if (hit && live.length > 1) {
+      if (hit) {
         g.detonate(hit.pos, 1.8, 0, 0);
         g.onShipHit(hit, hit.hull + hit.shields + 1, null, hit.pos.clone(), 'missile');
         if (first) {
