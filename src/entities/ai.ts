@@ -342,6 +342,44 @@ export class WaypointPilot {
 }
 
 /**
+ * One-way route for convoys: flies the points in order, can be told to hold, and stops at the
+ * last point. `done` turns true on arrival.
+ */
+export class RoutePilot {
+  private index = 0;
+  hold = false;
+  done = false;
+
+  constructor(
+    private readonly points: THREE.Vector3[],
+    private readonly cruise = 0.6,
+    private readonly reach = 60,
+  ) {}
+
+  /** Fraction of the route covered, by waypoint. */
+  get progress(): number {
+    return this.done ? 1 : this.index / this.points.length;
+  }
+
+  update(ship: Ship, dt: number): void {
+    void dt;
+    const c = ship.controls;
+    c.fire = false;
+    c.missile = false;
+    c.boost = false;
+    c.slide = false;
+    const target = this.points[this.index];
+    if (!this.done && ship.pos.distanceTo(target) < this.reach) {
+      if (this.index < this.points.length - 1) this.index++;
+      else this.done = true;
+    }
+    c.throttle = this.hold || this.done ? 0 : this.cruise;
+    _desired.subVectors(this.points[this.index], ship.pos).normalize();
+    steerTowards(ship, _desired, 0.4);
+  }
+}
+
+/**
  * Fixed gun emplacement: swings towards the nearest hostile in range (leading it) at a limited
  * slew rate and fires when roughly on target with a clear line of fire.
  */

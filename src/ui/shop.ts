@@ -23,7 +23,7 @@ import {
   type ShipFit,
 } from '../game/loadout';
 import { DATABASE, DB_CATEGORIES, dbVisible, type DbEntry } from '../game/database';
-import { MISSIONS, type MissionDef } from '../game/missions';
+import { MISSIONS, briefingText, type MissionDef } from '../game/missions';
 import type { FactionId } from '../entities/factions';
 
 type Tab = 'ships' | 'upgrades' | 'weapons' | 'equipment' | 'database';
@@ -579,7 +579,7 @@ export class Shop {
 
   private missionCard(m: MissionDef): HTMLElement {
     const done = this.campaign.completed[m.id] ?? 0;
-    const card = this.card(`${m.name} · ${m.location}`, m.briefing, {
+    const card = this.card(`${m.name} · ${m.location}`, briefingText(m, this.campaign), {
       status: done ? `FLOWN ×${done} · ${cr(Math.round(m.pay * 0.4))}+` : `${cr(m.pay)}+`,
       active: m.id === this.selectedMission,
     });

@@ -289,7 +289,7 @@ export async function runLaunchOrder(g: Game, checkpoint: number): Promise<void>
       await g.say('sorrel', 'We were too late. I am sorry, Rook. You tried.');
     }
     await g.say('tessaine', 'Sovereign Dawn, withdraw. Rook, the Combine has a long memory.');
-    g.missionFlags.allegiance = 'drift';
+    g.missionFlags.defect = 'drift';
     // the Combine contract is void; the Drift pay what they can
     g.bonusPay = -14000;
     await g.wait(1);

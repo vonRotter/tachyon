@@ -3,6 +3,7 @@ import type { Campaign, Side } from './loadout';
 import { runKestrelMission } from './mission';
 import { runLaunchOrder } from './missionLaunchOrder';
 import { runFlotsam } from './missionFlotsam';
+import { runAccord } from './missionAccord';
 
 export interface MissionDef {
   id: string;
@@ -11,16 +12,17 @@ export interface MissionDef {
   location: string;
   /** Location id to build (see world/locations.ts). */
   map: string;
-  briefing: string;
+  /** Hangar text; may depend on the campaign (which side you are on). */
+  briefing: string | ((c: Campaign) => string);
   /** Pay on completion, before bounties. */
   pay: number;
-  run: (g: Game, checkpoint: number) => Promise<void>;
+  run: (g: Game, checkpoint: number, c: Campaign) => Promise<void>;
   /** Whether the mission shows up in the hangar. */
   available: (c: Campaign) => boolean;
   /** Debrief headline on victory. */
   victoryTitle: string;
-  /** Whose contract it is: completing it earns standing with them. */
-  faction?: Side;
+  /** Whose contract it is: completing it earns standing with them ('current': whoever you fly for). */
+  faction?: Side | 'current';
 }
 
 export const MISSIONS: MissionDef[] = [
@@ -62,6 +64,23 @@ export const MISSIONS: MissionDef[] = [
     available: (c) => c.allegiance === 'drift' && (c.completed['cold-guns'] ?? 0) > 0,
     victoryTitle: 'The records are out',
   },
+  {
+    id: 'accord',
+    name: 'The Accord',
+    location: 'Kestrel Station',
+    map: 'kestrel',
+    briefing: (c) =>
+      c.allegiance === 'combine'
+        ? 'The Combine and the Drift sign a ceasefire aboard Kestrel today. Commander Tessaine wants you on the escort for the Combine delegation. A quiet run, and a historic one.'
+        : 'The Drift and the Combine sign a ceasefire aboard Kestrel today. Mother Sorrel is sending a gift to the Sovereign Dawn, and wants you to see the Magpie\'s hauler safely in.',
+    pay: 20000,
+    run: (g, cp, c) => runAccord(g, cp, c.allegiance === 'combine' ? 'combine' : 'drift'),
+    faction: 'current',
+    available: (c) => (c.allegiance === 'combine' || c.allegiance === 'drift') && ((c.completed['launch-order'] ?? 0) > 0 || (c.completed.flotsam ?? 0) > 0),
+    victoryTitle: 'The Accord',
+  },
 ];
+
+export const briefingText = (m: MissionDef, c: Campaign): string => (typeof m.briefing === 'string' ? m.briefing : m.briefing(c));
 
 export const missionById = (id: string): MissionDef => MISSIONS.find((m) => m.id === id) ?? MISSIONS[0];

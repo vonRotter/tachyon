@@ -303,7 +303,8 @@ function begin(m: MissionDef, checkpoint: number): void {
   show('debrief', false);
   show('hangar', false);
   game.loadLocation(m.map);
-  game.missionRunner = m.run;
+  const c = campaign;
+  game.missionRunner = (g, cp) => m.run(g, cp, c);
   game.playerFit = fitShip(campaign.activeShip, campaign.fits[campaign.activeShip]);
   game.startMission(checkpoint);
   game.input.requestPointerLock();
@@ -410,6 +411,7 @@ game.onMissionEnd = (result) => {
   campaign.credits += pay.total;
   for (const id of game.seenClasses) if (!campaign.seen.includes(id)) campaign.seen.push(id);
   let confiscated: string[] = [];
+  const flewFor = mission.faction === 'current' ? campaign.allegiance : mission.faction;
   if (result === 'victory') {
     campaign.completed[mission.id] = (campaign.completed[mission.id] ?? 0) + 1;
     for (const [k, v] of Object.entries(game.missionFlags)) {
@@ -417,19 +419,27 @@ game.onMissionEnd = (result) => {
       else if (k === 'defect') confiscated = defect(campaign, v as Side);
       else campaign.flags[k] = v;
     }
-    if (mission.faction && mission.faction === campaign.allegiance && !game.missionFlags.defect) {
-      campaign.standing[mission.faction] = (campaign.standing[mission.faction] ?? 0) + 1;
+    if (flewFor && flewFor === campaign.allegiance && !game.missionFlags.defect) {
+      campaign.standing[flewFor] = (campaign.standing[flewFor] ?? 0) + 1;
     }
   }
   saveCampaign();
   const outcomeTitles: Record<string, string> = {
-    burned: 'The Gallows burns',
-    watched: 'The Gallows falls',
-    defended: 'You stood between them',
-    lost: 'Too late',
+    'gallows:burned': 'The Gallows burns',
+    'gallows:watched': 'The Gallows falls',
+    'gallows:defended': 'You stood between them',
+    'gallows:lost': 'Too late',
+    'kestrel:seized': 'Kestrel under Combine protection',
+    'kestrel:held': 'Kestrel holds',
+    'kestrel:free': 'Kestrel is free',
+    'dawn:burned': 'The east cradle burns',
+    'dawn:spared': 'The Dawn survives',
+    'dawn:saved': 'Four hundred lives',
   };
-  $('debrief-title').textContent =
-    result === 'victory' ? (outcomeTitles[game.missionFlags.gallows ?? ''] ?? mission.victoryTitle) : 'Signal lost';
+  const outcome = Object.entries(game.missionFlags)
+    .map(([k, v]) => outcomeTitles[`${k}:${v}`])
+    .find(Boolean);
+  $('debrief-title').textContent = result === 'victory' ? (outcome ?? mission.victoryTitle) : 'Signal lost';
   const stats: [string, string][] = [
     ['KILLS', String(kills)],
     ['ACCURACY', `${acc}%`],

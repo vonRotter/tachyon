@@ -72,6 +72,14 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   disguised as debris without moving too much, land in its hangar, grab the records, then run
   for the Drift battlecruiser through the wreckage with fighters and the carrier's guns behind
   you. Swap ships on landing, then help hold off the strike.
+- **Mission "The Accord"** (either side) at Kestrel: the Combine and the Drift sign a
+  ceasefire, and each brings something it should not. The Combine's delegation shuttles carry
+  marines; the Drift's gift hauler carries mining charge meant for the Sovereign Dawn and the
+  dock crews beside it. Halfway through you learn what you are escorting. See it through and
+  stay, or turn your guns on your own convoy and change sides in the middle of the fight.
+- **Changing sides** happens only at moments like that (also at the Gallows, if you defend the
+  habitat). The faction you leave takes its ships back: weapons fitted to them go to storage,
+  upgrades go with the hull, and if nothing is left Kestrel lends you a Kite.
 - **Capital ships** built from bevelled blocks: an arrowhead frigate, a hammerhead destroyer
   with a through-bay, a tuning-fork carrier you land inside, and a bladed battlecruiser.
 - **Mission "Launch Order"** (Combine side) at the Gallows, a Red Wake base: wait in the

@@ -594,6 +594,26 @@ export class Game implements CombatContext {
     ship.dispose(this.scene);
   }
 
+  /** Mission API: a big scripted detonation (a charge going off, a reactor letting go). Ships
+   *  inside `radius` take damage that falls off with distance. */
+  detonate(pos: THREE.Vector3, size = 3, radius = 0, damage = 0): void {
+    const at = pos.clone();
+    for (let i = 0; i < 9; i++) {
+      const p = at.clone().add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(size * 14));
+      window.setTimeout(() => {
+        this.fx.explosion(p, size * rand(0.6, 1.2), null);
+        this.audio.explosion(p, 2);
+      }, i * 170);
+    }
+    if (this.player) this.shake += Math.max(0, size - this.player.pos.distanceTo(at) / 300);
+    if (radius > 0)
+      for (const s of this.ships) {
+        if (!s.alive) continue;
+        const d = s.pos.distanceTo(at);
+        if (d < radius) this.onShipHit(s, damage * (1 - d / radius), null, s.pos.clone(), 'missile');
+      }
+  }
+
   aliveCount(faction: FactionId): number {
     return this.ships.filter((s) => s.alive && s.faction === faction).length;
   }
