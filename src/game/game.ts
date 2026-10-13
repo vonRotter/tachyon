@@ -106,6 +106,8 @@ export class Game implements CombatContext {
   /** Smoothed angular velocity of the aim direction (world space, rad/s). */
   private readonly aimRate = new THREE.Vector3();
   private readonly prevAimDir = new THREE.Vector3(0, 0, -1);
+  /** Seconds the aim frame keeps following the ship's roll after Q/E is released. */
+  private rollFollow = 0;
   /** Camera offset driven by the ship's acceleration: it swings out in turns and on boost. */
   private readonly camLag = new THREE.Vector3();
   private readonly prevPlayerVel = new THREE.Vector3();
@@ -473,7 +475,11 @@ export class Game implements CombatContext {
       const d = this.input.takeAimDelta();
       this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_Y, -d.x));
       this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_X, -d.y));
-      if (Math.abs(f.roll) > 0.05) this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_Z, -f.roll * p.cls.rollRate * 0.8 * dt));
+      // Q/E roll the ship itself; the aim frame (and so the camera) rolls along with it, and
+      // keeps following until the roll has settled, so the instructor never rolls it back.
+      const rolling = Math.abs(f.roll) > 0.05;
+      this.rollFollow = rolling ? 0.6 : Math.max(0, this.rollFollow - dt);
+      if (this.rollFollow > 0) this.aimQuat.multiply(_q.setFromAxisAngle(AXIS_Z, p.angVel.z * dt));
       this.aimQuat.normalize();
       // how fast the reticle is sweeping: mouse deltas arrive in bursts, so low-pass it
       const aimDir = _v3.set(0, 0, -1).applyQuaternion(this.aimQuat);
@@ -495,6 +501,8 @@ export class Game implements CombatContext {
         // fly towards the aim point (1 km out along the aim)
         _v3.subVectors(this.aimPoint, p.pos).normalize();
         this.instructor.fly(p, _v3, aimUp, this.aimRate);
+        if (rolling) c.roll = f.roll;
+        else if (this.rollFollow > 0) c.roll = 0;
       }
     } else {
       this.input.takeAimDelta();
