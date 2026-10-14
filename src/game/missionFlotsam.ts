@@ -64,6 +64,7 @@ export async function runFlotsam(g: Game, checkpoint: number): Promise<void> {
   const combineWing: Ship[] = [];
   const launchFrom = (cap: CapitalShip, cls: string, faction: 'combine' | 'drift', name: string, n: number, opts: { skill: number; playerBias: number; tactic?: 'standoff' | 'flanker' | 'swarm' }): Ship[] => {
     const out: Ship[] = [];
+    if (cap.hangarDown) return out;
     for (let i = 0; i < n; i++) {
       const bay = cap.bays[i % cap.bays.length];
       const p = cap.toWorld(bay.pos);
@@ -156,7 +157,7 @@ export async function runFlotsam(g: Game, checkpoint: number): Promise<void> {
       carried = false;
       g.hint('You were spotted. Try again: drift, do not burn', 6);
       await g.wait(2);
-      g.endMission('defeat');
+      g.endMission('defeat', 'The carrier spotted you in the debris stream. Keep the throttle at zero and stay by the rock; boosting or firing gives you away.');
       return;
     }
     g.signature = null;

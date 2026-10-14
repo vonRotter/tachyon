@@ -193,7 +193,7 @@ export async function runCourier(g: Game): Promise<void> {
   g.objective = '';
   if (finished < 0) {
     await g.say('varga', 'Rook, the race is long over. The crews have gone home. Come in.');
-    g.endMission('defeat');
+    g.endMission('defeat', 'You did not finish the course before the time ran out.');
     return;
   }
   const ahead = racers.filter((r) => r.pilot.finished >= 0 && r.pilot.finished < finished).length;
@@ -299,7 +299,7 @@ export async function runRescue(g: Game): Promise<void> {
     g.objective = '';
     g.retreat(scavengers);
     await g.say('okafor', 'None of them. I am sorry, contractor. You tried.');
-    g.endMission('defeat');
+    g.endMission('defeat', 'No escape pods reached the Patrol transport. Their air ran out, or the Wake took them.');
     return;
   }
   // the Patrol transport comes to meet you, with an escort the scavengers will not want to face
@@ -412,7 +412,7 @@ export async function runSalvage(g: Game): Promise<void> {
   g.objective = '';
   if (!mine) {
     await g.say('halloran', 'The Wake got all of it. Well. Better luck next time, pilot.');
-    g.endMission('defeat');
+    g.endMission('defeat', 'The Wake scavengers took every piece of salvage.');
     return;
   }
   g.bonusPay = mine * 500;

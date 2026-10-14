@@ -73,7 +73,7 @@ export function readout(c: Contact, player: Ship, index: number, count: number):
     const enemy = hostile('player', s.faction);
     const stance = s.cls.civilian ? 'Civilian' : enemy ? 'Hostile' : 'Not hostile';
     color = s.cls.civilian ? '#cfd6f0' : enemy ? '#ff5a6a' : '#7dff9a';
-    lines.push(s.cls.anchored ? `${s.cls.name} · emplacement` : s.cls.name);
+    lines.push(s.cls.subsystem ? `${s.cls.name} · capital ship system` : s.cls.anchored ? `${s.cls.name} · emplacement` : s.cls.name);
     lines.push(`${FACTIONS[s.faction].name} · ${stance}`);
     lines.push(`${d.toLocaleString('en-US')} m${s.cls.anchored ? '' : ` · ${Math.round(s.speed)} m/s`}`);
     lines.push(`Hull ${pct(s.hull, s.cls.hull)}${s.cls.shields > 0 && s.cls.shields < 10000 ? ` · Shields ${pct(s.shields, s.cls.shields)}` : ''}`);

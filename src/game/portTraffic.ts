@@ -120,8 +120,9 @@ export class PortTraffic {
       });
     });
     // the port is already busy when you arrive
-    for (let i = 0; i < 7; i++) this.arrive(rand(0.15, 0.85));
-    for (let i = 0; i < 4; i++) this.depart(rand(0.1, 0.7));
+    const busy = g.trafficScale;
+    for (let i = 0; i < Math.round(7 * busy); i++) this.arrive(rand(0.15, 0.85));
+    for (let i = 0; i < Math.round(4 * busy); i++) this.depart(rand(0.1, 0.7));
     this.nextArrival = g.missionTime + rand(2, 4);
     this.nextDeparture = g.missionTime + rand(3, 6);
   }
@@ -254,12 +255,12 @@ export class PortTraffic {
     }
     if (!this.panicked && t > this.nextArrival) {
       this.arrive();
-      this.nextArrival = t + rand(5, 9);
+      this.nextArrival = t + rand(5, 9) / this.g.trafficScale;
     }
     const evacuating = this.panicked && t < this.panicUntil;
     if ((!this.panicked || evacuating) && t > this.nextDeparture) {
       this.depart();
-      this.nextDeparture = t + (evacuating ? rand(2.5, 4) : rand(6, 10));
+      this.nextDeparture = t + (evacuating ? rand(2.5, 4) : rand(6, 10)) / this.g.trafficScale;
     }
     for (const c of this.circuits) {
       if (!c.ship.alive || !(c.ship.ai instanceof AIPilot)) continue;

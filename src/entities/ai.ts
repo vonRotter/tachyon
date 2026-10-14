@@ -76,7 +76,8 @@ export class AIPilot {
     let best: Ship | null = null;
     let bestScore = Infinity;
     for (const s of this.ctx.ships) {
-      if (!s.alive || s.cls.civilian || !hostile(ship.faction, s.faction)) continue;
+      // capital ship engines, hangars and bridges are for the player to go after
+      if (!s.alive || s.cls.civilian || s.cls.subsystem || !hostile(ship.faction, s.faction)) continue;
       // escorts are defensive: the leader's target, or whatever is shooting at the pair of them
       if (lead && (s.pos.distanceToSquared(lead.pos) > this.leash * this.leash || (s.target !== lead && s.target !== ship))) continue;
       let score = s.pos.distanceTo(ship.pos);
@@ -303,7 +304,7 @@ export class AIPilot {
 
   private separate(ship: Ship, desired: THREE.Vector3): void {
     for (const o of this.ctx.ships) {
-      if (o === ship || !o.alive) continue;
+      if (o === ship || !o.alive || o.cls.subsystem) continue;
       _tmp.subVectors(ship.pos, o.pos);
       const d = _tmp.length();
       const min = ship.radius + o.radius + 22;

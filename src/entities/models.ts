@@ -1424,7 +1424,12 @@ function bulldog(p: Palette): ShipModel {
   };
 }
 
-const builders: Record<ModelId, (p: Palette) => ShipModel> = { kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat, cannon, gannet, bulwark, fang, interdictor, talon, wren, drone, container, hospital, liner, miner, scarlet, sunspear, ironbark, warrant, bulldog };
+/** A capital ship's engine, hangar or bridge: no model of its own, the hull is the picture. */
+function subsystem(): ShipModel {
+  return { group: new THREE.Group(), engines: [], engineRadius: 0, guns: [], cameraOffset: v3(0, 10, 40) };
+}
+
+const builders: Record<ModelId, (p: Palette) => ShipModel> = { subsystem, kite, lancer, raider, warden, brute, freighter, corsair, halberd, sabre, shuttle, turret, relay, habitat, cannon, gannet, bulwark, fang, interdictor, talon, wren, drone, container, hospital, liner, miner, scarlet, sunspear, ironbark, warrant, bulldog };
 const cache = new Map<string, ShipModel>();
 
 /** Builds (once) and clones a ship model. Clones share geometry and materials. */

@@ -67,6 +67,11 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 - **Battlecruisers** carry a main battery of four triple-barrelled turrets (a superfiring pair
   forward, one aft, one under the keel) for fighting other capital ships, with point-defence
   guns down both flanks for fighters.
+- **Capital ship weak points.** Every capital ship that flies has engines, a bridge and (most) a
+  hangar you can shoot out. Each engine lost slows it; with all of them gone it is dead in space,
+  its nozzles dark and smoking. A wrecked hangar launches nothing more (at Saltmarket that stops
+  the boarding craft), and a hit bridge leaves the gunners without fire control. AI pilots leave
+  these to you. The ship database lists each class's weak points.
 - **Civilian ships:** container ships, hospital ships, cruise liners and asteroid miners (a
   drill cutter with crane arms, ore silos and a smelter stack), built
   with the same bevelled-block language as everything else. They fly the traffic lanes.
@@ -151,7 +156,10 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   faces; shooting them is an incident.
 - **Side jobs** for anyone, whichever side you fly for, paid in full every time: a Reach Patrol
   bounty hunt in the Ashfall alongside two Patrol Interdictors, a convoy run bringing container
-  ships in to Vantage, and guarding Kestrel's ore barges from Wake strip-miners.
+  ships in to Vantage, and guarding Kestrel's ore barges from Wake strip-miners. After your
+  side's finale every side job and odd job is open, as often as you like.
+- **Failure reasons.** A lost mission says why on the debrief: who shot you down, or what was
+  lost (the convoy, the beacons, the batteries, being spotted).
 - **Side arc: "The Scarlet Baron".** Baron Rafe Delacourt is a former Combine ace turned gentleman
   pirate who flies a crimson fighter with a lopsided X of wings and engine pods at the
   tips. He announces himself, never fires on the helpless or on ejected pilots, and robs
@@ -241,9 +249,13 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 
 ## Graphics
 
-Pick Auto, Low, Medium or High on the title screen. Auto guesses from the GPU name (integrated
+Pick Auto, Low, Medium or High in Options. Auto guesses from the GPU name (integrated
 GPUs get Medium, dedicated ones High), and dynamic resolution lowers the render scale when frame
-times run long.
+times run long. Under the preset, each costly feature can be set on its own for slower machines:
+anti-aliasing (off, 2x, 4x), shadows, hull surface detail, render resolution (60% to 150%),
+dynamic resolution on or off, and civilian traffic (busy or light). Glow at 0 switches the bloom
+pass off entirely. The frame rate shows top right (with the render scale when it is lowered),
+and can be hidden.
 
 | Feature | Low | Medium | High |
 |---|---|---|---|

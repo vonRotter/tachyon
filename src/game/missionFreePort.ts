@@ -203,7 +203,7 @@ export async function runFreePort(g: Game, checkpoint: number, side: Side): Prom
     } else {
       await g.say('brask', 'That was our last battery. All stations, Saltmarket yields.');
     }
-    g.endMission('defeat');
+    g.endMission('defeat', why === 'boarded' ? 'Three Wake boarding craft got inside Saltmarket.' : 'Every one of Saltmarket\'s batteries was destroyed.');
   };
 
   // --- the boarders ---------------------------------------------------------------------------------
@@ -213,9 +213,11 @@ export async function runFreePort(g: Game, checkpoint: number, side: Side): Prom
     const targets = port.bays.filter(facing);
     const boarders: Ship[] = [];
     const wave = (n: number) => {
+      // boarders launch from the belly hangars: a wrecked hangar launches nobody
+      const sources = cruisers.map((c) => c.cap).filter((c) => g.capitals.includes(c) && !c.hangarDown);
+      if (!sources.length) return;
       for (let i = 0; i < n; i++) {
-        const c = cruisers[i % 2].cap;
-        const src = g.capitals.includes(c) ? c : lockjaw;
+        const src = sources[i % sources.length];
         const b = targets[Math.floor(Math.random() * targets.length)];
         const start = src.toWorld(src.bays[i % src.bays.length].pos.clone());
         const s = g.spawnShip(BOARDER, 'wake', 'Wake boarding craft', start, b.mouth, { speed: 30 });
@@ -240,7 +242,7 @@ export async function runFreePort(g: Game, checkpoint: number, side: Side): Prom
         wave(waves[launched]);
         if (launched === 0) {
           void g.say('okafor', 'Boarding craft off the cruisers! They are going for the bays. Stop them before they get inside!').catch(() => undefined);
-          g.hint('Boarding craft are slow and soft. Kill them before they reach the bays', 6);
+          g.hint('Boarding craft are slow and soft: kill them before they reach the bays. Or wreck a cruiser\'s belly hangar, and it launches no more', 7);
         }
         launched++;
         nextWave = g.missionTime + 50;
@@ -276,8 +278,9 @@ export async function runFreePort(g: Game, checkpoint: number, side: Side): Prom
   });
   if (batteriesLeft() === 0) return lost('batteries');
 
-  // Vey gets away, as he does
-  await g.say('vey', 'All Wake, break off! Ransom is coming about. You have not seen the last of us, Saltmarket.');
+  // Vey gets away, as he does: on his engines, or on the jump drive if you shot those out
+  if (ransom.thrust > 0) await g.say('vey', 'All Wake, break off! Ransom is coming about. You have not seen the last of us, Saltmarket.');
+  else await g.say('vey', 'All Wake, break off! Engines are gone, so jump us blind. You have not seen the last of us, Saltmarket.');
   g.retreat(wake);
   g.armCapital(ransom, false);
   ransom.goal = v(5000, -200, 2600);

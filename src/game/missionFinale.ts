@@ -24,6 +24,8 @@ export function launchFrom(
   name: string,
   opts: { skill: number; playerBias: number; tactic?: 'standoff' | 'flanker' | 'swarm'; missiles?: number },
 ): Ship[] {
+  // a wrecked hangar launches nothing
+  if (cap.hangarDown) return [];
   return classes.map((cls, i) => {
     const bay = cap.bays[i % cap.bays.length];
     const p = cap.toWorld(bay.pos.clone().add(v(0, 0, Math.floor(i / cap.bays.length) * 8)));

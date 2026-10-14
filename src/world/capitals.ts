@@ -70,6 +70,59 @@ export const CAPITAL_INFO: Record<CapitalKind, CapitalInfo> = {
   battlecruiser: { kind: 'battlecruiser', label: 'Battlecruiser', length: 820, crew: 'about 900', role: 'Heavy gun barbettes and a broadside hangar. The biggest thing in the Reach.' },
 };
 
+export type SubsystemKind = 'engine' | 'hangar' | 'bridge';
+
+/**
+ * The parts of a capital ship worth shooting, in its own frame: each engine (knock them all out
+ * and the ship is dead in space), the hangar (no more launches), and the bridge (the gunners lose
+ * their fire control). Each hit sphere sticks out of the hull so bolts can reach it.
+ */
+export const SUBSYSTEMS: Record<CapitalKind, { kind: SubsystemKind; pos: THREE.Vector3; r: number }[]> = {
+  frigate: [
+    { kind: 'engine', pos: v3(9, 0, 29.5), r: 2.8 },
+    { kind: 'engine', pos: v3(-9, 0, 29.5), r: 2.8 },
+    { kind: 'engine', pos: v3(0, 2, 31), r: 3.2 },
+    { kind: 'bridge', pos: v3(0, 10.5, 15), r: 5.5 },
+  ],
+  destroyer: [
+    { kind: 'engine', pos: v3(-9, 5, 108), r: 6 },
+    { kind: 'engine', pos: v3(9, 5, 108), r: 6 },
+    { kind: 'engine', pos: v3(0, -6, 108), r: 6 },
+    { kind: 'bridge', pos: v3(0, 25, 62), r: 8 },
+    { kind: 'hangar', pos: v3(0, 0, 10), r: 9 },
+  ],
+  reaver: [
+    { kind: 'engine', pos: v3(-9, 5, 162), r: 8 },
+    { kind: 'engine', pos: v3(10, 3, 160), r: 6 },
+    { kind: 'engine', pos: v3(2, -10, 158), r: 4.5 },
+    { kind: 'bridge', pos: v3(10, 24, 66), r: 10 },
+    { kind: 'hangar', pos: v3(0, -23, 0), r: 10 },
+  ],
+  carrier: [
+    ...([
+      [-66, 14],
+      [66, 14],
+      [-66, -14],
+      [66, -14],
+      [-22, 0],
+      [22, 0],
+    ] as const).map(([x, y]) => ({ kind: 'engine' as const, pos: v3(x, y, 268), r: 12 })),
+    { kind: 'bridge', pos: v3(72, 60, 48), r: 11 },
+    { kind: 'hangar', pos: v3(46.5, -4, -50), r: 8 },
+    { kind: 'hangar', pos: v3(-46.5, -4, -50), r: 8 },
+  ],
+  battlecruiser: [
+    ...([
+      [40, 22],
+      [-40, 22],
+      [40, -22],
+      [-40, -22],
+    ] as const).map(([x, y]) => ({ kind: 'engine' as const, pos: v3(x, y, 421), r: 15 })),
+    { kind: 'bridge', pos: v3(-38, 112, 306), r: 14 },
+    { kind: 'hangar', pos: v3(0, -20, -75), r: 14 },
+  ],
+};
+
 function finish(
   b: StructureBuilder,
   world: CollisionWorld,

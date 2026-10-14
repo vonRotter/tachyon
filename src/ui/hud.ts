@@ -194,6 +194,8 @@ export class Hud {
       const enemy = hostile(p.faction, s.faction);
       // parked friendlies on a deck would just clutter the view
       if (s.held && !enemy) continue;
+      // a capital ship's engines and bridge only get a marker close up, or when targeted
+      if (s.cls.subsystem && s !== p.target && s.pos.distanceToSquared(p.pos) > 900 * 900) continue;
       const color = enemy ? '#ff3b5c' : FACTIONS[s.faction].hudColor;
       const isTarget = s === p.target;
       const dist = s.pos.distanceTo(p.pos);
@@ -603,7 +605,7 @@ export class Hud {
     g.stroke();
     _inv.copy(p.quat).invert();
     for (const s of d.ships) {
-      if (!s.alive || s === p) continue;
+      if (!s.alive || s === p || s.cls.subsystem) continue;
       _v.subVectors(s.pos, p.pos).applyQuaternion(_inv);
       const dist = _v.length();
       const k = Math.min(dist, range) / range / Math.max(Math.hypot(_v.x, _v.z), 1e-3);

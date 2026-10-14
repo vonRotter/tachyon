@@ -414,6 +414,12 @@ export function nextStory(c: Campaign): MissionDef | null {
   return null;
 }
 
+/** Your side's finale has been flown: the story is over and the Reach is yours to fly about in. */
+export function campaignOver(c: Campaign): boolean {
+  const path = campaignPath(c);
+  return path.length > 1 && (c.completed[path[path.length - 1]] ?? 0) > 0;
+}
+
 /** Side activities are odd jobs and the Baron's arc. */
 export const isSide = (m: MissionDef): boolean => m.kind === 'job' || m.kind === 'baron';
 
@@ -441,7 +447,8 @@ export function offered(m: MissionDef, c: Campaign): boolean {
   // the story offers exactly one chapter: the next one
   if ((m.kind ?? 'story') === 'story') return nextStory(c)?.id === m.id;
   if (!m.available(c)) return false;
-  if (m.kind === 'job') return c.board.includes(m.id) && !sideLocked(c);
+  // after the finale every job is open, every time: no board, no chapter allowance
+  if (m.kind === 'job') return campaignOver(c) || (c.board.includes(m.id) && !sideLocked(c));
   if (c.completed[m.id]) return false;
   if (isSide(m)) return !sideLocked(c);
   return true;

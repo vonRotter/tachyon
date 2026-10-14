@@ -10,7 +10,7 @@ import { CollisionWorld, makeRayHit } from '../world/colliders';
 import { GasClouds, Lighting, SUN_DIRECTION, Sky, SpaceDust, buildEnvironment } from '../world/environment';
 import { hullMaterials } from '../world/builder';
 import { setHullDetail } from '../world/hullMaterial';
-import { DynamicResolution, QUALITY_PROFILES, detectQuality, type QualityLevel, type QualityProfile } from '../core/quality';
+import { DynamicResolution, QUALITY_PROFILES, detectQuality, type QualityLevel, type QualityOverrides, type QualityProfile } from '../core/quality';
 import { LensPass, SanitizePass } from '../fx/postfx';
 import { updateHolograms } from '../world/holograms';
 import type { Beacon, Spinner } from '../world/structures';
@@ -21,7 +21,7 @@ import { DEFAULT_MISSILE, SHIP_CLASSES, type GunSpec, type MissileSpec, type Shi
 import type { Fitted } from './loadout';
 import { Hangar } from './hangar';
 import { CapitalShip } from '../entities/capitalShip';
-import type { CapitalKind } from '../world/capitals';
+import { SUBSYSTEMS, type CapitalKind } from '../world/capitals';
 import { DockPilot, Docking, type DockGuide } from './docking';
 import { listContacts, readout, type Contact, type ScanReadout } from './scanner';
 import { FACTIONS, hostile, resetRelations, setHostile, type FactionId } from '../entities/factions';
@@ -275,9 +275,9 @@ export class Game implements CombatContext {
     });
   }
 
-  /** Switches graphics preset: shadows, AO, MSAA, surface detail, resolution cap. */
-  applyQuality(level: QualityLevel): void {
-    const q = QUALITY_PROFILES[level];
+  /** Switches graphics preset (shadows, MSAA, surface detail, resolution cap), with any options-menu overrides on top. */
+  applyQuality(level: QualityLevel, overrides: QualityOverrides = {}): void {
+    const q = { ...QUALITY_PROFILES[level], ...overrides };
     const shadowsChanged = this.renderer.shadowMap.enabled !== q.shadows;
     this.quality = q;
     this.renderer.shadowMap.enabled = q.shadows;
@@ -298,8 +298,15 @@ export class Game implements CombatContext {
 
   setGlow(v: number): void {
     this.glow = v;
-    if (this.bloom) this.bloom.strength = 0.4 * v;
+    if (this.bloom) {
+      this.bloom.strength = 0.4 * v;
+      // at zero the pass would still blur a whole mip chain every frame for nothing
+      this.bloom.enabled = v > 0;
+    }
   }
+
+  /** Civilian traffic density: 1 busy, lower for slower machines (ports spawn fewer ships). */
+  trafficScale = 1;
 
   private buildComposer(): void {
     this.composer?.dispose();
@@ -314,6 +321,7 @@ export class Game implements CombatContext {
     this.composer.addPass(mainPass);
     this.composer.addPass(new SanitizePass());
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.4 * this.glow, 0.4, 1.0);
+    this.bloom.enabled = this.glow > 0;
     this.composer.addPass(this.bloom);
     this.lens = new LensPass();
     this.composer.addPass(this.lens);
@@ -696,6 +704,14 @@ export class Game implements CombatContext {
       if (opts.armed === false) t.ai = null;
       cap.turrets.push({ ship: t, local: m.pos.clone() });
     }
+    // engines, hangar and bridge: tougher on the bigger hulls
+    const size = { frigate: 0.6, destroyer: 1, reaver: 1, carrier: 1.3, battlecruiser: 1.6 }[kind];
+    for (const spec of SUBSYSTEMS[kind]) {
+      const hull = Math.round((spec.kind === 'engine' ? 380 : spec.kind === 'hangar' ? 1000 : 750) * size);
+      const label = `${name} ${spec.kind}`;
+      const s = this.spawnShip({ ...SHIP_CLASSES.subsystem, radius: spec.r, hull, name: label }, faction, label, cap.toWorld(spec.pos), cap.toWorld(spec.pos.clone().add(new THREE.Vector3(0, 0, -10))));
+      cap.systems.push({ kind: spec.kind, local: spec.pos.clone(), r: spec.r, ship: s, down: false });
+    }
     this.capitals.push(cap);
     return cap;
   }
@@ -710,7 +726,7 @@ export class Game implements CombatContext {
       this.fx.jumpIn(cap.root.position.clone(), cap.forward(new THREE.Vector3()), FACTIONS[cap.faction].palette.engine);
       this.audio.jumpIn(cap.root.position);
     }
-    for (const t of cap.turrets) {
+    for (const t of [...cap.turrets, ...cap.systems]) {
       if (!t.ship.alive) continue;
       t.ship.alive = false;
       t.ship.dispose(this.scene);
@@ -733,8 +749,62 @@ export class Game implements CombatContext {
     this.removeCapital(cap, false);
   }
 
-  /** Lets a capital ship's guns open fire (or fall silent). */
+  private smokeClock = 0;
+  private static readonly deadNozzle = new THREE.MeshBasicMaterial({ color: '#15161c' });
+
+  /** Notices engines, hangars and bridges shot out, applies the damage, and keeps them smoking. */
+  private updateCapitalSystems(dt: number): void {
+    this.smokeClock -= dt;
+    const puff = this.smokeClock <= 0;
+    if (puff) this.smokeClock = 0.12;
+    for (const cap of this.capitals) {
+      for (const sys of cap.systems) {
+        if (!sys.down && !sys.ship.alive) {
+          sys.down = true;
+          this.systemLost(cap, sys);
+        }
+        if (sys.down && puff) {
+          cap.toWorld(sys.local, _v);
+          this.fx.particles.emit(_v, _n.set(rand(-4, 4), rand(4, 10), rand(-4, 4)), {
+            life: 2.4,
+            size0: sys.r * 0.8,
+            size1: sys.r * 3,
+            color0: new THREE.Color(Math.random() < 0.3 ? '#ff7a30' : '#3a3a40'),
+            color1: new THREE.Color('#141418'),
+            drag: 0.6,
+            alpha: 0.55,
+          });
+        }
+      }
+    }
+  }
+
+  private systemLost(cap: CapitalShip, sys: CapitalShip['systems'][number]): void {
+    const near = !!this.player && this.player.pos.distanceTo(cap.root.position) < 5000;
+    const of = (k: string) => cap.systems.filter((s) => s.kind === k);
+    if (sys.kind === 'engine') {
+      const total = of('engine').length;
+      const left = of('engine').filter((s) => !s.down).length;
+      cap.thrust = left / total;
+      // the nozzle goes dark
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(sys.r * 1.05, 20), Game.deadNozzle);
+      disc.position.copy(sys.local).add(_v.set(0, 0, 0.6));
+      cap.root.add(disc);
+      if (near) this.hint(left ? `${cap.name}: engine out · ${left} of ${total} left` : `${cap.name} is dead in space: every engine is out`, 4);
+    } else if (sys.kind === 'hangar') {
+      const wrecked = of('hangar').every((s) => s.down);
+      cap.hangarDown = wrecked;
+      if (near) this.hint(wrecked ? `${cap.name}'s hangar is wrecked: nothing more launches from her` : `${cap.name}: one hangar down, one to go`, 4);
+    } else {
+      cap.bridgeDown = true;
+      for (const t of cap.turrets) if (t.ship.alive && t.ship.ai) t.ship.ai = new TurretAI(this, 0.2, 0.4);
+      if (near) this.hint(`${cap.name}'s bridge is hit: her gunners have lost fire control`, 4);
+    }
+  }
+
+  /** Lets a capital ship's guns open fire (or fall silent). With the bridge hit they aim worse. */
   armCapital(cap: CapitalShip, armed: boolean, skill = 0.5): void {
+    if (cap.bridgeDown) skill = Math.min(skill, 0.2);
     for (const t of cap.turrets) {
       if (!t.ship.alive) continue;
       t.ship.ai = armed ? new TurretAI(this, skill, 0.5) : null;
@@ -909,6 +979,7 @@ export class Game implements CombatContext {
     this.bonusPay = 0;
     this.seenClasses.clear();
     this.playerDied = false;
+    this.failReason = '';
     this.scanKey = null;
     this.scanReadout = null;
     this.retreating = [];
@@ -1033,9 +1104,14 @@ export class Game implements CombatContext {
     if (t) t.textContent = text;
   }
 
-  endMission(result: 'victory' | 'defeat'): void {
+  /** Why the last mission was lost, for the debrief. */
+  failReason = '';
+
+  /** Ends the mission; a defeat can say why ("The convoy was destroyed"). */
+  endMission(result: 'victory' | 'defeat', reason = ''): void {
     if (this.state === 'debrief') return;
     this.state = 'debrief';
+    if (result === 'defeat' && reason) this.failReason = reason;
     this.audio.silenceLoops();
     this.audio.setLock('none');
     this.audio.setMissileWarning(0);
@@ -1127,8 +1203,16 @@ export class Game implements CombatContext {
     if (ship.isPlayer) {
       this.objective = '';
       this.playerDied = true;
+      this.failReason = this.deathCause(ship, by);
       window.setTimeout(() => this.endMission('defeat'), 2200);
     }
+  }
+
+  /** What killed the player, in a sentence: a ship, the edge of the area, or the scenery. */
+  private deathCause(p: Ship, by: Ship | null): string {
+    if (by && by !== p) return `Shot down by ${by.name}.`;
+    if (p.pos.distanceTo(this.arena.center) > this.arena.limit) return 'You flew too far out of the mission area, and your ship broke up.';
+    return 'Your ship broke up: a collision or a blast.';
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -1496,9 +1580,10 @@ export class Game implements CombatContext {
     for (let i = 0; i < list.length; i++) {
       const a = list[i];
       if (!a.alive) continue;
+      if (a.cls.subsystem) continue;
       for (let j = i + 1; j < list.length; j++) {
         const b = list[j];
-        if (!b.alive) continue;
+        if (!b.alive || b.cls.subsystem) continue;
         // broad phase on bounding radii, then the hit-sphere chains
         const reach = a.radius + b.radius + 60;
         if (a.pos.distanceToSquared(b.pos) > reach * reach) continue;
@@ -1816,6 +1901,7 @@ export class Game implements CombatContext {
       if (this.capitals.length) {
         for (const c of this.capitals) c.update(dt);
         this.world.sync();
+        this.updateCapitalSystems(dt);
       }
       const steps = Math.ceil(dt / (1 / 90));
       const h = dt / steps;

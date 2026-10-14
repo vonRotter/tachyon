@@ -1,6 +1,6 @@
 import { FACTIONS, type FactionId } from '../entities/factions';
 import { SHIP_CLASSES, type ShipClass } from '../entities/shipClasses';
-import { CAPITAL_INFO, type CapitalKind } from '../world/capitals';
+import { CAPITAL_INFO, SUBSYSTEMS, type CapitalKind } from '../world/capitals';
 import type { Campaign } from './loadout';
 
 /**
@@ -60,6 +60,16 @@ function ship(id: string, category: DbCategory, operators: FactionId[], blurb?: 
   };
 }
 
+/** What can be shot out of a capital ship, and what it does. */
+function weakPoints(kind: CapitalKind): string {
+  const parts = SUBSYSTEMS[kind];
+  const engines = parts.filter((p) => p.kind === 'engine').length;
+  const out = [`${engines} engines (all out: dead in space)`];
+  if (parts.some((p) => p.kind === 'hangar')) out.push('hangar (no more launches)');
+  if (parts.some((p) => p.kind === 'bridge')) out.push('bridge (the gunners lose fire control)');
+  return out.join(', ');
+}
+
 function capital(kind: CapitalKind, operators: FactionId[], blurb: string): DbEntry {
   const info = CAPITAL_INFO[kind];
   return {
@@ -71,6 +81,7 @@ function capital(kind: CapitalKind, operators: FactionId[], blurb: string): DbEn
     facts: [
       ['Length', `about ${info.length} m`],
       ['Crew', info.crew],
+      ['Weak points', weakPoints(kind)],
     ],
     show: { kind: 'capital', capital: kind, faction: operators[0] },
   };

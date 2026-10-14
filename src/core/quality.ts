@@ -17,6 +17,9 @@ export interface QualityProfile {
   lensFlare: boolean;
 }
 
+/** Per-setting choices from the options menu, applied on top of a preset. */
+export type QualityOverrides = Partial<Pick<QualityProfile, 'msaa' | 'shadows' | 'surfaceDetail' | 'pixelRatioCap'>>;
+
 export const QUALITY_PROFILES: Record<QualityLevel, QualityProfile> = {
   low: {
     level: 'low',

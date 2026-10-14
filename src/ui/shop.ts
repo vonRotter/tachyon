@@ -23,7 +23,7 @@ import {
   type ShipFit,
 } from '../game/loadout';
 import { DATABASE, DB_CATEGORIES, dbVisible, type DbEntry } from '../game/database';
-import { MISSIONS, briefingText, campaignPath, isFinale, locationOf, mapOf, missionById, nextStory, offered, sideLocked, type MissionDef } from '../game/missions';
+import { MISSIONS, briefingText, campaignOver, campaignPath, isFinale, locationOf, mapOf, missionById, nextStory, offered, sideLocked, type MissionDef } from '../game/missions';
 import { GATES, HOMES, SYSTEMS, gateState, route, systemById } from '../game/starmap';
 import { SIDE_PER_CHAPTER } from '../game/loadout';
 import type { FactionId } from '../entities/factions';
@@ -713,7 +713,8 @@ export class Shop {
     const path = campaignPath(c);
     const strip = el('div', 'campaign-strip');
     const side = c.allegiance === 'combine' ? 'Helion Combine' : c.allegiance === 'drift' ? 'Drift Union' : 'No side yet';
-    const done = path.every((id) => c.completed[id]) && path.length > 1;
+    // the finale flown is the end, even for saves that skipped a chapter added later
+    const done = campaignOver(c);
     strip.appendChild(el('div', 'campaign-head', done ? `Campaign complete · ${side}` : `Campaign · ${side}`));
     const row = el('div', 'campaign-pips');
     const next = nextStory(c);
@@ -726,7 +727,7 @@ export class Shop {
     }
     if (path.length === 1) row.appendChild(el('span', 'campaign-pip later', 'Where you land decides the rest'));
     strip.appendChild(row);
-    if (done) strip.appendChild(el('p', 'tab-note', 'The story is over. The job board, and anything left of the Baron\'s business, still pay.'));
+    if (done) strip.appendChild(el('p', 'tab-note', 'The story is over. Every job in the Reach is open to you now, as often as you like, and anything left of the Baron\'s business still pays.'));
     else if (next && isFinale(next, c)) strip.appendChild(el('p', 'tab-note final-note', 'This is the last chapter. Whatever you still want to fit or buy, do it now.'));
     if (c.unlimited) {
       // test mode: every contract is listed, and the side can be switched to try both paths

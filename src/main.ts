@@ -7,7 +7,7 @@ import { GATES, HOMES, gateState, route, systemById } from './game/starmap';
 import { runAsylum, runTransit } from './game/missionTravel';
 import { SHIP_CLASSES } from './entities/shipClasses';
 import { Shop } from './ui/shop';
-import { detectQuality, type QualityLevel } from './core/quality';
+import { detectQuality, type QualityLevel, type QualityOverrides } from './core/quality';
 import { BIND_LABELS, DEFAULT_BINDINGS, keyLabel, type BindAction, type Bindings, type MouseMode } from './core/input';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -27,6 +27,14 @@ interface Settings {
   quality: 'auto' | QualityLevel;
   mouseMode: MouseMode;
   difficulty: Difficulty;
+  /** Graphics overrides on top of the preset ('preset' keeps the preset's choice). */
+  aa: 'preset' | '0' | '2' | '4';
+  shadows: 'preset' | 'on' | 'off';
+  detail: 'preset' | 'on' | 'off';
+  resolution: 'preset' | string;
+  dynres: boolean;
+  traffic: 'normal' | 'reduced';
+  showFps: boolean;
 }
 
 const load = <T>(key: string, fallback: T): T => {
@@ -58,6 +66,13 @@ const settings = load<Settings>('veil.settings', {
   quality: 'auto',
   mouseMode: 'aim',
   difficulty: 'normal',
+  aa: 'preset',
+  shadows: 'preset',
+  detail: 'preset',
+  resolution: 'preset',
+  dynres: true,
+  traffic: 'normal',
+  showFps: true,
 });
 // the old browser-TTS toggle is now `tts`
 delete (settings as Partial<Settings> & { voice?: boolean }).voice;
@@ -95,11 +110,13 @@ function applySettings(): void {
   game.audio.setVolumes(settings.sfxVolume, settings.musicVolume * 0.5, settings.voiceVolume);
   game.setGlow(settings.glow);
   game.difficulty = settings.difficulty;
+  game.trafficScale = settings.traffic === 'reduced' ? 0.45 : 1;
+  $('fps').style.display = settings.showFps ? '' : 'none';
   save('veil.settings', settings);
 }
 
 // --- Options form ---------------------------------------------------------------------------
-const bindCheck = (id: string, key: 'radioVoice' | 'tts' | 'invertMouse' | 'invertPad') => {
+const bindCheck = (id: string, key: 'radioVoice' | 'tts' | 'invertMouse' | 'invertPad' | 'showFps') => {
   const el = $<HTMLInputElement>(id);
   el.checked = settings[key];
   el.addEventListener('change', () => {
@@ -119,6 +136,7 @@ bindCheck('opt-voice', 'radioVoice');
 bindCheck('opt-tts', 'tts');
 bindCheck('opt-invert-mouse', 'invertMouse');
 bindCheck('opt-invert-pad', 'invertPad');
+bindCheck('opt-fps', 'showFps');
 bindRange('opt-music-vol', 'musicVolume');
 bindRange('opt-sfx-vol', 'sfxVolume');
 bindRange('opt-voice-vol', 'voiceVolume');
@@ -141,11 +159,39 @@ mouseModeSelect.addEventListener('change', () => {
 // URL overrides for testing: ?quality=high&dynres=0
 const params = new URLSearchParams(location.search);
 const urlQuality = params.get('quality') as QualityLevel | null;
-if (params.get('dynres') === '0') game.dynamicResolution.enabled = false;
 const applyQuality = () => {
   const level = urlQuality ?? (settings.quality === 'auto' ? detectQuality(game.renderer) : settings.quality);
-  game.applyQuality(level);
+  const o: QualityOverrides = {};
+  if (settings.aa !== 'preset') o.msaa = Number(settings.aa);
+  if (settings.shadows !== 'preset') o.shadows = settings.shadows === 'on';
+  if (settings.detail !== 'preset') o.surfaceDetail = settings.detail === 'on';
+  if (settings.resolution !== 'preset') o.pixelRatioCap = Number(settings.resolution);
+  game.dynamicResolution.enabled = settings.dynres && params.get('dynres') !== '0';
+  game.applyQuality(level, o);
 };
+// the per-setting graphics overrides re-apply the preset with the change on top
+const bindGraphics = (id: string, key: 'aa' | 'shadows' | 'detail' | 'resolution' | 'traffic') => {
+  const el = $<HTMLSelectElement>(id);
+  el.value = settings[key];
+  el.addEventListener('change', () => {
+    (settings as unknown as Record<string, string>)[key] = el.value;
+    save('veil.settings', settings);
+    applySettings();
+    applyQuality();
+  });
+};
+bindGraphics('opt-aa', 'aa');
+bindGraphics('opt-shadows', 'shadows');
+bindGraphics('opt-detail', 'detail');
+bindGraphics('opt-resolution', 'resolution');
+bindGraphics('opt-traffic', 'traffic');
+const dynresBox = $<HTMLInputElement>('opt-dynres');
+dynresBox.checked = settings.dynres;
+dynresBox.addEventListener('change', () => {
+  settings.dynres = dynresBox.checked;
+  save('veil.settings', settings);
+  applyQuality();
+});
 const qualitySelect = $<HTMLSelectElement>('opt-quality');
 qualitySelect.value = settings.quality;
 qualitySelect.addEventListener('change', () => {
@@ -672,7 +718,7 @@ game.onMissionEnd = (result) => {
   const outcome = Object.entries(game.missionFlags)
     .map(([k, v]) => outcomeTitles[`${k}:${v}`])
     .find(Boolean);
-  $('debrief-title').textContent = result === 'victory' ? (outcome ?? mission.victoryTitle) : 'Signal lost';
+  $('debrief-title').textContent = result === 'victory' ? (outcome ?? mission.victoryTitle) : game.playerDied ? 'Signal lost' : 'Mission failed';
   const stats: [string, string][] = [
     ['KILLS', String(kills)],
     ['ACCURACY', `${acc}%`],
@@ -691,6 +737,12 @@ game.onMissionEnd = (result) => {
   $('restart2').style.display = result === 'victory' || over || travelling ? 'none' : '';
   $('to-hangar').textContent = over ? 'Start a new campaign' : 'Return to hangar';
   if (over) $('debrief-title').textContent = 'Rook is gone';
+  if (result === 'defeat') {
+    const why = document.createElement('p');
+    why.className = 'fail-reason';
+    why.textContent = game.failReason || 'The mission could not be completed.';
+    choice.appendChild(why);
+  }
   const note = document.createElement('p');
   const sides: Record<string, string> = {
     combine: 'You landed on the Sovereign Dawn. You fly for the Helion Combine now.',
@@ -720,7 +772,8 @@ function loop(now: number): void {
   const dt = (now - last) / 1000;
   last = now;
   game.frame(dt);
-  fpsEl.textContent = `${Math.round(game.fps)} fps`;
+  const scale = game.dynamicResolution.scale;
+  fpsEl.textContent = scale < 0.999 ? `${Math.round(game.fps)} fps · ${Math.round(scale * 100)}% res` : `${Math.round(game.fps)} fps`;
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);

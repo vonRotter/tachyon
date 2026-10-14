@@ -224,7 +224,7 @@ export async function runCredentials(g: Game, side: Side): Promise<void> {
   g.objective = '';
   if (arrived < 1) {
     await g.say(combine ? 'vale' : 'kit', combine ? 'We lost the lot. The Commander will not be pleased.' : 'We lost the lot. Mother Sorrel will not be pleased.');
-    g.endMission('defeat');
+    g.endMission('defeat', 'Every ship in the convoy was lost.');
     return;
   }
   g.bonusPay = arrived * 2000;
@@ -307,7 +307,7 @@ export async function runLooseEnds(g: Game, side: Side): Promise<void> {
   if (combine) {
     if (!killed) {
       await g.say('tessaine', 'It reached the frigate. Rook, I asked for one thing.');
-      g.endMission('defeat');
+      g.endMission('defeat', 'The Wake courier reached the Drift frigate.');
       return;
     }
     await g.say('vale', 'Courier is down. No survivors. Which I suppose was the point.');
@@ -317,7 +317,7 @@ export async function runLooseEnds(g: Game, side: Side): Promise<void> {
   } else {
     if (killed) {
       await g.say('sorrel', 'We lost it. Rook, everything Vey had died with that ship.');
-      g.endMission('defeat');
+      g.endMission('defeat', 'The Wake courier was destroyed before it reached the Lark.');
       return;
     }
     if (courier.alive) g.jumpOut(courier);
@@ -414,7 +414,7 @@ export async function runSealedOrders(g: Game, side: Side, c: Campaign): Promise
   const saved = alive(assets);
   if (!saved) {
     await g.say(combine ? 'tessaine' : 'sorrel', 'All of them. We lost all of them.');
-    g.endMission('defeat');
+    g.endMission('defeat', combine ? 'All three drydock gantries were destroyed.' : 'All three water tugs were destroyed.');
     return;
   }
   g.bonusPay = saved * 2500;
@@ -519,7 +519,7 @@ export async function runKeys(g: Game, side: Side, checkpoint: number): Promise<
     else await g.say('meridian', 'Contact by the Dawn\'s masts! Pickets, intercept!');
     g.hint('You were spotted. Try again: slow and cold', 6);
     await g.wait(2);
-    g.endMission('defeat');
+    g.endMission('defeat', combine ? 'Kestrel\'s militia spotted you by the relays. Fly slow and cold: low speed, no boost, no guns.' : 'The Dawn\'s pickets spotted you by her masts. Fly slow and cold: low speed, no boost, no guns.');
     return;
   }
   g.objective = '';
@@ -614,7 +614,7 @@ export async function runLantern(g: Game, side: Side, c: Campaign, checkpoint: n
   });
   if (alive(beacons) === 0) {
     await g.say(combine ? 'tessaine' : 'sorrel', 'The beacons are gone. We cannot jump. Rook, fall back.');
-    g.endMission('defeat');
+    g.endMission('defeat', 'All three jump beacons were destroyed, so the fleet could not jump.');
     return;
   }
   // the fleet comes out of the jump behind you

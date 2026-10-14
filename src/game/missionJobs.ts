@@ -119,7 +119,7 @@ export async function runConvoy(g: Game): Promise<void> {
   const arrived = convoy.filter((s) => s.alive).length;
   if (!arrived) {
     await g.say('halloran', 'Both ships are gone. All of it, gone.');
-    g.endMission('defeat');
+    g.endMission('defeat', 'Both container ships were destroyed.');
     return;
   }
   g.bonusPay = arrived * 4000;
@@ -166,7 +166,7 @@ export async function runOreGuard(g: Game): Promise<void> {
   const left = alive(barges);
   if (!left) {
     await g.say('varga', 'We lost all three crews. Come in, Rook.');
-    g.endMission('defeat');
+    g.endMission('defeat', 'All three ore barges were destroyed.');
     return;
   }
   g.bonusPay = left * 2500;

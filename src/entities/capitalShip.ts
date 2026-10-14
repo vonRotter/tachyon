@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { clamp } from '../core/math';
 import { CollisionWorld } from '../world/colliders';
-import { buildCapitalHull, CAPITAL_INFO, STYLES, type CapitalKind } from '../world/capitals';
+import { buildCapitalHull, CAPITAL_INFO, STYLES, type CapitalKind, type SubsystemKind } from '../world/capitals';
 import type { DockSpec, TurretMount } from '../world/structures';
 import type { FactionId } from './factions';
 import type { Ship } from './ship';
@@ -27,6 +27,14 @@ export class CapitalShip {
   readonly bays: { pos: THREE.Vector3; out: THREE.Vector3 }[];
   readonly mounts: TurretMount[];
   readonly turrets: { ship: Ship; local: THREE.Vector3 }[] = [];
+  /** Engines, hangar and bridge: anchored ships riding the hull like the turrets. */
+  readonly systems: { kind: SubsystemKind; local: THREE.Vector3; r: number; ship: Ship; down: boolean }[] = [];
+  /** Share of engine power left: 0 is dead in space. */
+  thrust = 1;
+  /** Hangar wrecked: nothing launches from it. */
+  hangarDown = false;
+  /** Bridge hit: the gunners have lost fire control. */
+  bridgeDown = false;
   /** Cruise speed (m/s) along its nose. */
   speed = 0;
   /** Yaw rate limit while turning towards `heading`. */
@@ -66,7 +74,7 @@ export class CapitalShip {
   }
 
   update(dt: number): void {
-    if (this.goal) {
+    if (this.goal && this.thrust > 0) {
       // turn the nose (yaw only) towards the goal at a stately rate
       _v.subVectors(this.goal, this.root.position).setY(0);
       if (_v.lengthSq() > 1) {
@@ -75,14 +83,16 @@ export class CapitalShip {
         const have = Math.atan2(-fwd.x, -fwd.z);
         let d = want - have;
         d = Math.atan2(Math.sin(d), Math.cos(d));
-        this.root.quaternion.premultiply(_q.setFromAxisAngle(Y, clamp(d, -this.turnRate * dt, this.turnRate * dt)));
+        const rate = this.turnRate * this.thrust;
+        this.root.quaternion.premultiply(_q.setFromAxisAngle(Y, clamp(d, -rate * dt, rate * dt)));
       }
     }
-    if (this.speed) this.root.position.addScaledVector(this.forward(_v), this.speed * dt);
+    if (this.speed && this.thrust > 0) this.root.position.addScaledVector(this.forward(_v), this.speed * this.thrust * dt);
     this.root.updateMatrixWorld(true);
     for (const t of this.turrets) {
       if (!t.ship.alive) continue;
       this.toWorld(t.local, t.ship.pos);
     }
+    for (const s of this.systems) if (s.ship.alive) this.toWorld(s.local, s.ship.pos);
   }
 }

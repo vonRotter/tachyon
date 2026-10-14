@@ -104,7 +104,7 @@ export async function runOpenChannel(g: Game, checkpoint: number, side: 'combine
     g.objective = '';
     if (!dishesLeft()) {
       await g.say('halloran', 'The array is gone. All three dishes. I am sorry, Mother Sorrel.');
-      g.endMission('defeat');
+      g.endMission('defeat', 'All three dishes of the array were destroyed before the upload finished.');
       return;
     }
     for (const cap of g.capitals) g.armCapital(cap, false);

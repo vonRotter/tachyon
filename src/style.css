@@ -971,3 +971,8 @@ button:disabled {
   border-color: #ffd36b;
   color: #ffd36b;
 }
+
+.choice p.fail-reason {
+  color: #ff8a7a;
+  font-size: 17px;
+}

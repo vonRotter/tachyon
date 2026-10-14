@@ -1,6 +1,7 @@
 import type { FactionId } from './factions';
 
 export type ModelId =
+  | 'subsystem'
   | 'kite'
   | 'lancer'
   | 'raider'
@@ -130,6 +131,8 @@ export interface ShipClass {
   targetable?: boolean;
   /** Fixed installation: never moves (turrets, relays, modules). */
   anchored?: boolean;
+  /** A part of a capital ship (engine, hangar, bridge): the player's to shoot, the AI ignores it. */
+  subsystem?: boolean;
   /** Player ships: whose yard builds it. Independent ('kestrel') yards sell to anyone; a
    *  faction's yards sell only to pilots working for that faction. */
   maker?: FactionId;
@@ -411,6 +414,33 @@ export const SHIP_CLASSES: Record<string, ShipClass> = {
     missiles: 0,
     anchored: true,
     bounty: 900,
+    price: 0,
+  },
+  subsystem: {
+    id: 'subsystem',
+    name: 'Capital ship subsystem',
+    model: 'subsystem',
+    radius: 8,
+    hull: 900,
+    shields: 0,
+    shieldRegen: 0,
+    shieldDelay: 4,
+    maxSpeed: 0,
+    boostSpeed: 0,
+    strafeSpeed: 0,
+    accel: 0,
+    pitchRate: 0,
+    yawRate: 0,
+    rollRate: 0,
+    turnResponse: 1,
+    energy: 0,
+    energyRegen: 0,
+    boostDrain: 0,
+    gun: { damage: 0, cooldown: 99, boltSpeed: 600, energyCost: 0, range: 0, turretArc: 0 },
+    missiles: 0,
+    anchored: true,
+    subsystem: true,
+    bounty: 1500,
     price: 0,
   },
   cannon: {
