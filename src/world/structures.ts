@@ -43,6 +43,34 @@ export interface DockSpec {
   parent?: THREE.Object3D;
 }
 
+/** A hangar bay that traffic flies in and out of (world space). */
+export interface PortBay {
+  /** Number painted on the bay, as the port's traffic control calls it. */
+  number: number;
+  /** Centre of the bay mouth. */
+  mouth: THREE.Vector3;
+  /** Unit vector out of the mouth. */
+  out: THREE.Vector3;
+  /** Where a ship that lands sets down. */
+  pad: THREE.Vector3;
+}
+
+/**
+ * A busy port: bays with traffic in and out, ships moored at the piers, guns, and the Reach Patrol
+ * flying circuits. The location only describes it; the game fills it with ships (portTraffic.ts).
+ */
+export interface PortSpec {
+  bays: PortBay[];
+  moorings: { pos: THREE.Vector3; look: THREE.Vector3; cls: string; name: string }[];
+  /** Heavy battery mounts (cannon), and light gun mounts (turret). */
+  batteries: THREE.Vector3[];
+  guns: THREE.Vector3[];
+  /** Patrol circuits, one flight each. */
+  patrols: THREE.Vector3[][];
+  /** Inside this the port's rules apply: a speed limit near the bays, guns cold. */
+  zone: { center: THREE.Vector3; radius: number; speedLimit: number };
+}
+
 /** Colours and markings for a capital ship hull. */
 export interface CapitalStyle {
   hull: string;
@@ -86,6 +114,7 @@ export interface StructureResult {
   points: Record<string, THREE.Vector3>;
   spinners?: Spinner[];
   docks?: DockSpec[];
+  port?: PortSpec;
 }
 
 /**

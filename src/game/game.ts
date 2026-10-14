@@ -30,6 +30,7 @@ import { Instructor } from '../entities/instructor';
 import { BoltSystem, MissileSystem, missileProbe, type CombatContext } from '../entities/weapons';
 import { Hud } from '../ui/hud';
 import { Comms } from '../ui/comms';
+import { PortTraffic } from './portTraffic';
 
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -653,8 +654,12 @@ export class Game implements CombatContext {
     }
   }
 
+  /** The location's port, when it has one: bay traffic, moorings, guns and patrols. */
+  port: PortTraffic | null = null;
+
   /** Civilian haulers on slow loops through the area: moving cover and something to dodge. */
   private spawnTraffic(): void {
+    this.port = this.location.port ? new PortTraffic(this, this.location.port) : null;
     for (const route of this.location.traffic) {
       const pts = route.points;
       const ship = this.spawnShip(route.cls ?? 'freighter', 'drift', route.name, pts[0].clone(), pts[1], { speed: route.speed });
@@ -693,6 +698,39 @@ export class Game implements CombatContext {
     }
     this.capitals.push(cap);
     return cap;
+  }
+
+  /**
+   * Mission API: a capital ship leaves the field, with its guns: by jump (a flash on the way out)
+   * or, with `jump` false, without a trace (a mission that has just blown it up).
+   */
+  removeCapital(cap: CapitalShip, jump = true): void {
+    if (!this.capitals.includes(cap)) return;
+    if (jump) {
+      this.fx.jumpIn(cap.root.position.clone(), cap.forward(new THREE.Vector3()), FACTIONS[cap.faction].palette.engine);
+      this.audio.jumpIn(cap.root.position);
+    }
+    for (const t of cap.turrets) {
+      if (!t.ship.alive) continue;
+      t.ship.alive = false;
+      t.ship.dispose(this.scene);
+    }
+    this.scene.remove(cap.root);
+    this.world.detach(cap.world);
+    this.capitals = this.capitals.filter((c) => c !== cap);
+  }
+
+  /** Mission API: a capital ship breaks up: a chain of blasts down its length, then it is gone. */
+  async sinkCapital(cap: CapitalShip): Promise<void> {
+    cap.speed = Math.min(cap.speed, 8);
+    const len = cap.info.length;
+    for (let i = 0; i < 6; i++) {
+      this.detonate(cap.toWorld(new THREE.Vector3(rand(-0.1, 0.1) * len, rand(-0.05, 0.05) * len, rand(-0.45, 0.45) * len)), 2.2 + i * 0.3);
+      await this.wait(0.7);
+    }
+    this.detonate(cap.root.position.clone(), 6, 320, 400);
+    await this.wait(0.4);
+    this.removeCapital(cap, false);
   }
 
   /** Lets a capital ship's guns open fire (or fall silent). */
@@ -1433,6 +1471,10 @@ export class Game implements CombatContext {
   }
 
   private moveShip(ship: Ship, dt: number): void {
+    if (ship.ghost) {
+      ship.pos.addScaledVector(ship.vel, dt);
+      return;
+    }
     const len = ship.vel.length() * dt;
     let collided = false;
     if (len > 1e-5) {
@@ -1779,6 +1821,7 @@ export class Game implements CombatContext {
       const h = dt / steps;
       for (let i = 0; i < steps; i++) this.step(h);
       for (const hook of this.frameHooks) hook(dt);
+      this.port?.update(dt);
       this.updateDocking(dt);
       this.updatePlayerSystems(dt);
       this.updateScan();

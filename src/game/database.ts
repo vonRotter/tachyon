@@ -99,6 +99,7 @@ export const DATABASE: DbEntry[] = [
   ship('brute', 'Gunships', ['wake'], 'A Wake gunship: a slab of armour with turrets that track you all the way round. Too slow to chase you, too tough to ignore. Stay on its tail.'),
   capital('frigate', ['drift', 'combine', 'wake'], 'An arrowhead delta. Drift frigates wear rings round the spine; Combine ones are clean ivory.'),
   capital('destroyer', ['wake', 'combine', 'drift'], 'A hammerhead bow over a through-bay you can fly into.'),
+  capital('reaver', ['wake'], 'The Red Wake built two in the Gallows from captured ore haulers, and nobody believed it until they came through a gate. Ugly, mismatched and dangerous: the ram is not for show.'),
   capital('carrier', ['combine', 'drift'], 'A tuning fork: two prongs with the landing deck between them, the engineering block at the palm.'),
   capital('battlecruiser', ['combine', 'drift'], 'A bladed prow, an armoured midsection with sponsons, four triple-barrelled main turrets for fighting other capital ships, point-defence guns down both flanks for fighters, and a command tower offset to port. The Sovereign Dawn is one.'),
   ship('freighter', 'Civilian', ['drift'], 'Drift bulk hauler: a long spine of cargo pods behind a small bridge. Slow, enormous, and the reason half the Reach eats.'),

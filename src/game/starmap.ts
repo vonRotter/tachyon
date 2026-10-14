@@ -2,7 +2,7 @@ import type { FactionId } from '../entities/factions';
 import type { Campaign } from './loadout';
 
 /**
- * The Reach as a map: seven systems joined by jump gates. Each system is one of the game's
+ * The Reach as a map: eight systems joined by jump gates. Each system is one of the game's
  * locations. Gates can be open, closed (to you, by whoever holds them) or temporary: opened for
  * one mission by a fleet's jump corridor, or by an invitation.
  */
@@ -26,6 +26,7 @@ export const SYSTEMS: StarSystem[] = [
   { id: 'gallows', name: 'The Gallows', x: -1.0, y: -1.3, holder: 'wake', blurb: 'The Red Wake\'s rig in the rocks. They keep their gate shut.' },
   { id: 'haven', name: 'Haven', x: -2.8, y: 1.7, holder: 'drift', blurb: 'The Drift Union\'s home: habitats and water tugs behind a wall of rock.' },
   { id: 'bastion', name: 'Bastion', x: 2.8, y: 1.6, holder: 'combine', blurb: 'The Helion Combine\'s fortress, behind a shield fed by four pylons.' },
+  { id: 'saltmarket', name: 'Saltmarket', x: 1.4, y: -1.1, holder: 'patrol', blurb: 'The free port. Nobody owns it, everybody trades there, and the Reach Patrol keeps the peace.' },
   { id: 'rookery', name: 'The Rookery', x: 0.1, y: 2.3, holder: 'rose', blurb: 'A broken liner with a chapel on its back. Nobody finds it unless invited.' },
 ];
 
@@ -41,6 +42,8 @@ export const GATES: Gate[] = [
   { a: 'ashfall', b: 'haven' },
   { a: 'vantage', b: 'bastion' },
   { a: 'ashfall', b: 'rookery' },
+  { a: 'kestrel', b: 'saltmarket' },
+  { a: 'saltmarket', b: 'vantage' },
 ];
 
 export type GateState = { state: 'open' } | { state: 'closed'; why: string } | { state: 'temporary'; why: string };

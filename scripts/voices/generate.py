@@ -63,6 +63,8 @@ CAST = {
     "okafor": {"voice": "af_sarah", "lang": "en-us", "speed": 1.06},
     # Vantage Station: a tired academic
     "halloran": {"voice": "am_eric", "lang": "en-us", "speed": 0.96},
+    # Saltmarket: the harbourmaster, unhurried, has seen everything twice
+    "brask": {"voice": "am_adam", "lang": "en-us", "speed": 0.94},
 }
 
 SAY = re.compile(r"""say\(\s*'(\w+)'\s*,\s*(['"])((?:\\.|(?!\2).)*)\2\s*\)""")

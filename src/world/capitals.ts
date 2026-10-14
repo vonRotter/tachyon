@@ -10,7 +10,8 @@ import { buildCarrier, COMBINE_STYLE, type Beacon, type CapitalStyle, type DockS
  * CapitalShip (identity transform, its own collision sub-world).
  *
  * Sizes, for scale against a ~12 m fighter and the ~22 m Halberd:
- *   frigate ~60 m (crew 3-10), destroyer ~200 m (crew 40-50, a small hangar),
+ *   frigate ~60 m (crew 3-10), destroyer ~200 m (crew 40-50, a small hangar), the Wake's
+ *   reaver ~310 m,
  *   carrier ~600 m (fighter wings), battlecruiser ~820 m (buildCarrier in structures.ts).
  */
 
@@ -33,6 +34,14 @@ export const STYLES: Record<string, Omit<CapitalStyle, 'id' | 'name'>> = {
     signs: ['RED WAKE', 'NO FLAGS · NO MASTERS'],
     signColor: '#ff3b5c',
   },
+  patrol: {
+    hull: '#eef2f8',
+    trim: '#1d3f9e',
+    dark: '#2b2f45',
+    light: '#ff3348',
+    signs: ['REACH PATROL', 'THE PEACE IS KEPT'],
+    signColor: '#8fb8ff',
+  },
   kestrel: {
     hull: '#f4b400',
     trim: '#3047c4',
@@ -43,7 +52,7 @@ export const STYLES: Record<string, Omit<CapitalStyle, 'id' | 'name'>> = {
   },
 };
 
-export type CapitalKind = 'frigate' | 'destroyer' | 'carrier' | 'battlecruiser';
+export type CapitalKind = 'frigate' | 'destroyer' | 'carrier' | 'battlecruiser' | 'reaver';
 
 export interface CapitalInfo {
   kind: CapitalKind;
@@ -57,6 +66,7 @@ export const CAPITAL_INFO: Record<CapitalKind, CapitalInfo> = {
   frigate: { kind: 'frigate', label: 'Frigate', length: 60, crew: '3 to 10', role: 'Patrol and escort. Two turrets, quick for its size.' },
   destroyer: { kind: 'destroyer', label: 'Destroyer', length: 200, crew: '40 to 50', role: 'Line warship bristling with turrets, with a small hangar for assault ships.' },
   carrier: { kind: 'carrier', label: 'Carrier', length: 600, crew: 'about 600', role: 'Lightly armed; carries fighter wings that launch from the bow and land at the stern.' },
+  reaver: { kind: 'reaver', label: 'Reaver', length: 310, crew: 'about 120', role: 'A salvage-built cruiser: a captured ore hauler with a ram at the bow, gun decks on its back and a belly full of raiders.' },
   battlecruiser: { kind: 'battlecruiser', label: 'Battlecruiser', length: 820, crew: 'about 900', role: 'Heavy gun barbettes and a broadside hangar. The biggest thing in the Reach.' },
 };
 
@@ -314,6 +324,103 @@ export function buildCarrierShip(world: CollisionWorld, transform: THREE.Matrix4
   return r;
 }
 
+/**
+ * Reaver, ~310 m: the Red Wake's first capital ship, put together in the Gallows from a captured
+ * ore hauler. The hauler's boxy spine is still there under armour plates of three different
+ * colours; a welded ram with two hooked jaws at the bow; gun decks where the ore pods were; a
+ * bridge bolted on off-centre; bare frames aft where the plating ran out; three engines that
+ * do not match. Raiders launch from the belly.
+ */
+export function buildReaver(world: CollisionWorld, transform: THREE.Matrix4, style: CapitalStyle): StructureResult {
+  const b = new StructureBuilder(transform);
+  const beacons: Beacon[] = [];
+  const raw = '#7a7f8c';
+  const rust = '#8a4a2a';
+  const rotY = (a: number) => new THREE.Quaternion().setFromAxisAngle(v3(0, 1, 0), a);
+  // the hauler's spine (x 18, y 15 half-sizes, z -80..100)
+  b.bevel(v3(0, 0, 10), v3(36, 30, 180), 3, style.hull);
+  lights(b, v3(0, 15.1, -8), v3(2, 0.3, 10), style.light, 1.6);
+  // the ram, and two long hooked jaws on hinge blocks at the spine's front corners
+  b.bevel(v3(0, -3, -112), v3(34, 28, 66), 3, style.dark, { front: [0.15, 0.3], lift: -3 });
+  for (const s of [1, -1]) {
+    const a = s * 0.22;
+    const c = v3(s * 15, -6, -118);
+    b.bevel(c, v3(8, 14, 84), 1.2, style.trim, { quat: rotY(a), front: [0.2, 0.35] });
+    b.bevel(v3(s * 20, -6, -78), v3(10, 16, 16), 1.5, raw);
+    const along = v3(-Math.sin(a), 0, -Math.cos(a));
+    const inward = v3(-s * Math.cos(a), 0, s * Math.sin(a));
+    for (const t of [-14, 2, 18]) {
+      const p = c.clone().addScaledVector(along, t).addScaledVector(inward, 3.6);
+      b.hull([p.clone().addScaledVector(along, 3), p.clone().addScaledVector(along, -3), p.clone().addScaledVector(inward, 6).addScaledVector(along, 2), p.clone().add(v3(0, 2.5, 0)), p.clone().add(v3(0, -2.5, 0))], raw);
+    }
+    beacons.push({ position: c.clone().addScaledVector(along, 41).add(v3(0, 3, 0)), color: new THREE.Color('#ff2040'), phase: s });
+    // red eyes either side of the ram's point
+    lights(b, v3(s * 3.2, -4, -142), v3(2.4, 1.6, 2), '#ff2a3a', 2.6);
+  }
+  // a hooked keel blade under the bow, and a lopsided blade fin on the back
+  b.hull([v3(0, -15, -80), v3(0, -15, -40), v3(0, -36, -72), v3(0, -30, -98)].flatMap((p) => [p.clone().add(v3(1.2, 0, 0)), p.clone().add(v3(-1.2, 0, 0))]), style.trim);
+  b.hull([v3(-8, 15, 56), v3(-8, 15, 98), v3(-8, 50, 110), v3(-8, 40, 86)].flatMap((p) => [p.clone().add(v3(1.4, 0, 0)), p.clone().add(v3(-1.4, 0, 0))]), style.hull);
+  lights(b, v3(-8, 44, 99), v3(3.4, 1, 6), style.light, 1.8);
+  // armour bolted down the flanks, no two plates alike
+  const plates = [style.dark, raw, rust, style.hull, raw];
+  [-60, -24, 12, 48, 84].forEach((z, i) => {
+    for (const s of [1, -1]) {
+      const tilt = new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), ((i + (s > 0 ? 0 : 1)) % 2 ? 1 : -1) * 0.05);
+      b.box(v3(s * 19, i % 2 ? 3 : -2, z), v3(2.6, 20, 30), plates[(i + (s > 0 ? 0 : 2)) % plates.length], { quat: tilt });
+    }
+  });
+  // gun decks where the ore pods were
+  b.bevel(v3(0, 18, -40), v3(24, 6, 30), 1.5, style.dark);
+  b.bevel(v3(0, 18, 32), v3(28, 6, 40), 1.5, style.dark);
+  for (const z of [-40, 32]) lights(b, v3(0, 21.1, z), v3(14, 0.3, 1), style.trim, 1.4);
+  // sponsons with a gun each
+  for (const s of [1, -1]) b.bevel(v3(s * 24, -2, 0), v3(12, 8, 22), 1.5, style.dark, { front: [0.8, 0.8] });
+  // the bridge, bolted on to starboard
+  b.bevel(v3(10, 24, 66), v3(12, 18, 20), 1.5, style.dark, { front: [0.8, 0.8] });
+  lights(b, v3(10, 29, 55.8), v3(8, 1.2, 0.3), style.light, 2);
+  b.strut(v3(13, 33, 70), v3(13, 52, 72), 0.6, style.dark, { collide: false });
+  beacons.push({ position: v3(13, 52.8, 72), color: new THREE.Color('#ff2040'), phase: 0 });
+  // bare frames aft, where the plating ran out
+  b.bevel(v3(0, 0, 118), v3(20, 18, 36), 2, style.dark);
+  for (const z of [106, 118, 130]) {
+    const c = [v3(-17, 14, z), v3(17, 14, z), v3(17, -14, z), v3(-17, -14, z)];
+    for (let k = 0; k < 4; k++) b.strut(c[k], c[(k + 1) % 4], 1.2, raw, { sides: 4 });
+  }
+  for (const [x, y] of [
+    [-17, 14],
+    [17, 14],
+    [17, -14],
+    [-17, -14],
+  ] as const)
+    b.strut(v3(x, y, 99), v3(x, y, 136), 1, raw, { sides: 4 });
+  // engine block and three engines that do not match
+  b.bevel(v3(0, 0, 142), v3(36, 30, 14), 2, style.hull);
+  engine(b, v3(-9, 5, 155), 8, 14, style);
+  engine(b, v3(10, 3, 154), 6, 12, style);
+  engine(b, v3(2, -10, 153), 4.5, 10, style);
+  // the belly hangar and its launch doors
+  b.bevel(v3(0, -19, 0), v3(26, 8, 70), 1.5, style.dark);
+  for (let z = -30; z <= 30; z += 10) lights(b, v3(0, -23.1, z), v3(10, 0.3, 1.2), '#ffd030', 1.5);
+  for (const s of [1, -1]) for (const z of [-10, 10]) lights(b, v3(s * 13.1, -19, z), v3(0.3, 5, 12), '#ffd030', 1.4);
+
+  const turrets: TurretMount[] = [
+    { pos: v3(0, 23, -70), heavy: true },
+    { pos: v3(-6, 23, 88), heavy: true },
+  ];
+  for (const s of [1, -1]) {
+    turrets.push({ pos: v3(s * 8, 30, -40), heavy: false }, { pos: v3(s * 9, 30, 32), heavy: false }, { pos: v3(s * 24, 11, 0), heavy: false });
+  }
+  const r = finish(b, world, transform, 'reaver', {
+    beacons,
+    turrets,
+    bays: [1, -1].flatMap((s) => [-10, 10].map((z) => ({ pos: v3(s * 17, -21, z), out: v3(s, -0.4, 0).normalize() }))),
+    docks: [],
+    points: { center: v3(0, 0, 0), bow: v3(0, 0, -150), stern: v3(0, 0, 160) },
+  });
+  for (const s of [1, -1]) r.group.add(placeHologram(createHologram(style.signs, style.signColor, 56, 40 + s), v3(s * 21.5, 3, -24), v3(s, 0, 0)));
+  return r;
+}
+
 /** Builds any capital hull by kind. */
 export function buildCapitalHull(kind: CapitalKind, world: CollisionWorld, transform: THREE.Matrix4, style: CapitalStyle): StructureResult {
   switch (kind) {
@@ -325,5 +432,7 @@ export function buildCapitalHull(kind: CapitalKind, world: CollisionWorld, trans
       return buildCarrierShip(world, transform, style);
     case 'battlecruiser':
       return buildCarrier(world, transform, style);
+    case 'reaver':
+      return buildReaver(world, transform, style);
   }
 }

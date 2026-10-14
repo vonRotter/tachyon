@@ -10,6 +10,7 @@ import { runBounty, runConvoy, runOreGuard } from './missionJobs';
 import { runCourier, runRescue, runSalvage } from './missionCivil';
 import { runPrologue } from './missionPrologue';
 import { runCredentials, runKeys, runLantern, runLooseEnds, runSealedOrders } from './missionCampaign';
+import { runFreePort } from './missionFreePort';
 import { runBaronDuel, runBaronFinale, runBaronHeist, runBaronRobbery } from './missionBaron';
 
 export interface MissionDef {
@@ -143,6 +144,21 @@ export const MISSIONS: MissionDef[] = [
     faction: 'current',
     available: afterOnPath('loose-ends'),
     victoryTitle: 'Loose ends',
+  },
+  {
+    id: 'free-port',
+    name: 'Free Port',
+    location: 'Saltmarket',
+    map: 'saltmarket',
+    briefing: (c) =>
+      c.allegiance === 'combine'
+        ? 'Commander Tessaine has a sealed case for the Combine trade office at Saltmarket, the free port. Land it in bay 18 and come home. The Reach Patrol keeps the peace there: mind the speed limit in the lanes, and keep your guns cold.'
+        : 'Mother Sorrel is sending a crate of fever vaccine to the clinic at Saltmarket, the free port. Land it in bay 18. The Reach Patrol keeps the peace there: mind the speed limit in the lanes, and keep your guns cold.',
+    pay: 20000,
+    run: (g, cp, c) => runFreePort(g, cp, sideOf(c)),
+    faction: 'current',
+    available: afterOnPath('free-port'),
+    victoryTitle: 'Saltmarket holds',
   },
   {
     id: 'sealed-orders',
@@ -371,8 +387,8 @@ export const missionById = (id: string): MissionDef => MISSIONS.find((m) => m.id
 /** The story in order for each side; the hangar shows where you are in it. */
 export const CAMPAIGN_PATHS: Record<'combine' | 'drift' | 'none', string[]> = {
   none: ['cold-guns'],
-  combine: ['cold-guns', 'credentials', 'launch-order', 'loose-ends', 'open-channel', 'sealed-orders', 'keys', 'accord', 'lantern', 'last-light'],
-  drift: ['cold-guns', 'credentials', 'flotsam', 'loose-ends', 'open-channel', 'sealed-orders', 'keys', 'accord', 'lantern', 'bastion'],
+  combine: ['cold-guns', 'credentials', 'launch-order', 'loose-ends', 'free-port', 'open-channel', 'sealed-orders', 'keys', 'accord', 'lantern', 'last-light'],
+  drift: ['cold-guns', 'credentials', 'flotsam', 'loose-ends', 'free-port', 'open-channel', 'sealed-orders', 'keys', 'accord', 'lantern', 'bastion'],
 };
 
 export function campaignPath(c: Campaign): string[] {

@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import type { CollisionWorld } from './colliders';
-import { buildAsteroids, buildCarrier, buildKestrelStation, type Beacon, type DockSpec, type Spinner } from './structures';
+import { buildAsteroids, buildCarrier, buildKestrelStation, type Beacon, type DockSpec, type PortSpec, type Spinner } from './structures';
 import { buildGallows } from './gallows';
 import { buildAshfall } from './ashfall';
 import { buildVantage } from './vantage';
 import { buildHaven } from './haven';
 import { buildBastion } from './bastion';
 import { buildRookery } from './rookery';
+import { buildSaltmarket } from './saltmarket';
 
 const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x, y, z);
 
@@ -38,6 +39,8 @@ export interface Location {
   orbit: { center: THREE.Vector3; radius: number; height: number };
   /** Local frames of big structures, for placing things relative to them (the carrier). */
   frames: Record<string, THREE.Matrix4>;
+  /** A working port: bay traffic, moored ships, guns and patrols (filled in by the game). */
+  port?: PortSpec;
 }
 
 type Builder = (world: CollisionWorld) => Location;
@@ -195,4 +198,31 @@ const rookery: Builder = (world) => {
   };
 };
 
-export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall, vantage, haven, bastion, rookery };
+const saltmarket: Builder = (world) => {
+  const station = buildSaltmarket(world);
+  return {
+    ...merge('saltmarket', 'Saltmarket', [station], ['saltmarket']),
+    // the liners and container ships too big for a bay go round the port on the outer lanes
+    traffic: [
+      {
+        name: 'Liner Pale Horizon',
+        cls: 'liner',
+        points: [v(2600, 500, -1400), v(-1200, 560, -2600), v(-2800, 480, 900), v(400, 420, 2900)],
+        speed: 40,
+      },
+      {
+        name: 'Container ship Fourpenny',
+        cls: 'container',
+        points: [v(-2400, -520, -1800), v(1600, -480, -2600), v(2800, -560, 1200), v(-900, -600, 2700)],
+        speed: 30,
+      },
+    ],
+    start: { pos: v(980, 90, 2450), look: v(150, 0, 250) },
+    arena: { center: v(0, 0, 0), warn: 4200, limit: 5000 },
+    orbit: { center: v(0, 0, 0), radius: 1500, height: 300 },
+    frames: {},
+    port: station.port,
+  };
+};
+
+export const LOCATIONS: Record<string, Builder> = { kestrel, gallows, ashfall, vantage, haven, bastion, rookery, saltmarket };

@@ -153,6 +153,8 @@ export class Ship {
 
   /** Held by docking clamps: physics and controls are suspended. */
   held = false;
+  /** Flown by a port's traffic computer along cleared lanes: never scrapes station geometry. */
+  ghost = false;
   /** Engines cold: at zero throttle the ship coasts on its momentum instead of braking. */
   coast = false;
   /** Fitted equipment ids (player ships). */

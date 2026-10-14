@@ -15,9 +15,11 @@ import { launchFrom } from './missionFinale';
  *
  *  2. Credentials      escort your new side's convoy; someone wants to look inside it
  *  4. Loose Ends       the Wake courier with the second copy of the records: kill it or save it
- *  6. Sealed Orders    defend your side's home from a raid, then hear the plan
- *  7. Keys to the Door a quiet job: plant taps without being seen
- *  9. Lantern          lay the jump beacons for the fleet that ends it
+ *  7. Sealed Orders    defend your side's home from a raid, then hear the plan
+ *  8. Keys to the Door a quiet job: plant taps without being seen
+ * 10. Lantern          lay the jump beacons for the fleet that ends it
+ *
+ * Chapter 5, Free Port (missionFreePort.ts), sits between Loose Ends and Open Channel.
  */
 
 type Side = 'combine' | 'drift';

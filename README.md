@@ -77,7 +77,7 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   that recovers you and the repairs, and you retry from a checkpoint with the hull, missiles,
   bounties and bonuses you had when you reached it. On hardcore you have one life: die, and the
   campaign is over; a failed mission starts again from the beginning (no checkpoints).
-- **Star map and travel.** The Reach is seven systems joined by jump gates (hangar, *Star map*
+- **Star map and travel.** The Reach is eight systems joined by jump gates (hangar, *Star map*
   tab). Some gates are closed to you: the Red Wake keep the Gallows shut, Drift pickets turn
   Combine pilots away from Haven, and Bastion's gate flags Drift transponders. Some are
   temporary: a contract in a closed system opens a fleet jump corridor for that contract, and the
@@ -127,7 +127,7 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
 - **Docking.** Request clearance and fly the holographic gates into a bay; the clamps take over
   once you are inside and slow enough. Kestrel Station has a hangar on its hub, and the Combine
   carrier lands you inside its hangar tunnel.
-- **Campaign.** Ten chapters per side. The hangar shows the chapters you have flown and the next
+- **Campaign.** Eleven chapters per side. The hangar shows the chapters you have flown and the next
   one, never what lies ahead, and announces the final mission when it comes. Shaped after the
   old campaign games (TIE Fighter's loyalty missions with a traitor underneath, FreeSpace 2's
   beacons and broadsides): first you prove yourself while things do not quite add up, then you
@@ -139,12 +139,13 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   | 2 | *Credentials*: relief transports for the Dawn; a Drift salvager wants a look inside | *Credentials*: ore haulers through the Ashfall; Combine customs want a look inside |
   | 3 | Launch Order (the Gallows) | Flotsam (the Ashfall) |
   | 4 | *Loose Ends*: kill the Wake courier carrying a copy of the records | *Loose Ends*: get the Wake courier to a Drift frigate |
-  | 5 | Open Channel (Vantage) | Open Channel (Vantage) |
-  | 6 | *Sealed Orders*: hold Bastion's drydock against a Drift raid, then hear the plan | *Sealed Orders*: hold Haven's water tugs against a Combine raid, then hear the plan |
-  | 7 | *Keys to the Door*: tap Kestrel's defence relays unseen | *Keys to the Door*: copy the Sovereign Dawn's hangar codes unseen |
-  | 8 | The Accord (Kestrel) | The Accord (Kestrel) |
-  | 9 | *Lantern*: lay jump beacons at Haven and hold them for the fleet | *Lantern*: lay jump beacons at Bastion and hold them for the Long Patience |
-  | 10 | Last Light (Haven) | The Bastion |
+  | 5 | *Free Port*: a sealed case for the Combine trade office at Saltmarket | *Free Port*: fever vaccine for the Saltmarket clinic |
+  | 6 | Open Channel (Vantage) | Open Channel (Vantage) |
+  | 7 | *Sealed Orders*: hold Bastion's drydock against a Drift raid, then hear the plan | *Sealed Orders*: hold Haven's water tugs against a Combine raid, then hear the plan |
+  | 8 | *Keys to the Door*: tap Kestrel's defence relays unseen | *Keys to the Door*: copy the Sovereign Dawn's hangar codes unseen |
+  | 9 | The Accord (Kestrel) | The Accord (Kestrel) |
+  | 10 | *Lantern*: lay jump beacons at Haven and hold them for the fleet | *Lantern*: lay jump beacons at Bastion and hold them for the Long Patience |
+  | 11 | Last Light (Haven) | The Bastion |
 
   Story contracts are flown once. In *Credentials* you wave inspectors off by flying in their
   faces; shooting them is an incident.
@@ -186,6 +187,17 @@ Requires Node 20+ and a browser with WebGL 2 (any current Chrome, Edge, Firefox 
   array that reaches every station in the Reach. The Drift broadcast the Combine's transfer
   records from it: hold the array against drones, Sabres and a frigate until the upload
   finishes, or, flying for the Combine, silence its three transmitters before it does.
+- **Mission "Free Port"** (either side) at Saltmarket, the free port of the Reach: three
+  stacked octagonal drums with 48 hangar bays, four piers where container ships tie up, and the
+  harbourmaster's tower on top. Shuttles, haulers and ore cutters launch from and land in the
+  bays all the time, liners circle on the outer lanes, and Reach Patrol flights keep order
+  (forty metres a second in the bay lanes, guns cold inside five kilometres, said over the radio
+  if you forget). You land your cargo in bay 18; while you are still on the pad the Red Wake
+  jump in with two Reavers, salvage cruisers built from captured ore haulers, and the port
+  panics: arrivals turn back, every bay launches, the moored ships cast off. Stop three waves of
+  boarding craft before they reach the bays while the cruisers shell the port's batteries,
+  then silence the cruisers' guns. Lose every battery, or let three boarders in, and the port
+  yields.
 - **Mission "The Accord"** (either side) at Kestrel: the Combine and the Drift sign a
   ceasefire, and each brings something it should not. The Combine's delegation shuttles carry
   marines; the Drift's gift hauler carries mining charge meant for the Sovereign Dawn and the
