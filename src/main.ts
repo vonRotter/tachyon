@@ -9,6 +9,7 @@ import { SHIP_CLASSES } from './entities/shipClasses';
 import { Shop } from './ui/shop';
 import { detectQuality, type QualityLevel, type QualityOverrides } from './core/quality';
 import { BIND_LABELS, DEFAULT_BINDINGS, keyLabel, type BindAction, type Bindings, type MouseMode } from './core/input';
+import { mountBackButton, profileKey } from './couch';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -82,8 +83,11 @@ if (!glowDefaults.glowV2) {
   if (settings.glow === 1) settings.glow = 0.7;
   glowDefaults.glowV2 = true;
 }
-let campaign: Campaign = migrateCampaign(load<Partial<Campaign> | null>('veil.campaign', null));
-const saveCampaign = () => save('veil.campaign', campaign);
+// Campaigns are per Couch Party Island profile when opened from its solo island (see couch.ts).
+const CAMPAIGN_KEY = profileKey('veil.campaign');
+let campaign: Campaign = migrateCampaign(load<Partial<Campaign> | null>(CAMPAIGN_KEY, null));
+const saveCampaign = () => save(CAMPAIGN_KEY, campaign);
+mountBackButton();
 
 const game = new Game($('game'), $<HTMLCanvasElement>('hud'));
 let mission: MissionDef = missionById('cold-guns');
